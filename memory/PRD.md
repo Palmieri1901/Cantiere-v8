@@ -85,6 +85,11 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - ✅ **`Clienti.jsx`**: `.then` sostituito con `try/catch` + `.finally` per rimuovere lo spinner e mostrare un toast in caso di errore di rete.
 - ✅ **`server.py` CORS**: `allow_origins` esplicito su `FRONTEND_URL` (anziché `*`) per essere compatibile con `allow_credentials=True` nei browser moderni.
 
+
+## Iter35 (2026-02-XX) — Articoli magazzino in Lavorazioni extra del preventivo cliente
+- ✅ **`ClienteForm.jsx`**: nella sezione "Lavorazioni extra" affianco al bottone "Aggiungi voce" ora c'è un select "+ Da magazzino" (icona Package) che elenca tutti gli articoli. Selezionando un articolo viene aggiunta automaticamente una lavorazione_extra con descrizione `[CODICE] Nome` e prezzo = `prezzo_listino`. Gli articoli sono caricati all'apertura del form.
+- ℹ️ **Nota di design**: in fase di preventivo/inserimento cliente lo stock NON viene decrementato (nessun lavoro effettivo eseguito). Il decremento continua ad avvenire solo quando si crea un `Lavoro` reale dalla sezione "Storico lavori" del cliente.
+
 - Nuovo bottone icona (FileSignature) sulla riga cliente in `Clienti.jsx` accanto al PDF preventivo
 - Verificato: 3 pagine totali con "PREVENTIVO", "CONTRATTO" e "CLAUSOLE VESSATORIE" presenti nel PDF unificato
 

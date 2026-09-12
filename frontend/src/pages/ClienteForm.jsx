@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import LavoriSection from "@/pages/LavoriSection";
 import { API } from "@/lib/api";
 import { useYear } from "@/lib/year";
-import { FileText, Plus, X, Wrench, Zap } from "lucide-react";
+import { FileText, Plus, X, Wrench, Zap, Package } from "lucide-react";
 
 const empty = {
   nome: "", cognome: "", tipo_barca: "", lunghezza: "",
@@ -60,7 +60,13 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
   const [saving, setSaving] = useState(false);
   const [ricambiDettaglio, setRicambiDettaglio] = useState(null);
   const [ricambi2Dettaglio, setRicambi2Dettaglio] = useState(null);
+  const [articoliMag, setArticoliMag] = useState([]);
   const { year } = useYear();
+
+  useEffect(() => {
+    if (!open) return;
+    api.get("/magazzino/articoli").then((r) => setArticoliMag(r.data || [])).catch(() => setArticoliMag([]));
+  }, [open]);
 
   useEffect(() => {
     if (cliente) {
@@ -189,6 +195,22 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
       return;
     }
     update("lavorazioni_extra", [...(f.lavorazioni_extra || []), { descrizione: "", prezzo: 0 }]);
+  };
+
+  const addExtraFromMagazzino = (articoloId) => {
+    if (!articoloId) return;
+    if ((f.lavorazioni_extra || []).length >= MAX_EXTRA) {
+      toast.error(`Massimo ${MAX_EXTRA} lavorazioni extra`);
+      return;
+    }
+    const a = articoliMag.find((x) => x.id === articoloId);
+    if (!a) return;
+    const desc = `${a.codice ? `[${a.codice}] ` : ""}${a.nome}`;
+    update("lavorazioni_extra", [
+      ...(f.lavorazioni_extra || []),
+      { descrizione: desc, prezzo: Number(a.prezzo_listino) || 0 },
+    ]);
+    toast.success(`Aggiunto: ${a.nome}`);
   };
   const removeExtra = (idx) => {
     const list = [...(f.lavorazioni_extra || [])];
@@ -845,16 +867,43 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
                   Aggiungi lavorazioni personalizzate con prezzo (max {MAX_EXTRA}). Sono incluse nel totale e nel PDF preventivo.
                 </p>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addExtra}
-                disabled={(f.lavorazioni_extra || []).length >= MAX_EXTRA}
-                data-testid="btn-add-extra"
-              >
-                <Plus className="w-4 h-4 mr-1" /> Aggiungi voce
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <div className="w-[260px]">
+                  <Select
+                    value=""
+                    onValueChange={addExtraFromMagazzino}
+                    disabled={(f.lavorazioni_extra || []).length >= MAX_EXTRA}
+                  >
+                    <SelectTrigger className="h-9 text-sm" data-testid="btn-add-from-magazzino">
+                      <div className="flex items-center gap-1.5 text-primary">
+                        <Package className="w-4 h-4" />
+                        <SelectValue placeholder="+ Da magazzino" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {articoliMag.length === 0 && (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">Nessun articolo in magazzino</div>
+                      )}
+                      {articoliMag.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.codice ? `[${a.codice}] ` : ""}{a.nome}
+                          <span className="text-muted-foreground text-xs"> · {fmtEuro(a.prezzo_listino)}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addExtra}
+                  disabled={(f.lavorazioni_extra || []).length >= MAX_EXTRA}
+                  data-testid="btn-add-extra"
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Aggiungi voce
+                </Button>
+              </div>
             </div>
 
             {(f.lavorazioni_extra || []).length === 0 ? (
