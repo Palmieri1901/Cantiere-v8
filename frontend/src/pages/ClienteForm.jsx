@@ -12,6 +12,9 @@ import { Separator } from "@/components/ui/separator";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import LavoriSection from "@/pages/LavoriSection";
 import { API } from "@/lib/api";
@@ -61,6 +64,9 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
   const [ricambiDettaglio, setRicambiDettaglio] = useState(null);
   const [ricambi2Dettaglio, setRicambi2Dettaglio] = useState(null);
   const [articoliMag, setArticoliMag] = useState([]);
+  const [magPickerOpen, setMagPickerOpen] = useState(false);
+  const [magPickerId, setMagPickerId] = useState("");
+  const [magPickerQty, setMagPickerQty] = useState(1);
   const { year } = useYear();
 
   useEffect(() => {
@@ -197,7 +203,7 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
     update("lavorazioni_extra", [...(f.lavorazioni_extra || []), { descrizione: "", prezzo: 0 }]);
   };
 
-  const addExtraFromMagazzino = (articoloId) => {
+  const addExtraFromMagazzino = (articoloId, quantita = 1) => {
     if (!articoloId) return;
     if ((f.lavorazioni_extra || []).length >= MAX_EXTRA) {
       toast.error(`Massimo ${MAX_EXTRA} lavorazioni extra`);
@@ -205,12 +211,16 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
     }
     const a = articoliMag.find((x) => x.id === articoloId);
     if (!a) return;
-    const desc = `${a.codice ? `[${a.codice}] ` : ""}${a.nome}`;
+    const q = Math.max(Number(quantita) || 1, 0.01);
+    const prezzoUnit = Number(a.prezzo_listino) || 0;
+    const totale = +(q * prezzoUnit).toFixed(2);
+    const qLabel = Number.isInteger(q) ? q : q.toString().replace(".", ",");
+    const desc = `${a.codice ? `[${a.codice}] ` : ""}${a.nome} × ${qLabel} ${a.unita_misura || "pz"}`;
     update("lavorazioni_extra", [
       ...(f.lavorazioni_extra || []),
-      { descrizione: desc, prezzo: Number(a.prezzo_listino) || 0 },
+      { descrizione: desc, prezzo: totale },
     ]);
-    toast.success(`Aggiunto: ${a.nome}`);
+    toast.success(`Aggiunto: ${a.nome} × ${qLabel}`);
   };
   const removeExtra = (idx) => {
     const list = [...(f.lavorazioni_extra || [])];
@@ -868,31 +878,16 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <div className="w-[260px]">
-                  <Select
-                    value=""
-                    onValueChange={addExtraFromMagazzino}
-                    disabled={(f.lavorazioni_extra || []).length >= MAX_EXTRA}
-                  >
-                    <SelectTrigger className="h-9 text-sm" data-testid="btn-add-from-magazzino">
-                      <div className="flex items-center gap-1.5 text-primary">
-                        <Package className="w-4 h-4" />
-                        <SelectValue placeholder="+ Da magazzino" />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {articoliMag.length === 0 && (
-                        <div className="px-2 py-1.5 text-xs text-muted-foreground">Nessun articolo in magazzino</div>
-                      )}
-                      {articoliMag.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {a.codice ? `[${a.codice}] ` : ""}{a.nome}
-                          <span className="text-muted-foreground text-xs"> · {fmtEuro(a.prezzo_listino)}</span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setMagPickerId(""); setMagPickerQty(1); setMagPickerOpen(true); }}
+                  disabled={(f.lavorazioni_extra || []).length >= MAX_EXTRA}
+                  data-testid="btn-add-from-magazzino"
+                >
+                  <Package className="w-4 h-4 mr-1 text-primary" /> Da magazzino
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
@@ -1010,6 +1005,95 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
           </Button>
         </SheetFooter>
       </SheetContent>
+
+      {/* Dialog: aggiungi articolo dal magazzino con quantità */}
+      <Dialog open={magPickerOpen} onOpenChange={setMagPickerOpen}>
+        <DialogContent className="max-w-md" data-testid="dialog-mag-picker">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="w-4 h-4 text-primary" /> Aggiungi articolo dal magazzino
+            </DialogTitle>
+            <DialogDescription>
+              Verrà aggiunto come voce di lavorazione extra (descrizione + prezzo totale).
+              Lo stock non viene decrementato in fase di preventivo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Articolo</Label>
+              <Select value={magPickerId} onValueChange={setMagPickerId}>
+                <SelectTrigger className="mt-1.5" data-testid="mag-picker-select">
+                  <SelectValue placeholder="Seleziona un articolo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {articoliMag.length === 0 && (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">Nessun articolo in magazzino</div>
+                  )}
+                  {articoliMag.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.codice ? `[${a.codice}] ` : ""}{a.nome}
+                      <span className="text-muted-foreground text-xs"> · {fmtEuro(a.prezzo_listino)}/{a.unita_misura || "pz"}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Quantità {magPickerId && (() => {
+                  const a = articoliMag.find((x) => x.id === magPickerId);
+                  return a ? <span className="text-[10px] text-muted-foreground normal-case font-normal">(giacenza: {a.quantita} {a.unita_misura || "pz"})</span> : null;
+                })()}
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={magPickerQty}
+                onChange={(e) => setMagPickerQty(e.target.value)}
+                className="mt-1.5 font-mono-num"
+                autoFocus={!!magPickerId}
+                data-testid="mag-picker-qty"
+              />
+            </div>
+
+            {magPickerId && (() => {
+              const a = articoliMag.find((x) => x.id === magPickerId);
+              if (!a) return null;
+              const q = Number(magPickerQty) || 0;
+              const totale = q * (Number(a.prezzo_listino) || 0);
+              return (
+                <div className="rounded-md bg-muted/40 border border-border p-3 text-sm space-y-0.5">
+                  <div className="text-xs text-muted-foreground">Anteprima riga preventivo</div>
+                  <div className="font-medium">
+                    {a.codice ? `[${a.codice}] ` : ""}{a.nome} × {q || 0} {a.unita_misura || "pz"}
+                  </div>
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-xs text-muted-foreground font-mono-num">
+                      {q || 0} × {fmtEuro(a.prezzo_listino)}
+                    </span>
+                    <span className="font-mono-num font-semibold text-primary" data-testid="mag-picker-totale">{fmtEuro(totale)}</span>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMagPickerOpen(false)}>Annulla</Button>
+            <Button
+              disabled={!magPickerId || !(Number(magPickerQty) > 0)}
+              onClick={() => { addExtraFromMagazzino(magPickerId, magPickerQty); setMagPickerOpen(false); }}
+              className="bg-primary hover:bg-primary/90"
+              data-testid="mag-picker-confirm"
+            >
+              <Plus className="w-4 h-4 mr-1" /> Aggiungi al preventivo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }

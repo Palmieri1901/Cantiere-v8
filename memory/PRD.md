@@ -93,6 +93,15 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - Nuovo bottone icona (FileSignature) sulla riga cliente in `Clienti.jsx` accanto al PDF preventivo
 - Verificato: 3 pagine totali con "PREVENTIVO", "CONTRATTO" e "CLAUSOLE VESSATORIE" presenti nel PDF unificato
 
+## Iter36 (2026-02-XX) — Quantità articolo su preventivo cliente
+- ✅ **`ClienteForm.jsx`**: bottone "Da magazzino" ora apre un **Dialog** (invece di select singolo) con:
+  - selettore articolo (mostra codice + prezzo unitario + U.M.)
+  - input **quantità** (default 1, step 0.01, auto-focus)
+  - anteprima live: `[COD] Nome × Q  ·  Q × prezzo = TOTALE`
+  - indicatore giacenza corrente accanto al campo quantità
+- ✅ La lavorazione_extra viene aggiunta come `descrizione = "[COD] Nome × Q pz"` con `prezzo = Q × prezzo_listino` calcolato lato client. Il totale del preventivo si aggiorna automaticamente.
+
+
 ## MQ nel PDF + Larghezza personalizzata (2026-02)
 - Nuovo campo Cliente `larghezza_personalizzata` (opzionale): se impostato sovrascrive la larghezza automatica a scaglioni
 - Helper `larghezza_barca(lunghezza, larghezza_personalizzata)` gestisce l'override
