@@ -124,7 +124,43 @@ async def update_lavoro(lavoro_id: str, payload: LavoroCreate):
 
 @router.delete("/lavori/{lavoro_id}")
 async def delete_lavoro(lavoro_id: str):
-    res = await db.lavori.delete_one({"id": lavoro_id})
-    if res.deleted_count == 0:
+    existing = await db.lavori.find_one({"id": lavoro_id}, {"_id": 0})
+    if not existing:
         raise HTTPException(404, "Lavoro non trovato")
-    return {"ok": True}
+
+    # Ripristina la giacenza di ogni articolo scaricato al momento della creazione
+    ripristinati = 0
+    saltati = 0
+    articoli_usati = existing.get("articoli_magazzino") or []
+    cliente = await db.clienti.find_one({"id": existing.get("cliente_id")}, {"_id": 0}) or {}
+    cliente_nome = f"{cliente.get('cognome','')} {cliente.get('nome','')}".strip() or "Cliente"
+
+    for item in articoli_usati:
+        aid = item.get("articolo_id")
+        qt = float(item.get("quantita") or 0)
+        if not aid or qt <= 0:
+            continue
+        art = await db.articoli.find_one({"id": aid}, {"_id": 0})
+        if not art:
+            # Articolo eliminato dal magazzino nel frattempo: non ripristiniamo
+            saltati += 1
+            continue
+        nuova_giacenza = float(art.get("quantita", 0)) + qt
+        await db.articoli.update_one(
+            {"id": aid},
+            {"$set": {"quantita": nuova_giacenza, "updated_at": datetime.utcnow()}},
+        )
+        mv = MovimentoMagazzino(
+            articolo_id=aid, tipo="carico", quantita=qt,
+            quantita_dopo=nuova_giacenza,
+            motivo=f"Storno lavoro eliminato · Cliente {cliente_nome}",
+            data=datetime.now().strftime("%Y-%m-%d"),
+            cliente_id=cliente.get("id"),
+            cliente_nome=cliente_nome,
+            lavoro_id=lavoro_id,
+        )
+        await db.movimenti_magazzino.insert_one(mv.model_dump())
+        ripristinati += 1
+
+    await db.lavori.delete_one({"id": lavoro_id})
+    return {"ok": True, "giacenze_ripristinate": ripristinati, "articoli_saltati": saltati}

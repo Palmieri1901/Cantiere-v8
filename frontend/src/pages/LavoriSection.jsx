@@ -130,10 +130,22 @@ export default function LavoriSection({ clienteId }) {
   };
 
   const remove = async (id) => {
-    if (!window.confirm("Eliminare questo lavoro? Le giacenze già scaricate NON verranno ripristinate automaticamente.")) return;
-    await api.delete(`/lavori/${id}`);
-    toast.success("Lavoro eliminato");
-    load();
+    const l = lavori.find((x) => x.id === id);
+    const nArt = Array.isArray(l?.articoli_magazzino) ? l.articoli_magazzino.length : 0;
+    const conferma = nArt > 0
+      ? `Eliminare questo lavoro?\nVerranno ripristinate le giacenze di ${nArt} articoli in magazzino.`
+      : "Eliminare questo lavoro?";
+    if (!window.confirm(conferma)) return;
+    try {
+      const r = await api.delete(`/lavori/${id}`);
+      const ripr = r.data?.giacenze_ripristinate || 0;
+      toast.success(ripr > 0
+        ? `Lavoro eliminato · ${ripr} giacenze ripristinate in magazzino`
+        : "Lavoro eliminato");
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Errore eliminazione");
+    }
   };
 
   const totale = lavori.reduce((s, l) => s + (l.costo || 0), 0);

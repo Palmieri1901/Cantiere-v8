@@ -71,6 +71,12 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 
 ## Preventivo + Contratto in un unico PDF (2026-02)
 - Nuovo endpoint `GET /api/clienti/{id}/preventivo-contratto.pdf` che genera preventivo, poi contratto (usando `cantiere.contratto_template`) e li unisce con `pymupdf.insert_pdf`
+
+## Iter33 (2026-02-XX) — Ripristino giacenza automatico su DELETE lavoro
+- ✅ **Backend `routers/lavori.py`**: `DELETE /lavori/{id}` ora legge `articoli_magazzino` del lavoro, ripristina la giacenza di ogni articolo (idempotente rispetto ad articoli eliminati dal magazzino) e genera per ciascuno un movimento **carico** con motivo `"Storno lavoro eliminato · Cliente X"`, mantenendo il collegamento `cliente_id`/`lavoro_id`. Risposta: `{ok, giacenze_ripristinate, articoli_saltati}`.
+- ✅ **Frontend `LavoriSection.jsx`**: la conferma di eliminazione ora avvisa esplicitamente ("Verranno ripristinate le giacenze di N articoli"). Toast di successo mostra il numero di giacenze ripristinate.
+- ✅ E2E: creato lavoro con 3pz su articolo giacenza 20 → 17. DELETE → 20 ✓. Movimenti: scarico -3 + carico +3 di storno ✓. Edge case articolo eliminato dal magazzino → `articoli_saltati:1`, nessun errore ✓.
+
 - Refactor: builder contratto estratto in `build_contratto_pdf_bytes(cliente, cantiere, testo, titolo)` in `routers/contratti.py`, riusato dal nuovo endpoint
 - Nuovo bottone icona (FileSignature) sulla riga cliente in `Clienti.jsx` accanto al PDF preventivo
 - Verificato: 3 pagine totali con "PREVENTIVO", "CONTRATTO" e "CLAUSOLE VESSATORIE" presenti nel PDF unificato
