@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, fmtEuro } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Wrench } from "lucide-react";
+import { Plus, Pencil, Trash2, Wrench, Package, AlertTriangle } from "lucide-react";
 
 const TIPI_LAVORO = ["Antivegetativa", "Manutenzione motore", "Riparazione", "Pulizia", "Elettrico", "Altro"];
 const STATI = [
@@ -37,6 +37,8 @@ export default function LavoriSection({ clienteId }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(null);
+  const [articoliMag, setArticoliMag] = useState([]);
+  const [artSelezionati, setArtSelezionati] = useState([]); // [{articolo_id, codice, nome, quantita, prezzo_unitario, giacenza}]
 
   const load = () => {
     if (!clienteId) return;
@@ -49,31 +51,76 @@ export default function LavoriSection({ clienteId }) {
 
   useEffect(() => { load(); }, [clienteId]);
 
-  const openNew = () => {
+  const openNew = async () => {
     setEditing(null);
     setForm(emptyLavoro(clienteId));
+    setArtSelezionati([]);
     setDialogOpen(true);
+    try {
+      const r = await api.get("/magazzino/articoli");
+      setArticoliMag(r.data);
+    } catch { /* ignoro */ }
   };
 
   const openEdit = (l) => {
     setEditing(l);
     setForm({ ...l });
+    setArtSelezionati([]); // in edit non gestiamo articoli (già scaricati alla creazione)
     setDialogOpen(true);
   };
+
+  const addArticolo = (articolo_id) => {
+    if (!articolo_id) return;
+    if (artSelezionati.some((x) => x.articolo_id === articolo_id)) {
+      toast.info("Articolo già aggiunto");
+      return;
+    }
+    const a = articoliMag.find((x) => x.id === articolo_id);
+    if (!a) return;
+    setArtSelezionati((s) => [...s, {
+      articolo_id: a.id, codice: a.codice, nome: a.nome,
+      quantita: 1, prezzo_unitario: a.prezzo_listino || 0,
+      giacenza: a.quantita,
+    }]);
+  };
+
+  const updateArt = (i, k, v) => setArtSelezionati((s) => s.map((x, idx) => idx === i ? { ...x, [k]: v } : x));
+  const removeArt = (i) => setArtSelezionati((s) => s.filter((_, idx) => idx !== i));
+
+  const costoArticoli = useMemo(
+    () => artSelezionati.reduce((s, a) => s + (Number(a.quantita || 0) * Number(a.prezzo_unitario || 0)), 0),
+    [artSelezionati]
+  );
 
   const save = async () => {
     if (!form.tipo || !form.data) {
       toast.error("Data e tipo sono obbligatori");
       return;
     }
-    const payload = { ...form, costo: Number(form.costo) || 0 };
+    // Valida stock
+    for (const a of artSelezionati) {
+      if (Number(a.quantita) <= 0) { toast.error(`Quantità non valida per ${a.nome}`); return; }
+      if (Number(a.quantita) > Number(a.giacenza)) {
+        toast.error(`${a.nome}: giacenza insufficiente (${a.giacenza} ${a.giacenza === 1 ? "pz" : "pz"} disponibili)`);
+        return;
+      }
+    }
+    const payload = {
+      ...form,
+      costo: Number(form.costo) || 0,
+      articoli_magazzino: editing ? undefined : artSelezionati.map((a) => ({
+        articolo_id: a.articolo_id, quantita: Number(a.quantita), prezzo_unitario: Number(a.prezzo_unitario),
+      })),
+    };
     try {
       if (editing) {
         await api.put(`/lavori/${editing.id}`, payload);
         toast.success("Lavoro aggiornato");
       } else {
         await api.post("/lavori", payload);
-        toast.success("Lavoro aggiunto");
+        toast.success(artSelezionati.length > 0
+          ? `Lavoro aggiunto · ${artSelezionati.length} articoli scaricati dal magazzino`
+          : "Lavoro aggiunto");
       }
       setDialogOpen(false);
       load();
@@ -83,7 +130,7 @@ export default function LavoriSection({ clienteId }) {
   };
 
   const remove = async (id) => {
-    if (!window.confirm("Eliminare questo lavoro?")) return;
+    if (!window.confirm("Eliminare questo lavoro? Le giacenze già scaricate NON verranno ripristinate automaticamente.")) return;
     await api.delete(`/lavori/${id}`);
     toast.success("Lavoro eliminato");
     load();
@@ -98,6 +145,8 @@ export default function LavoriSection({ clienteId }) {
       </div>
     );
   }
+
+  const articoliDisponibili = articoliMag.filter((a) => !artSelezionati.some((s) => s.articolo_id === a.id));
 
   return (
     <div data-testid="lavori-section">
@@ -122,7 +171,7 @@ export default function LavoriSection({ clienteId }) {
       ) : (
         <div className="border border-border rounded-md divide-y divide-border">
           {lavori.map((l) => (
-            <div key={l.id} className="p-3 flex items-center gap-3 hover:bg-muted/40" data-testid={`lavoro-row-${l.id}`}>
+            <div key={l.id} className="p-3 flex items-start gap-3 hover:bg-muted/40" data-testid={`lavoro-row-${l.id}`}>
               <div className="w-20 shrink-0">
                 <div className="font-mono-num text-xs text-muted-foreground">{l.data}</div>
                 <StatusBadge stato={l.stato} />
@@ -131,6 +180,16 @@ export default function LavoriSection({ clienteId }) {
                 <div className="font-medium text-sm">{l.tipo}</div>
                 {l.descrizione && <div className="text-xs text-muted-foreground truncate">{l.descrizione}</div>}
                 {l.materiali && <div className="text-[11px] text-muted-foreground/80 italic mt-0.5">Mat.: {l.materiali}</div>}
+                {Array.isArray(l.articoli_magazzino) && l.articoli_magazzino.length > 0 && (
+                  <div className="mt-1.5 text-[11px] flex items-center gap-1.5 flex-wrap">
+                    <Package className="w-3 h-3 text-primary shrink-0" />
+                    {l.articoli_magazzino.map((it, i) => (
+                      <Badge key={i} variant="secondary" className="text-[10px] font-normal">
+                        {it.codice ? `[${it.codice}] ` : ""}{it.nome} × {it.quantita}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="font-mono-num text-sm font-semibold shrink-0">{fmtEuro(l.costo)}</div>
               <div className="flex gap-0.5 shrink-0">
@@ -147,7 +206,7 @@ export default function LavoriSection({ clienteId }) {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent data-testid="lavoro-dialog">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="lavoro-dialog">
           <DialogHeader>
             <DialogTitle>{editing ? "Modifica lavoro" : "Nuovo lavoro"}</DialogTitle>
             <DialogDescription>Registra un intervento eseguito o pianificato.</DialogDescription>
@@ -177,11 +236,16 @@ export default function LavoriSection({ clienteId }) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Costo</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Costo manodopera</Label>
                   <div className="relative">
                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span>
                     <Input type="number" step="0.01" min="0" className="pl-10 font-mono-num" value={form.costo} onChange={(e) => setForm({ ...form, costo: e.target.value })} data-testid="input-lavoro-costo" />
                   </div>
+                  {!editing && costoArticoli > 0 && (
+                    <div className="text-[11px] text-muted-foreground mt-1">
+                      + {fmtEuro(costoArticoli)} articoli · totale {fmtEuro(Number(form.costo || 0) + costoArticoli)}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stato</Label>
@@ -195,9 +259,83 @@ export default function LavoriSection({ clienteId }) {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Materiali</Label>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Materiali (note libere)</Label>
                 <Textarea rows={2} value={form.materiali} onChange={(e) => setForm({ ...form, materiali: e.target.value })} placeholder="Es. 3L vernice antivegetativa, filtro olio…" data-testid="input-lavoro-materiali" />
               </div>
+
+              {/* Articoli dal magazzino */}
+              {!editing && (
+                <div className="border border-border/60 rounded-md p-3 bg-muted/10" data-testid="lavoro-articoli-magazzino">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Package className="w-3 h-3" /> Articoli dal magazzino
+                    </Label>
+                    <span className="text-[11px] text-muted-foreground">Salvando verranno scaricati dalla giacenza</span>
+                  </div>
+
+                  {artSelezionati.length === 0 ? (
+                    <div className="text-xs text-muted-foreground py-2">Nessun articolo aggiunto.</div>
+                  ) : (
+                    <div className="space-y-1.5 mb-2">
+                      {artSelezionati.map((a, i) => {
+                        const stockKO = Number(a.quantita) > Number(a.giacenza);
+                        return (
+                          <div key={a.articolo_id} className={`flex items-center gap-2 text-sm bg-card rounded-md p-2 border ${stockKO ? "border-destructive/50" : "border-border/60"}`} data-testid={`art-mag-row-${i}`}>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">
+                                {a.codice && <span className="font-mono text-xs text-muted-foreground mr-1.5">[{a.codice}]</span>}
+                                {a.nome}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">Giacenza: {a.giacenza}</div>
+                            </div>
+                            <Input
+                              type="number" step="0.01" min="0.01"
+                              value={a.quantita}
+                              onChange={(e) => updateArt(i, "quantita", e.target.value)}
+                              className="w-20 h-8 text-right font-mono-num"
+                              data-testid={`art-mag-qty-${i}`}
+                            />
+                            <div className="relative w-24">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">€</span>
+                              <Input
+                                type="number" step="0.01" min="0"
+                                value={a.prezzo_unitario}
+                                onChange={(e) => updateArt(i, "prezzo_unitario", e.target.value)}
+                                className="pl-6 h-8 text-right font-mono-num text-xs"
+                                data-testid={`art-mag-price-${i}`}
+                              />
+                            </div>
+                            <div className="w-20 text-right font-mono-num text-xs font-semibold">
+                              {fmtEuro(Number(a.quantita || 0) * Number(a.prezzo_unitario || 0))}
+                            </div>
+                            {stockKO && <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" title="Giacenza insufficiente" />}
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeArt(i)} data-testid={`art-mag-del-${i}`}>
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <Select value="" onValueChange={addArticolo}>
+                    <SelectTrigger className="h-9 text-sm" data-testid="select-add-articolo">
+                      <SelectValue placeholder="+ Aggiungi articolo dal magazzino" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {articoliDisponibili.length === 0 && (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">Nessun articolo disponibile</div>
+                      )}
+                      {articoliDisponibili.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.codice ? `[${a.codice}] ` : ""}{a.nome}
+                          <span className="text-muted-foreground text-xs"> · giac. {a.quantita} · {fmtEuro(a.prezzo_listino)}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>

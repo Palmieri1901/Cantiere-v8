@@ -60,6 +60,15 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - ✅ E2E test manuale: CRUD fornitore/articolo (200), PUT articolo (200), movimenti carico→15 rettifica→8, listino PDF 200 2.3KB, inventario XLSX 200 5.5KB, AI vision Gemini scan-articolo su immagine dummy HTTP 200 con JSON valido.
 
 
+
+## Iter32 (2026-02-XX) — Magazzino ↔ Clienti + Ordine Fornitore PDF + upload DDT
+- ✅ **Backend `models.py`**: `Lavoro` esteso con `articoli_magazzino: List[dict]`; `MovimentoMagazzino` esteso con `cliente_id`, `cliente_nome`, `lavoro_id`; `ScanDDTRequest` accetta anche `file_base64` + `mime_type` (per PDF).
+- ✅ **Backend `routers/lavori.py`**: nuovo helper `_scarica_articoli_magazzino` che, alla creazione di un lavoro, valida stock, decrementa la giacenza di ogni articolo indicato e genera un movimento **scarico** collegato a cliente+lavoro. Il costo del lavoro è auto-incrementato del valore degli articoli (Σ qt × prezzo_unitario). In PUT gli articoli sono ignorati per evitare doppi scarichi.
+- ✅ **Backend `routers/magazzino.py`**: nuovo endpoint `GET /magazzino/ordine-fornitore.pdf?fornitore_id=` che genera un PDF ordine per il fornitore (o globale) con TUTTI gli articoli sotto scorta, intestazione cantiere, tabella evidenziata, colonna "Q.tà da ordinare" suggerita. Endpoint `POST /magazzino/scan-ddt` ora accetta anche PDF (converte prima pagina a PNG via PyMuPDF a 200 DPI).
+- ✅ **Frontend `LavoriSection.jsx`**: nel dialog "Nuovo lavoro" nuova sezione "Articoli dal magazzino" con select per aggiungere articolo, quantità/prezzo editabili, alert giacenza insufficiente, totale live "manodopera + articoli". Le righe lavoro mostrano ora i badge degli articoli usati.
+- ✅ **Frontend `Magazzino.jsx`**: nuovo bottone globale **"Ordine PDF"** (icona ShoppingCart) accanto a Listino/Inventario. Nella tab Fornitori ogni riga ha una icona ShoppingCart che scarica l'ordine PDF filtrato per quel fornitore. Nel tab Movimenti la colonna motivo mostra ora `Cliente: Cognome Nome` in blu se il movimento è collegato a un cliente/lavoro. Il dialog Scan DDT ora accetta **JPG/PNG/PDF** (max 8MB) con card dedicata per PDF.
+- ✅ E2E test: POST lavoro con 2 articoli (FLT × 2 + AN × 1) → costo 211€, giacenze 10→8 e 2→1 ✅, movimenti con `cliente_nome="Rossi Mario"` e `lavoro_id` ✅. Ordine PDF `fornitore_id=X` HTTP 200 ✅. Scan DDT PDF → prima pagina convertita e AI legge fornitore/righe.
+
 ## Preventivo + Contratto in un unico PDF (2026-02)
 - Nuovo endpoint `GET /api/clienti/{id}/preventivo-contratto.pdf` che genera preventivo, poi contratto (usando `cantiere.contratto_template`) e li unisce con `pymupdf.insert_pdf`
 - Refactor: builder contratto estratto in `build_contratto_pdf_bytes(cliente, cantiere, testo, titolo)` in `routers/contratti.py`, riusato dal nuovo endpoint

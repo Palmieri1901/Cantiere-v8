@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import {
   Package, Plus, Search, Trash2, Pencil, FileDown, FileSpreadsheet,
   Sparkles, Camera, ScanLine, AlertTriangle, Building2, ArrowUpCircle,
-  ArrowDownCircle, RefreshCw, Filter, Image as ImageIcon, X,
+  ArrowDownCircle, RefreshCw, Filter, Image as ImageIcon, X, ShoppingCart,
 } from "lucide-react";
 
 const EMPTY_ART = {
@@ -228,6 +228,11 @@ function ArticoliTab() {
           <div className="ml-auto flex gap-2">
             <Button variant="outline" onClick={() => setExportOpen(true)} data-testid="btn-listino-pdf">
               <FileDown className="w-4 h-4 mr-1.5" /> Listino PDF
+            </Button>
+            <Button asChild variant="outline" data-testid="btn-ordine-pdf">
+              <a href={`${API}/magazzino/ordine-fornitore.pdf`} download>
+                <ShoppingCart className="w-4 h-4 mr-1.5" /> Ordine PDF
+              </a>
             </Button>
             <Button asChild variant="outline" data-testid="btn-inventario-xlsx">
               <a href={`${API}/magazzino/inventario.xlsx`} download>
@@ -670,6 +675,10 @@ function ScanArticoloDialog({ open, onOpenChange, fornitori, onDone }) {
 
 function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
   const [image, setImage] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [fileB64, setFileB64] = useState("");
+  const [fileMime, setFileMime] = useState("");
+  const [isPdf, setIsPdf] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState(null);
   const [rows, setRows] = useState([]);
@@ -677,23 +686,38 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) { setImage(""); setResult(null); setRows([]); setFornitoreId("none"); }
+    if (open) {
+      setImage(""); setFileName(""); setFileB64(""); setFileMime(""); setIsPdf(false);
+      setResult(null); setRows([]); setFornitoreId("none");
+    }
   }, [open]);
 
   const onFile = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 6 * 1024 * 1024) { toast.error("Foto max 6MB"); return; }
+    if (file.size > 8 * 1024 * 1024) { toast.error("File max 8MB"); return; }
+    const isPdfFile = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
     const r = new FileReader();
-    r.onload = () => setImage(r.result);
+    r.onload = () => {
+      const b64 = String(r.result);
+      setFileB64(b64);
+      setFileMime(file.type || (isPdfFile ? "application/pdf" : "image/jpeg"));
+      setFileName(file.name);
+      setIsPdf(isPdfFile);
+      if (!isPdfFile) setImage(b64);
+      else setImage(""); // niente preview PDF, mostriamo card
+    };
     r.readAsDataURL(file);
   };
 
   const scan = async () => {
-    if (!image) return;
+    if (!fileB64) return;
     setScanning(true);
     try {
-      const { data } = await api.post("/magazzino/scan-ddt", { image_base64: image });
+      const payload = isPdf
+        ? { file_base64: fileB64, mime_type: fileMime }
+        : { image_base64: fileB64 };
+      const { data } = await api.post("/magazzino/scan-ddt", payload);
       setResult(data);
       setRows((data.articoli || []).map((a, i) => ({ ...a, _sel: true, _i: i })));
       toast.success(`Trovati ${data.articoli?.length || 0} articoli`);
@@ -732,28 +756,41 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
             <ScanLine className="w-4 h-4 text-primary" /> Scan DDT con AI
           </DialogTitle>
           <DialogDescription>
-            Carica la foto del DDT del fornitore: l'AI estrae tutte le righe articolo. Rivedi, deseleziona quelle da scartare e importa.
+            Carica una foto <b>oppure un file PDF</b> del DDT del fornitore: l'AI estrae tutte le righe articolo. Rivedi, deseleziona le righe da scartare e importa.
           </DialogDescription>
         </DialogHeader>
 
         <div className="max-h-[65vh] overflow-y-auto pr-1">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div className="md:col-span-2">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Foto DDT</Label>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">DDT (foto o PDF)</Label>
               <div className="mt-2">
                 {image ? (
                   <div className="relative">
                     <img src={image} alt="" className="w-full rounded-md border max-h-48 object-contain bg-muted/20" />
-                    <button type="button" onClick={() => { setImage(""); setResult(null); setRows([]); }} className="absolute top-2 right-2 bg-destructive text-white rounded-full p-1">
+                    <button type="button" onClick={() => { setImage(""); setFileB64(""); setFileName(""); setResult(null); setRows([]); }} className="absolute top-2 right-2 bg-destructive text-white rounded-full p-1">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : fileB64 && isPdf ? (
+                  <div className="relative border rounded-md p-4 bg-muted/20 flex items-center gap-3">
+                    <div className="w-12 h-14 bg-destructive/10 text-destructive rounded flex items-center justify-center border border-destructive/30 shrink-0">
+                      <FileDown className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold truncate">{fileName}</div>
+                      <div className="text-xs text-muted-foreground">PDF · verrà convertita la prima pagina prima dell'analisi</div>
+                    </div>
+                    <button type="button" onClick={() => { setFileB64(""); setFileName(""); setIsPdf(false); setResult(null); setRows([]); }} className="bg-destructive text-white rounded-full p-1">
                       <X className="w-3 h-3" />
                     </button>
                   </div>
                 ) : (
                   <label className="block cursor-pointer border-2 border-dashed border-border rounded-md p-6 text-center hover:bg-muted/30">
                     <ScanLine className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                    <div className="text-sm font-semibold">Carica foto DDT</div>
-                    <div className="text-xs text-muted-foreground mt-1">JPG/PNG · max 6MB · l'AI supporta anche foto storte</div>
-                    <input type="file" accept="image/*" hidden onChange={onFile} data-testid="input-ddt-file" />
+                    <div className="text-sm font-semibold">Carica foto o PDF del DDT</div>
+                    <div className="text-xs text-muted-foreground mt-1">JPG / PNG / PDF · max 8MB · l'AI gestisce anche foto storte</div>
+                    <input type="file" accept="image/*,application/pdf" hidden onChange={onFile} data-testid="input-ddt-file" />
                   </label>
                 )}
               </div>
@@ -772,7 +809,7 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
               )}
               <Button
                 onClick={scan}
-                disabled={!image || scanning}
+                disabled={!fileB64 || scanning}
                 className="w-full mt-3 bg-primary hover:bg-primary/90"
                 data-testid="btn-ddt-scan"
               >
@@ -891,6 +928,11 @@ function FornitoriTab() {
                 <TableCell className="text-sm">{f.email || "—"}</TableCell>
                 <TableCell className="font-mono text-xs">{f.piva || "—"}</TableCell>
                 <TableCell className="text-right">
+                  <Button asChild variant="ghost" size="icon" title="Ordine PDF sotto scorta" data-testid={`btn-ordine-forn-${f.id}`}>
+                    <a href={`${API}/magazzino/ordine-fornitore.pdf?fornitore_id=${f.id}`} download>
+                      <ShoppingCart className="w-3.5 h-3.5" />
+                    </a>
+                  </Button>
                   <Button variant="ghost" size="icon" onClick={() => { setEditing(f); setFormOpen(true); }} data-testid={`btn-edit-forn-${f.id}`}>
                     <Pencil className="w-3.5 h-3.5" />
                   </Button>
@@ -1057,7 +1099,10 @@ function MovimentiTab() {
                   <TableCell>{art?.nome || <span className="text-muted-foreground italic">Eliminato</span>}</TableCell>
                   <TableCell className="text-right font-mono-num">{m.tipo === "scarico" ? "-" : "+"}{Math.abs(m.quantita)}</TableCell>
                   <TableCell className="text-right font-mono-num">{m.quantita_dopo}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{m.motivo || "—"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {m.motivo || "—"}
+                    {m.cliente_nome && <span className="block text-[10px] text-primary/80 mt-0.5">Cliente: {m.cliente_nome}</span>}
+                  </TableCell>
                 </TableRow>
               );
             })}

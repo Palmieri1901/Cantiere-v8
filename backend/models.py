@@ -233,6 +233,7 @@ class Lavoro(BaseModel):
     materiali: str = ""
     stato: str = "completato"
     anno: int = Field(default_factory=lambda: datetime.now().year)
+    articoli_magazzino: List[dict] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -245,6 +246,7 @@ class LavoroCreate(BaseModel):
     materiali: Optional[str] = ""
     stato: Optional[str] = "completato"
     anno: Optional[int] = None
+    articoli_magazzino: Optional[List[dict]] = None
 
 
 class Cantiere(BaseModel):
@@ -500,6 +502,9 @@ class MovimentoMagazzino(BaseModel):
     motivo: Optional[str] = ""
     data: str  # ISO YYYY-MM-DD
     note: Optional[str] = ""
+    cliente_id: Optional[str] = None
+    cliente_nome: Optional[str] = ""
+    lavoro_id: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -517,4 +522,6 @@ class ScanArticoloRequest(BaseModel):
 
 
 class ScanDDTRequest(BaseModel):
-    image_base64: str
+    image_base64: Optional[str] = None
+    file_base64: Optional[str] = None
+    mime_type: Optional[str] = None

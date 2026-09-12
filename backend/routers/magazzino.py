@@ -294,11 +294,51 @@ async def scan_articolo(payload: ScanArticoloRequest):
     }
 
 
+async def _pdf_first_page_to_png_b64(pdf_b64: str) -> str:
+    """Converte la prima pagina di un PDF (base64) in PNG base64 usando PyMuPDF."""
+    import fitz  # pymupdf
+    raw = base64.b64decode(pdf_b64.split(",", 1)[-1] if "," in pdf_b64 else pdf_b64)
+    doc = fitz.open(stream=raw, filetype="pdf")
+    if doc.page_count == 0:
+        raise HTTPException(400, "PDF vuoto")
+    page = doc.load_page(0)
+    # Risoluzione medio-alta per OCR (200 DPI)
+    pix = page.get_pixmap(dpi=200, alpha=False)
+    png_bytes = pix.tobytes("png")
+    doc.close()
+    return base64.b64encode(png_bytes).decode("ascii")
+
+
 @router.post("/scan-ddt")
 async def scan_ddt(payload: ScanDDTRequest):
-    """Analizza la foto di un DDT italiano ed estrae la lista articoli."""
+    """Analizza foto o PDF di un DDT italiano ed estrae la lista articoli.
+
+    Accetta:
+      - image_base64: immagine (JPG/PNG) del DDT
+      - file_base64 + mime_type: file generico (immagine o PDF). Se PDF viene
+        convertita la prima pagina in PNG prima dell'invio all'AI.
+    """
+    image_b64 = payload.image_base64
+    if not image_b64 and payload.file_base64:
+        mt = (payload.mime_type or "").lower()
+        raw_b64 = payload.file_base64.split(",", 1)[-1] if "," in payload.file_base64 else payload.file_base64
+        # Detection: se comincia con %PDF- oppure mime dichiarato PDF → conversione
+        try:
+            head = base64.b64decode(raw_b64[:8]) if raw_b64 else b""
+        except Exception:
+            head = b""
+        if "pdf" in mt or head.startswith(b"%PDF"):
+            try:
+                image_b64 = await _pdf_first_page_to_png_b64(raw_b64)
+            except Exception as e:
+                raise HTTPException(400, f"Impossibile leggere il PDF: {e}")
+        else:
+            image_b64 = raw_b64
+    if not image_b64:
+        raise HTTPException(400, "Nessun file/immagine fornito")
+
     prompt = (
-        "Analizza questa foto di un Documento Di Trasporto (DDT) italiano. "
+        "Analizza questa foto o scansione di un Documento Di Trasporto (DDT) italiano. "
         "Estrai TUTTE le righe articolo della bolla. Rispondi SOLO con un oggetto JSON:\n"
         '{"fornitore": "", "numero_ddt": "", "data": "", "articoli": [\n'
         '  {"codice": "", "nome": "", "descrizione": "", "quantita": 0, "prezzo_unitario": 0}\n'
@@ -312,7 +352,7 @@ async def scan_ddt(payload: ScanDDTRequest):
         "Rispondi SOLO con il JSON, nessun testo aggiuntivo."
     )
     try:
-        raw = await _run_vision(prompt, payload.image_base64)
+        raw = await _run_vision(prompt, image_b64)
     except Exception as e:
         raise HTTPException(502, f"Errore AI vision: {e}")
 
@@ -474,6 +514,115 @@ async def listino_pdf(
     doc.build(story)
     buf.seek(0)
     fname = "listino_accessori.pdf"
+    return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+@router.get("/ordine-fornitore.pdf")
+async def ordine_fornitore_pdf(fornitore_id: Optional[str] = None):
+    """Genera un PDF ordine con tutti gli articoli sotto scorta minima.
+    Se fornitore_id è specificato limita all'ordine per quel fornitore."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+
+    query = {}
+    if fornitore_id:
+        query["fornitore_id"] = fornitore_id
+    tutti = await db.articoli.find(query, {"_id": 0}).sort([("categoria", 1), ("nome", 1)]).to_list(5000)
+    # Solo articoli sotto scorta minima
+    docs = [a for a in tutti if float(a.get("quantita", 0)) <= float(a.get("scorta_minima", 0))]
+
+    cantiere = await db.cantiere.find_one({"id": "default"}, {"_id": 0}) or {}
+    fornitore = None
+    if fornitore_id:
+        fornitore = await db.fornitori.find_one({"id": fornitore_id}, {"_id": 0})
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)
+    styles = getSampleStyleSheet()
+    story = []
+
+    # Intestazione cantiere
+    nome_cantiere = cantiere.get("nome") or "Portomare"
+    story.append(Paragraph(f"<b>{nome_cantiere}</b>", styles["Title"]))
+    riga_ind = " · ".join(x for x in [
+        cantiere.get("indirizzo"),
+        f"{cantiere.get('cap','')} {cantiere.get('citta','')} ({cantiere.get('provincia','')})".strip(),
+        f"Tel {cantiere.get('telefono')}" if cantiere.get("telefono") else "",
+        f"P.IVA {cantiere.get('piva')}" if cantiere.get("piva") else "",
+    ] if x and x.strip() and x.strip() != "()")
+    if riga_ind:
+        story.append(Paragraph(riga_ind, styles["Normal"]))
+    story.append(Spacer(1, 8))
+
+    story.append(Paragraph("<b>ORDINE MATERIALE — Riassortimento scorte</b>", styles["Heading2"]))
+    story.append(Paragraph(datetime.now().strftime("Data: %d/%m/%Y"), styles["Normal"]))
+
+    if fornitore:
+        story.append(Spacer(1, 6))
+        story.append(Paragraph(f"<b>Spett.le {fornitore.get('nome')}</b>", styles["Heading3"]))
+        info = []
+        if fornitore.get("referente"): info.append(f"c.a. {fornitore['referente']}")
+        if fornitore.get("indirizzo"): info.append(fornitore["indirizzo"])
+        if fornitore.get("email"): info.append(fornitore["email"])
+        if fornitore.get("telefono"): info.append(f"Tel {fornitore['telefono']}")
+        if info:
+            story.append(Paragraph(" · ".join(info), styles["Normal"]))
+    story.append(Spacer(1, 10))
+
+    if not docs:
+        story.append(Paragraph(
+            "<i>Nessun articolo attualmente sotto scorta minima.</i>", styles["Normal"]))
+    else:
+        story.append(Paragraph(
+            f"Si richiede la fornitura del seguente materiale ({len(docs)} articoli sotto scorta):",
+            styles["Normal"]))
+        story.append(Spacer(1, 6))
+
+        headers = ["Codice", "Descrizione", "U.M.", "Giacenza", "Scorta min.", "Q.tà da ordinare"]
+        data = [headers]
+        for d in docs:
+            qt = float(d.get("quantita", 0))
+            sm = float(d.get("scorta_minima", 0))
+            # Suggerisce il doppio della scorta minima meno la giacenza attuale (arrotondato per eccesso)
+            da_ordinare = max(int(sm * 2 - qt + 0.999), int(sm) or 1)
+            data.append([
+                d.get("codice", "") or "—",
+                (d.get("nome", "") or "") + ((" — " + d.get("descrizione", "")) if d.get("descrizione") else ""),
+                d.get("unita_misura", "pz") or "pz",
+                f"{qt:g}",
+                f"{sm:g}",
+                str(da_ordinare),
+            ])
+        table = Table(data, colWidths=[25*mm, 75*mm, 15*mm, 20*mm, 20*mm, 30*mm], repeatRows=1)
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("ALIGN", (3, 1), (-1, -1), "RIGHT"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#cbd5e1")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            # Evidenziazione colonna "Q.tà da ordinare"
+            ("BACKGROUND", (5, 1), (5, -1), colors.HexColor("#fef3c7")),
+            ("FONTNAME", (5, 1), (5, -1), "Helvetica-Bold"),
+        ]))
+        story.append(table)
+
+    story.append(Spacer(1, 14))
+    story.append(Paragraph(
+        "In attesa di conferma d'ordine con tempi di consegna, si porgono cordiali saluti.",
+        styles["Normal"]))
+    story.append(Spacer(1, 20))
+    story.append(Paragraph(f"<b>{nome_cantiere}</b>", styles["Normal"]))
+    story.append(Paragraph("_______________________________", styles["Normal"]))
+
+    doc.build(story)
+    buf.seek(0)
+    fname = f"ordine_{(fornitore or {}).get('nome','fornitore').lower().replace(' ','_')}.pdf" if fornitore else "ordine_fornitore.pdf"
     return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
