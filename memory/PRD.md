@@ -113,6 +113,17 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - ✅ Build frontend pulita (nessun warning nuovo).
 
 ## MQ nel PDF + Larghezza personalizzata (2026-02)
+
+## Iter38 (2026-02-XX) — Magazzino orientato al Listino prezzi (non tracking giacenza)
+- ✅ **`Magazzino.jsx` — nuova impostazione**: la sezione è pensata come **listino aggiornabile a ogni acquisto**, non come tracking di giacenza in tempo reale.
+- ✅ **KPI ripensati**: `Articoli in listino` · `Categorie` · `Fornitori attivi` · **`Ricarico medio %`** (calcolato automaticamente su `(prezzo_vendita - prezzo_acquisto) / prezzo_acquisto`). Rimosse le card "Sotto scorta" e "Valore giacenza".
+- ✅ **Tabella articoli** ricentrata su listino: colonne **Codice · Articolo · Categoria · Fornitore · Prezzo acquisto · Prezzo vendita · Ricarico % · Azioni**. Rimosse le colonne Q.tà e Scorta min. dalla vista principale. Ricarico visualizzato in verde primary se ≥ 20%, rosso se negativo.
+- ✅ **Filtro "Solo sotto scorta"** rimosso dai filtri principali (contraddiceva l'orientamento listino).
+- ✅ **Form articolo** riordinato: Codice + Fornitore in prima riga, Nome/Descrizione centrali, Categoria + UM, poi **Prezzo acquisto + Prezzo vendita** con card di anteprima ricarico calcolato + margine assoluto (€). Foto e Note come prima. Rinominato "Prezzo listino" → **"Prezzo vendita"** (più chiaro).
+- ✅ **Sezione "Inventario (opzionale)"** collassabile in fondo al form, mostra Quantità + Scorta minima solo quando serve fare inventario. Badge con q.tà corrente quando la sezione è chiusa se giacenza > 0.
+- ✅ Build frontend pulita.
+- ℹ️ Il tab "Movimenti" resta disponibile per chi vuole tenere lo storico dei carichi/scarichi manuali. Il collegamento con i Lavori del cliente (scarico automatico + ripristino su DELETE) continua a funzionare per chi lo usa.
+
 - Nuovo campo Cliente `larghezza_personalizzata` (opzionale): se impostato sovrascrive la larghezza automatica a scaglioni
 - Helper `larghezza_barca(lunghezza, larghezza_personalizzata)` gestisce l'override
 - Nel PDF preventivo la sezione Imbarcazione mostra ora "L. 8 m × 3 m (24 mq)" così il cliente vede la superficie applicata

@@ -128,6 +128,17 @@ function ArticoliTab() {
   const fornMap = useMemo(() => Object.fromEntries(fornitori.map((f) => [f.id, f.nome])), [fornitori]);
   const nSottoScorta = articoli.filter((a) => a.quantita <= a.scorta_minima).length;
   const valoreTot = articoli.reduce((s, a) => s + (Number(a.quantita) * Number(a.prezzo_acquisto || 0)), 0);
+  const ricariciValidi = articoli
+    .map((a) => {
+      const pa = Number(a.prezzo_acquisto || 0);
+      const pv = Number(a.prezzo_listino || 0);
+      return pa > 0 && pv > 0 ? ((pv - pa) / pa) * 100 : null;
+    })
+    .filter((v) => v !== null);
+  const ricaricoMedio = ricariciValidi.length
+    ? ricariciValidi.reduce((s, v) => s + v, 0) / ricariciValidi.length
+    : 0;
+  const fornitoriAttivi = new Set(articoli.map((a) => a.fornitore_id).filter(Boolean)).size;
 
   const remove = async () => {
     if (!confirmDelete) return;
@@ -154,22 +165,22 @@ function ArticoliTab() {
       {/* KPI + Azioni */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
         <Card className="p-4">
-          <div className="label-mini">Articoli totali</div>
+          <div className="label-mini">Articoli in listino</div>
           <div className="font-mono-num text-2xl font-semibold mt-1" data-testid="kpi-articoli-tot">{articoli.length}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="label-mini flex items-center gap-1.5">
-            <AlertTriangle className="w-3 h-3 text-destructive" /> Sotto scorta
-          </div>
-          <div className={`font-mono-num text-2xl font-semibold mt-1 ${nSottoScorta > 0 ? "text-destructive" : ""}`} data-testid="kpi-sotto-scorta">{nSottoScorta}</div>
         </Card>
         <Card className="p-4">
           <div className="label-mini">Categorie</div>
           <div className="font-mono-num text-2xl font-semibold mt-1">{categorie.length}</div>
         </Card>
         <Card className="p-4">
-          <div className="label-mini">Valore magazzino</div>
-          <div className="font-mono-num text-xl font-semibold mt-1" data-testid="kpi-valore">{fmtEuro(valoreTot)}</div>
+          <div className="label-mini">Fornitori attivi</div>
+          <div className="font-mono-num text-2xl font-semibold mt-1" data-testid="kpi-fornitori">{fornitoriAttivi}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="label-mini">Ricarico medio</div>
+          <div className="font-mono-num text-2xl font-semibold mt-1" data-testid="kpi-ricarico">
+            {ricariciValidi.length > 0 ? `${ricaricoMedio.toFixed(0)}%` : "—"}
+          </div>
         </Card>
       </div>
 
@@ -203,16 +214,6 @@ function ArticoliTab() {
               {categorie.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button
-            variant={soloSottoScorta ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSoloSottoScorta((v) => !v)}
-            className={soloSottoScorta ? "bg-destructive hover:bg-destructive/90" : ""}
-            data-testid="filter-sotto-scorta"
-          >
-            <Filter className="w-3.5 h-3.5 mr-1.5" />
-            Solo sotto scorta
-          </Button>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 mb-4 border-t border-border/60 pt-4">
@@ -247,12 +248,12 @@ function ArticoliTab() {
             <TableHeader>
               <TableRow className="bg-muted/40">
                 <TableHead>Codice</TableHead>
-                <TableHead>Nome</TableHead>
+                <TableHead>Articolo</TableHead>
                 <TableHead>Categoria</TableHead>
                 <TableHead>Fornitore</TableHead>
-                <TableHead className="text-right">Q.tà</TableHead>
-                <TableHead className="text-right">Scorta min.</TableHead>
-                <TableHead className="text-right">Prezzo listino</TableHead>
+                <TableHead className="text-right">Prezzo acquisto</TableHead>
+                <TableHead className="text-right">Prezzo vendita</TableHead>
+                <TableHead className="text-right">Ricarico</TableHead>
                 <TableHead className="text-right w-[100px]">Azioni</TableHead>
               </TableRow>
             </TableHeader>
@@ -262,9 +263,11 @@ function ArticoliTab() {
                 <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8" data-testid="empty-articoli">Nessun articolo</TableCell></TableRow>
               )}
               {filtered.map((a) => {
-                const sotto = a.quantita <= a.scorta_minima;
+                const pa = Number(a.prezzo_acquisto || 0);
+                const pv = Number(a.prezzo_listino || 0);
+                const rk = pa > 0 && pv > 0 ? ((pv - pa) / pa) * 100 : null;
                 return (
-                  <TableRow key={a.id} className={sotto ? "bg-destructive/5" : ""} data-testid={`row-articolo-${a.id}`}>
+                  <TableRow key={a.id} data-testid={`row-articolo-${a.id}`}>
                     <TableCell className="font-mono text-xs">{a.codice || "—"}</TableCell>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
@@ -277,12 +280,15 @@ function ArticoliTab() {
                     </TableCell>
                     <TableCell>{a.categoria && <Badge variant="secondary">{a.categoria}</Badge>}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{fornMap[a.fornitore_id] || "—"}</TableCell>
-                    <TableCell className="text-right font-mono-num">
-                      {sotto && <AlertTriangle className="w-3.5 h-3.5 inline text-destructive mr-1" />}
-                      {a.quantita} <span className="text-xs text-muted-foreground">{a.unita_misura}</span>
+                    <TableCell className="text-right font-mono-num text-muted-foreground">{fmtEuro(pa)}</TableCell>
+                    <TableCell className="text-right font-mono-num font-semibold">{fmtEuro(pv)}</TableCell>
+                    <TableCell className="text-right font-mono-num text-xs">
+                      {rk !== null ? (
+                        <span className={rk < 0 ? "text-destructive" : rk >= 20 ? "text-primary" : "text-muted-foreground"}>
+                          {rk >= 0 ? "+" : ""}{rk.toFixed(0)}%
+                        </span>
+                      ) : <span className="text-muted-foreground">—</span>}
                     </TableCell>
-                    <TableCell className="text-right font-mono-num text-sm text-muted-foreground">{a.scorta_minima}</TableCell>
-                    <TableCell className="text-right font-mono-num">{fmtEuro(a.prezzo_listino)}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => { setEditing(a); setFormOpen(true); }} data-testid={`btn-edit-${a.id}`}>
                         <Pencil className="w-3.5 h-3.5" />
@@ -444,15 +450,6 @@ function ArticoloForm({ open, onOpenChange, value, fornitori, onSaved }) {
           <FormField label="Codice">
             <Input value={form.codice} onChange={(e) => set("codice", e.target.value)} data-testid="input-codice" />
           </FormField>
-          <FormField label="Nome *">
-            <Input value={form.nome} onChange={(e) => set("nome", e.target.value)} data-testid="input-nome" />
-          </FormField>
-          <FormField label="Descrizione" full>
-            <Textarea rows={2} value={form.descrizione} onChange={(e) => set("descrizione", e.target.value)} data-testid="input-descrizione" />
-          </FormField>
-          <FormField label="Categoria">
-            <Input value={form.categoria} onChange={(e) => set("categoria", e.target.value)} placeholder="es. Ferramenta" data-testid="input-categoria" />
-          </FormField>
           <FormField label="Fornitore">
             <Select value={form.fornitore_id || "none"} onValueChange={(v) => set("fornitore_id", v === "none" ? null : v)}>
               <SelectTrigger data-testid="input-fornitore"><SelectValue placeholder="Nessuno" /></SelectTrigger>
@@ -462,21 +459,39 @@ function ArticoloForm({ open, onOpenChange, value, fornitori, onSaved }) {
               </SelectContent>
             </Select>
           </FormField>
-          <FormField label="Prezzo acquisto €">
-            <Input type="number" step="0.01" value={form.prezzo_acquisto} onChange={(e) => set("prezzo_acquisto", e.target.value)} data-testid="input-prezzo-acquisto" />
+          <FormField label="Nome articolo *" full>
+            <Input value={form.nome} onChange={(e) => set("nome", e.target.value)} data-testid="input-nome" />
           </FormField>
-          <FormField label="Prezzo listino €">
-            <Input type="number" step="0.01" value={form.prezzo_listino} onChange={(e) => set("prezzo_listino", e.target.value)} data-testid="input-prezzo-listino" />
+          <FormField label="Descrizione" full>
+            <Textarea rows={2} value={form.descrizione} onChange={(e) => set("descrizione", e.target.value)} data-testid="input-descrizione" />
           </FormField>
-          <FormField label="Quantità">
-            <Input type="number" step="0.01" value={form.quantita} onChange={(e) => set("quantita", e.target.value)} data-testid="input-quantita" />
-          </FormField>
-          <FormField label="Scorta minima">
-            <Input type="number" step="0.01" value={form.scorta_minima} onChange={(e) => set("scorta_minima", e.target.value)} data-testid="input-scorta" />
+          <FormField label="Categoria">
+            <Input value={form.categoria} onChange={(e) => set("categoria", e.target.value)} placeholder="es. Ferramenta" data-testid="input-categoria" />
           </FormField>
           <FormField label="Unità di misura">
             <Input value={form.unita_misura} onChange={(e) => set("unita_misura", e.target.value)} placeholder="pz, m, kg…" data-testid="input-um" />
           </FormField>
+          <FormField label="Prezzo acquisto €">
+            <Input type="number" step="0.01" value={form.prezzo_acquisto} onChange={(e) => set("prezzo_acquisto", e.target.value)} data-testid="input-prezzo-acquisto" />
+          </FormField>
+          <FormField label="Prezzo vendita €">
+            <Input type="number" step="0.01" value={form.prezzo_listino} onChange={(e) => set("prezzo_listino", e.target.value)} data-testid="input-prezzo-listino" />
+          </FormField>
+          {(() => {
+            const pa = Number(form.prezzo_acquisto || 0);
+            const pv = Number(form.prezzo_listino || 0);
+            if (pa <= 0 || pv <= 0) return null;
+            const rk = ((pv - pa) / pa) * 100;
+            const marg = pv - pa;
+            return (
+              <div className="md:col-span-2 flex items-center justify-between rounded-md bg-primary/5 border border-primary/20 px-3 py-2 text-xs">
+                <span className="text-muted-foreground">Ricarico calcolato</span>
+                <span className="font-mono-num font-semibold text-primary">
+                  {rk >= 0 ? "+" : ""}{rk.toFixed(1)}% · margine {fmtEuro(marg)}
+                </span>
+              </div>
+            );
+          })()}
           <FormField label="Foto articolo" full>
             <div className="flex items-center gap-3">
               {form.immagine_base64 ? (
@@ -502,6 +517,34 @@ function ArticoloForm({ open, onOpenChange, value, fornitori, onSaved }) {
           <FormField label="Note" full>
             <Textarea rows={2} value={form.note} onChange={(e) => set("note", e.target.value)} data-testid="input-note" />
           </FormField>
+
+          {/* Sezione opzionale: Inventario (giacenza) */}
+          <div className="md:col-span-2 border-t border-border/60 pt-3 mt-1">
+            <button
+              type="button"
+              onClick={() => set("_showInv", !form._showInv)}
+              className="text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
+              data-testid="btn-toggle-inv"
+            >
+              <Package className="w-3.5 h-3.5" />
+              Inventario (opzionale) {form._showInv ? "▾" : "▸"}
+              {(Number(form.quantita) > 0 || Number(form.scorta_minima) > 0) && (
+                <Badge variant="secondary" className="text-[10px] ml-1">
+                  {Number(form.quantita) || 0} {form.unita_misura || "pz"}
+                </Badge>
+              )}
+            </button>
+            {form._showInv && (
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <FormField label="Quantità in giacenza">
+                  <Input type="number" step="0.01" value={form.quantita} onChange={(e) => set("quantita", e.target.value)} data-testid="input-quantita" />
+                </FormField>
+                <FormField label="Scorta minima (alert)">
+                  <Input type="number" step="0.01" value={form.scorta_minima} onChange={(e) => set("scorta_minima", e.target.value)} data-testid="input-scorta" />
+                </FormField>
+              </div>
+            )}
+          </div>
         </div>
 
         <DialogFooter>
