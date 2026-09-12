@@ -427,3 +427,94 @@ class ResetPasswordRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+
+
+# ============================================================================
+# MAGAZZINO - Articoli, Fornitori, Movimenti
+# ============================================================================
+
+class Fornitore(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    nome: str
+    referente: Optional[str] = ""
+    telefono: Optional[str] = ""
+    email: Optional[str] = ""
+    piva: Optional[str] = ""
+    indirizzo: Optional[str] = ""
+    note: Optional[str] = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class FornitoreCreate(BaseModel):
+    nome: str
+    referente: Optional[str] = ""
+    telefono: Optional[str] = ""
+    email: Optional[str] = ""
+    piva: Optional[str] = ""
+    indirizzo: Optional[str] = ""
+    note: Optional[str] = ""
+
+
+class Articolo(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    codice: str = ""
+    nome: str
+    descrizione: Optional[str] = ""
+    categoria: Optional[str] = ""
+    fornitore_id: Optional[str] = None
+    prezzo_acquisto: float = 0.0
+    prezzo_listino: float = 0.0
+    quantita: float = 0.0
+    scorta_minima: float = 0.0
+    unita_misura: Optional[str] = "pz"
+    immagine_base64: Optional[str] = ""
+    note: Optional[str] = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class ArticoloCreate(BaseModel):
+    codice: Optional[str] = ""
+    nome: str
+    descrizione: Optional[str] = ""
+    categoria: Optional[str] = ""
+    fornitore_id: Optional[str] = None
+    prezzo_acquisto: Optional[float] = 0.0
+    prezzo_listino: Optional[float] = 0.0
+    quantita: Optional[float] = 0.0
+    scorta_minima: Optional[float] = 0.0
+    unita_misura: Optional[str] = "pz"
+    immagine_base64: Optional[str] = ""
+    note: Optional[str] = ""
+
+
+class MovimentoMagazzino(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    articolo_id: str
+    tipo: str  # "carico" | "scarico" | "rettifica"
+    quantita: float  # positiva=carico, negativa=scarico, valore assoluto per rettifica
+    quantita_dopo: float = 0.0
+    motivo: Optional[str] = ""
+    data: str  # ISO YYYY-MM-DD
+    note: Optional[str] = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class MovimentoCreate(BaseModel):
+    articolo_id: str
+    tipo: str
+    quantita: float
+    motivo: Optional[str] = ""
+    data: Optional[str] = None
+    note: Optional[str] = ""
+
+
+class ScanArticoloRequest(BaseModel):
+    image_base64: str
+
+
+class ScanDDTRequest(BaseModel):
+    image_base64: str

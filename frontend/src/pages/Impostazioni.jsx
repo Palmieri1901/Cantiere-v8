@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import PasswordInput from "@/components/PasswordInput";
 import { toast } from "sonner";
 import { Building2, Upload, Save, RefreshCw, Trash2, ImageIcon, Download, Database, AlertTriangle, FileText, FileSignature, KeyRound, Lock } from "lucide-react";
 import { API } from "@/lib/api";
@@ -297,8 +298,7 @@ export default function Impostazioni() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl">
           <div>
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Password attuale</Label>
-            <Input
-              type="password"
+            <PasswordInput
               value={pwOld}
               onChange={(e) => setPwOld(e.target.value)}
               className="mt-1.5"
@@ -307,8 +307,7 @@ export default function Impostazioni() {
           </div>
           <div>
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nuova password</Label>
-            <Input
-              type="password"
+            <PasswordInput
               value={pwNew}
               onChange={(e) => setPwNew(e.target.value)}
               className="mt-1.5"
@@ -317,8 +316,7 @@ export default function Impostazioni() {
           </div>
           <div>
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ripeti nuova</Label>
-            <Input
-              type="password"
+            <PasswordInput
               value={pwNew2}
               onChange={(e) => setPwNew2(e.target.value)}
               className="mt-1.5"

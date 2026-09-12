@@ -40,6 +40,26 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - ✅ Frontend `Impostazioni.jsx`: sezione "Sicurezza account" con cambio password (verifica password attuale).
 - ✅ E2E test manuale: login → hit `/api/clienti` con cookie 200, senza cookie 401. Forgot → email 202 Accepted a info@gebnautica.it → token DB → reset → login con nuova password → change-password → login con originale ✅.
 
+## Iter31 (2026-02-XX) — Magazzino accessori nautici + AI vision + Password toggle
+- ✅ **Password toggle** su Login/Reset/Cambio password: nuovo componente `PasswordInput.jsx` con icona occhio, `type=text/password` togglabile.
+- ✅ **Backend router** `routers/magazzino.py` (~450 righe) con endpoint per Fornitori, Articoli, Movimenti, scan AI e export:
+  - CRUD Fornitori (`/magazzino/fornitori`): elimina distacca articoli collegati.
+  - CRUD Articoli (`/magazzino/articoli`): filtri per q/fornitore/categoria/sotto_scorta, endpoint categorie distinct, count sotto scorta.
+  - Movimenti (`/magazzino/movimenti`): tipi `carico`/`scarico`/`rettifica`, aggiornamento automatico giacenza, storico.
+  - **AI scan** (`/magazzino/scan-articolo`, `/magazzino/scan-ddt`) via **Gemini 3 Flash** (emergentintegrations + `EMERGENT_LLM_KEY`): estrae codice/nome/descrizione/prezzo da foto singolo articolo, oppure lista articoli da foto DDT italiano.
+  - **Bulk import** (`/magazzino/importa-articoli`): dopo scan DDT crea articoli nuovi o incrementa giacenza degli esistenti (match per codice), registra movimenti "Carico da DDT".
+  - **Export PDF** listino (`/magazzino/listino.pdf`) filtrabile per fornitore/categoria, formato tabellare Reportlab.
+  - **Export Excel** inventario (`/magazzino/inventario.xlsx`): colonne complete + calcolo valore giacenza + totale.
+- ✅ **Modelli**: `Fornitore`, `Articolo`, `MovimentoMagazzino` + Create variants + `ScanArticoloRequest/ScanDDTRequest`.
+- ✅ **Frontend page** `Magazzino.jsx` con 3 tab (Articoli / Fornitori / Movimenti):
+  - Tab Articoli: KPI (totali, sotto scorta, categorie, valore), search + filtri fornitore/categoria/sotto-scorta, riga rossa se sotto scorta, immagine miniatura, edit/delete, 3 modalità inserimento (manuale / Scan foto AI / Scan DDT AI), export PDF listino filtrato + Excel inventario.
+  - Tab Fornitori: CRUD completo.
+  - Tab Movimenti: carico/scarico/rettifica con dialog dedicato, tabella storico con badge tipo.
+- ✅ **Nav**: nuova voce "Magazzino" (icona Package) nel sidebar tra Posti Barca e Report.
+- ✅ **Indici MongoDB**: `articoli.codice`, `articoli.nome`, `movimenti_magazzino.articolo_id`, `movimenti_magazzino.created_at`.
+- ✅ E2E test manuale: CRUD fornitore/articolo (200), PUT articolo (200), movimenti carico→15 rettifica→8, listino PDF 200 2.3KB, inventario XLSX 200 5.5KB, AI vision Gemini scan-articolo su immagine dummy HTTP 200 con JSON valido.
+
+
 ## Preventivo + Contratto in un unico PDF (2026-02)
 - Nuovo endpoint `GET /api/clienti/{id}/preventivo-contratto.pdf` che genera preventivo, poi contratto (usando `cantiere.contratto_template`) e li unisce con `pymupdf.insert_pdf`
 - Refactor: builder contratto estratto in `build_contratto_pdf_bytes(cliente, cantiere, testo, titolo)` in `routers/contratti.py`, riusato dal nuovo endpoint

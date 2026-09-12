@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import PasswordInput from "@/components/PasswordInput";
 import { Sailboat, KeyRound, ArrowLeft, CheckCircle2, AlertCircle } from "lucide-react";
 
 function formatError(detail) {
@@ -81,8 +82,7 @@ export default function ResetPassword() {
             <form onSubmit={submit} className="space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nuova password</Label>
-                <Input
-                  type="password"
+                <PasswordInput
                   value={pw1}
                   onChange={(e) => setPw1(e.target.value)}
                   required
@@ -92,8 +92,7 @@ export default function ResetPassword() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ripeti la password</Label>
-                <Input
-                  type="password"
+                <PasswordInput
                   value={pw2}
                   onChange={(e) => setPw2(e.target.value)}
                   required

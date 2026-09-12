@@ -19,7 +19,7 @@ from auth import auth_router, seed_admin, get_current_user
 from fastapi import Depends
 from routers import (
     tariffe, clienti, lavori, stats, export,
-    cantiere, backup, preventivo, report, anni, contratti,
+    cantiere, backup, preventivo, report, anni, contratti, magazzino,
 )
 
 
@@ -45,6 +45,7 @@ api_router.include_router(preventivo.router)
 api_router.include_router(report.router)
 api_router.include_router(anni.router)
 api_router.include_router(contratti.router)
+api_router.include_router(magazzino.router)
 
 app.include_router(api_router)
 app.include_router(auth_router)
@@ -68,6 +69,14 @@ async def _startup():
         await db.password_reset_tokens.create_index("token", unique=True)
     except Exception as e:
         logger.warning(f"password_reset_tokens indexes skipped: {e}")
+    # Indici magazzino
+    try:
+        await db.articoli.create_index("codice")
+        await db.articoli.create_index("nome")
+        await db.movimenti_magazzino.create_index("articolo_id")
+        await db.movimenti_magazzino.create_index([("created_at", -1)])
+    except Exception as e:
+        logger.warning(f"magazzino indexes skipped: {e}")
     await seed_admin()
     # Migrazione iter13: scafo_sporco_attivo
     try:
