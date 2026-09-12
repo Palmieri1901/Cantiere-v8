@@ -128,6 +128,10 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - Helper `larghezza_barca(lunghezza, larghezza_personalizzata)` gestisce l'override
 - Nel PDF preventivo la sezione Imbarcazione mostra ora "L. 8 m × 3 m (24 mq)" così il cliente vede la superficie applicata
 - Nel form cliente, sotto la lunghezza, l'hint mostra in tempo reale la larghezza (con indicazione "personalizzata" se override attivo) e i mq
+
+## Iter39 (2026-02-XX) — Bottone "Gestione magazzino" in Home
+- ✅ **`Home.jsx`**: aggiunto nell'hero, subito dopo "Gestione clienti", un bottone **"Gestione magazzino"** (icona Package, `data-testid="cta-magazzino"`) che porta a `/magazzino`. Stesso stile outline dell'altro CTA per coerenza visiva.
+
 - Nuovo input "Larghezza personalizzata (m)" accanto alla lunghezza (lasciare vuoto per auto)
 - Sosta (dentro/fuori/temporanea), Copertura e Antivegetativa ora calcolati sulla **superficie occupata** in mq = lunghezza × larghezza a scaglioni
 - Larghezza automatica: **≤ 6,50 m → 2,5 m · ≤ 9 m → 3 m · > 9 m → 4 m** (helper `larghezza_barca` in `helpers.py`)
