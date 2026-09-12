@@ -1,15 +1,22 @@
 """Autenticazione: hashing password, JWT, get_current_user, endpoints e seed_admin."""
 import os
 import uuid
+import secrets
 import bcrypt
 import jwt
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Request, HTTPException, Depends, Response
 
 from database import db, logger
-from models import LoginRequest, RegisterRequest
+from models import (
+    LoginRequest, RegisterRequest,
+    ForgotPasswordRequest, ResetPasswordRequest, ChangePasswordRequest,
+)
+from email_service import send_email, build_password_reset_email
 
 JWT_ALGORITHM = "HS256"
+SESSION_DAYS = 30
+RESET_TOKEN_TTL_MIN = 60
 
 
 def hash_password(password: str) -> str:
@@ -27,7 +34,7 @@ def create_access_token(user_id: str, email: str) -> str:
     payload = {
         "sub": user_id,
         "email": email,
-        "exp": datetime.now(timezone.utc) + timedelta(hours=8),
+        "exp": datetime.now(timezone.utc) + timedelta(days=SESSION_DAYS),
         "type": "access",
     }
     return jwt.encode(payload, os.environ["JWT_SECRET"], algorithm=JWT_ALGORITHM)
@@ -60,8 +67,8 @@ auth_router = APIRouter(prefix="/api/auth")
 
 def _set_cookie(response: Response, token: str):
     response.set_cookie(
-        key="access_token", value=token, httponly=True, secure=False,
-        samesite="lax", max_age=8 * 3600, path="/",
+        key="access_token", value=token, httponly=True, secure=True,
+        samesite="lax", max_age=SESSION_DAYS * 24 * 3600, path="/",
     )
 
 
@@ -70,6 +77,8 @@ async def register(payload: RegisterRequest, response: Response):
     email = payload.email.strip().lower()
     if not email or not payload.password:
         raise HTTPException(400, "Email e password obbligatorie")
+    if len(payload.password) < 6:
+        raise HTTPException(400, "La password deve contenere almeno 6 caratteri")
     existing = await db.users.find_one({"email": email})
     if existing:
         raise HTTPException(400, "Email già registrata")
@@ -110,6 +119,103 @@ async def me(user: dict = Depends(get_current_user)):
     return {"id": user["id"], "email": user["email"], "nome": user.get("nome", ""), "role": user.get("role", "user")}
 
 
+@auth_router.post("/forgot-password")
+async def forgot_password(payload: ForgotPasswordRequest):
+    """Genera un token di reset e invia il link all'indirizzo fisso di recupero.
+
+    Per motivi di privacy la risposta è sempre 200 anche se l'email non esiste
+    nel database (evita l'enumerazione degli account).
+    """
+    email = (payload.email or "").strip().lower()
+    user = await db.users.find_one({"email": email}) if email else None
+
+    # Restituiamo sempre lo stesso messaggio per non rivelare l'esistenza dell'account.
+    generic_ok = {"ok": True, "message": "Se l'account esiste, un link di recupero è stato inviato all'email di recupero."}
+
+    if not user:
+        return generic_ok
+
+    token = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    await db.password_reset_tokens.insert_one({
+        "token": token,
+        "user_id": user["id"],
+        "user_email": user["email"],
+        "created_at": now,
+        "expires_at": now + timedelta(minutes=RESET_TOKEN_TTL_MIN),
+        "used": False,
+    })
+
+    owner_email = os.environ.get("OWNER_EMAIL", "").strip()
+    if not owner_email:
+        logger.error("OWNER_EMAIL non configurato, impossibile inviare recupero password")
+        raise HTTPException(500, "Servizio di recupero non configurato")
+
+    frontend_url = os.environ.get("FRONTEND_URL", "").rstrip("/")
+    reset_link = f"{frontend_url}/reset-password?token={token}"
+
+    subject, html = build_password_reset_email(reset_link, user["email"])
+    try:
+        await send_email(to=owner_email, subject=subject, html=html)
+    except HTTPException:
+        # In caso di problema con l'invio email, comunichiamo comunque il generic_ok
+        # ma logghiamo il link internamente così l'admin può recuperarlo dai log.
+        logger.warning(f"Reset link (email fallita) per {user['email']}: {reset_link}")
+        return generic_ok
+
+    logger.info(f"Reset password inviato a {owner_email} per account {user['email']}")
+    return generic_ok
+
+
+@auth_router.post("/reset-password")
+async def reset_password(payload: ResetPasswordRequest):
+    if not payload.token or not payload.new_password:
+        raise HTTPException(400, "Token e nuova password obbligatori")
+    if len(payload.new_password) < 6:
+        raise HTTPException(400, "La password deve contenere almeno 6 caratteri")
+
+    record = await db.password_reset_tokens.find_one({"token": payload.token})
+    if not record:
+        raise HTTPException(400, "Link non valido o già utilizzato")
+    if record.get("used"):
+        raise HTTPException(400, "Link già utilizzato")
+    expires_at = record.get("expires_at")
+    if isinstance(expires_at, datetime):
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            raise HTTPException(400, "Link scaduto")
+
+    await db.users.update_one(
+        {"id": record["user_id"]},
+        {"$set": {"password_hash": hash_password(payload.new_password)}},
+    )
+    await db.password_reset_tokens.update_one(
+        {"_id": record["_id"]},
+        {"$set": {"used": True, "used_at": datetime.now(timezone.utc)}},
+    )
+    logger.info(f"Password reimpostata per user_id={record['user_id']}")
+    return {"ok": True, "message": "Password aggiornata correttamente"}
+
+
+@auth_router.post("/change-password")
+async def change_password(payload: ChangePasswordRequest, user: dict = Depends(get_current_user)):
+    if not payload.current_password or not payload.new_password:
+        raise HTTPException(400, "Compila entrambi i campi")
+    if len(payload.new_password) < 6:
+        raise HTTPException(400, "La nuova password deve contenere almeno 6 caratteri")
+
+    full = await db.users.find_one({"id": user["id"]})
+    if not full or not verify_password(payload.current_password, full.get("password_hash", "")):
+        raise HTTPException(401, "Password attuale non corretta")
+
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {"password_hash": hash_password(payload.new_password)}},
+    )
+    return {"ok": True, "message": "Password aggiornata correttamente"}
+
+
 async def seed_admin():
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@portomare.it").strip().lower()
     admin_password = os.environ.get("ADMIN_PASSWORD", "portomare2026")
@@ -125,8 +231,12 @@ async def seed_admin():
         })
         logger.info(f"Admin seeded: {admin_email}")
     elif not verify_password(admin_password, existing.get("password_hash", "")):
-        await db.users.update_one(
-            {"email": admin_email},
-            {"$set": {"password_hash": hash_password(admin_password)}}
-        )
-        logger.info(f"Admin password updated: {admin_email}")
+        # NOTA: aggiorniamo la password solo se l'utente non l'ha mai cambiata.
+        # Se hasCustomPassword=True significa che l'admin ha già impostato la propria password:
+        # in tal caso NON sovrascriviamo con quella del .env.
+        if not existing.get("password_customized"):
+            await db.users.update_one(
+                {"email": admin_email},
+                {"$set": {"password_hash": hash_password(admin_password)}}
+            )
+            logger.info(f"Admin password aggiornata dal .env: {admin_email}")

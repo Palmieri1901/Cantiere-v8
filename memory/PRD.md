@@ -8,7 +8,8 @@ Se fuori calcolo dei costi della copertura, alaggio e varo, note dei lavori eseg
 Sono circa 200 posti barca"
 
 ## User Choices
-- Autenticazione: **Nessuna** (accesso libero, richiesta biometrica non applicabile su web)
+- Autenticazione: **JWT custom email+password** (session 30 giorni "ricordami"), single admin ora, estensibile a più utenti
+- Recupero password: **link via email** a indirizzo fisso `info@gebnautica.it`
 - Costi: **Tariffe base configurabili + override manuale per cliente**
 - Extra: **Export Excel/CSV** + integrazioni future
 - Lingua: **Italiano**
@@ -26,6 +27,18 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - `auth.py` — JWT + endpoints + seed_admin
 - `pdf_builders.py` — PDF preventivo + storico multi-anno
 - `routers/*.py` — un file per dominio: tariffe, clienti, lavori, stats, export, cantiere, backup, preventivo, report, anni
+
+
+## Iter30 (2026-02-XX) — Autenticazione con recupero password
+- ✅ Backend `auth.py`: JWT session estesa a **30 giorni**, endpoint `POST /forgot-password`, `POST /reset-password`, `POST /change-password`. Token di reset 32-byte urlsafe, TTL 1h, single-use, TTL index MongoDB.
+- ✅ Backend `email_service.py`: integrazione Resend gestita Emergent (EMERGENT_EMAIL_KEY). Template HTML italiano per password reset.
+- ✅ Backend `server.py`: `api_router` ora ha `dependencies=[Depends(get_current_user)]` — tutte le rotte `/api/*` (tranne `/api/auth/*`) richiedono cookie di sessione valido. 401 senza auth.
+- ✅ Admin seed cambiato a `sanpalmie@gmail.com` / `Portomare2026!`. Email di recupero **fissa** `info@gebnautica.it` (env `OWNER_EMAIL`).
+- ✅ Frontend `App.js`: nuovo `AuthProvider`, rotte pubbliche `/login`, `/forgot-password`, `/reset-password`, tutto il resto dentro `ProtectedRoute`.
+- ✅ Frontend nuove pagine `ForgotPassword.jsx` e `ResetPassword.jsx`, link "Password dimenticata?" in `Login.jsx`.
+- ✅ Frontend `Layout.jsx`: mostra utente loggato in sidebar + bottone **Esci**.
+- ✅ Frontend `Impostazioni.jsx`: sezione "Sicurezza account" con cambio password (verifica password attuale).
+- ✅ E2E test manuale: login → hit `/api/clienti` con cookie 200, senza cookie 401. Forgot → email 202 Accepted a info@gebnautica.it → token DB → reset → login con nuova password → change-password → login con originale ✅.
 
 ## Preventivo + Contratto in un unico PDF (2026-02)
 - Nuovo endpoint `GET /api/clienti/{id}/preventivo-contratto.pdf` che genera preventivo, poi contratto (usando `cantiere.contratto_template`) e li unisce con `pymupdf.insert_pdf`

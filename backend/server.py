@@ -15,7 +15,8 @@ from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
 
 from database import client as mongo_client, db, logger
-from auth import auth_router, seed_admin
+from auth import auth_router, seed_admin, get_current_user
+from fastapi import Depends
 from routers import (
     tariffe, clienti, lavori, stats, export,
     cantiere, backup, preventivo, report, anni, contratti,
@@ -24,7 +25,7 @@ from routers import (
 
 app = FastAPI(title="Cantiere Nautico API")
 
-api_router = APIRouter(prefix="/api")
+api_router = APIRouter(prefix="/api", dependencies=[Depends(get_current_user)])
 
 
 @api_router.get("/")
@@ -61,6 +62,12 @@ app.add_middleware(
 @app.on_event("startup")
 async def _startup():
     await db.users.create_index("email", unique=True)
+    # TTL su token di reset password: MongoDB rimuove il documento allo scadere
+    try:
+        await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
+        await db.password_reset_tokens.create_index("token", unique=True)
+    except Exception as e:
+        logger.warning(f"password_reset_tokens indexes skipped: {e}")
     await seed_admin()
     # Migrazione iter13: scafo_sporco_attivo
     try:

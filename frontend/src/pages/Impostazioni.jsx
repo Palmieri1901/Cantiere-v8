@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Building2, Upload, Save, RefreshCw, Trash2, ImageIcon, Download, Database, AlertTriangle, FileText, FileSignature } from "lucide-react";
+import { Building2, Upload, Save, RefreshCw, Trash2, ImageIcon, Download, Database, AlertTriangle, FileText, FileSignature, KeyRound, Lock } from "lucide-react";
 import { API } from "@/lib/api";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -34,6 +34,26 @@ export default function Impostazioni() {
   const restoreRef = useRef(null);
   const [restoreData, setRestoreData] = useState(null);
   const [restoring, setRestoring] = useState(false);
+  const [pwOld, setPwOld] = useState("");
+  const [pwNew, setPwNew] = useState("");
+  const [pwNew2, setPwNew2] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
+
+  const changePassword = async () => {
+    if (pwNew.length < 6) { toast.error("La nuova password deve avere almeno 6 caratteri"); return; }
+    if (pwNew !== pwNew2) { toast.error("Le due password non coincidono"); return; }
+    setPwSaving(true);
+    try {
+      await api.post("/auth/change-password", { current_password: pwOld, new_password: pwNew });
+      toast.success("Password aggiornata");
+      setPwOld(""); setPwNew(""); setPwNew2("");
+    } catch (e) {
+      const d = e.response?.data?.detail;
+      toast.error(typeof d === "string" ? d : "Impossibile aggiornare la password");
+    } finally {
+      setPwSaving(false);
+    }
+  };
 
   const load = () => api.get("/cantiere").then((r) => setC(r.data));
   useEffect(() => { load(); }, []);
@@ -261,6 +281,62 @@ export default function Impostazioni() {
           className="font-mono text-xs"
           data-testid="input-contratto-template"
         />
+      </Card>
+
+      {/* Sicurezza / Cambio password */}
+      <Card className="p-6 mt-6" data-testid="security-card">
+        <div className="label-mini mb-2 flex items-center gap-1.5">
+          <Lock className="w-3.5 h-3.5" /> Sicurezza account
+        </div>
+        <h3 className="font-display text-xl font-semibold mb-1">Cambia password</h3>
+        <p className="text-sm text-muted-foreground mb-4 max-w-2xl">
+          Aggiorna la password di accesso al gestionale. Se l'hai dimenticata usa
+          il link "Password dimenticata?" nella pagina di login: riceverai un
+          link di recupero all'indirizzo email di ripristino del cantiere.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl">
+          <div>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Password attuale</Label>
+            <Input
+              type="password"
+              value={pwOld}
+              onChange={(e) => setPwOld(e.target.value)}
+              className="mt-1.5"
+              data-testid="input-pw-current"
+            />
+          </div>
+          <div>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nuova password</Label>
+            <Input
+              type="password"
+              value={pwNew}
+              onChange={(e) => setPwNew(e.target.value)}
+              className="mt-1.5"
+              data-testid="input-pw-new"
+            />
+          </div>
+          <div>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ripeti nuova</Label>
+            <Input
+              type="password"
+              value={pwNew2}
+              onChange={(e) => setPwNew2(e.target.value)}
+              className="mt-1.5"
+              data-testid="input-pw-new2"
+            />
+          </div>
+        </div>
+        <div className="mt-4">
+          <Button
+            onClick={changePassword}
+            disabled={pwSaving || !pwOld || !pwNew || !pwNew2}
+            className="bg-primary hover:bg-primary/90"
+            data-testid="btn-change-password"
+          >
+            <KeyRound className="w-4 h-4 mr-2" />
+            {pwSaving ? "Aggiornamento…" : "Aggiorna password"}
+          </Button>
+        </div>
       </Card>
 
       {/* Backup & Restore */}

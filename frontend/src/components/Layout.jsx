@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation, Link } from "react-router-dom";
-import { LayoutDashboard, Users, Grid3x3, Settings2, Sailboat, Building2, Home as HomeIcon, FileBarChart, FileSignature } from "lucide-react";
+import { NavLink, Outlet, useLocation, Link, useNavigate } from "react-router-dom";
+import { LayoutDashboard, Users, Grid3x3, Settings2, Sailboat, Building2, Home as HomeIcon, FileBarChart, FileSignature, LogOut, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import YearSelector from "@/components/YearSelector";
+import { Button } from "@/components/ui/button";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
@@ -17,6 +19,8 @@ const nav = [
 
 export default function Layout() {
   const loc = useLocation();
+  const nav = useNavigate();
+  const { user, logout } = useAuth();
   const [c, setC] = useState(null);
 
   useEffect(() => {
@@ -24,6 +28,11 @@ export default function Layout() {
   }, []);
 
   const brandName = c?.nome || "Portomare";
+
+  const handleLogout = async () => {
+    await logout();
+    nav("/login", { replace: true });
+  };
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -76,10 +85,33 @@ export default function Layout() {
             );
           })}
         </nav>
-        <div className="p-4 border-t border-border/60">
-          <div className="label-mini mb-1">Capacità</div>
-          <div className="font-mono-num text-2xl font-semibold">200</div>
-          <div className="text-xs text-muted-foreground">posti barca totali</div>
+        <div className="p-4 border-t border-border/60 space-y-3">
+          {user && user !== false && (
+            <div className="flex items-center gap-2 text-xs" data-testid="sidebar-user">
+              <div className="w-8 h-8 rounded-full bg-primary/10 text-primary grid place-items-center shrink-0">
+                <User className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold truncate">{user.nome || user.email}</div>
+                <div className="text-muted-foreground truncate text-[11px]">{user.email}</div>
+              </div>
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-start text-xs"
+            onClick={handleLogout}
+            data-testid="btn-logout"
+          >
+            <LogOut className="w-3.5 h-3.5 mr-2" />
+            Esci
+          </Button>
+          <div>
+            <div className="label-mini mb-1">Capacità</div>
+            <div className="font-mono-num text-2xl font-semibold">200</div>
+            <div className="text-xs text-muted-foreground">posti barca totali</div>
+          </div>
         </div>
       </aside>
 
