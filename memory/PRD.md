@@ -102,6 +102,16 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - ✅ La lavorazione_extra viene aggiunta come `descrizione = "[COD] Nome × Q pz"` con `prezzo = Q × prezzo_listino` calcolato lato client. Il totale del preventivo si aggiorna automaticamente.
 
 
+
+## Iter37 (2026-02-XX) — Ricerca live articolo magazzino nel dialog preventivo
+- ✅ **`ClienteForm.jsx`** — Dialog "Da magazzino" rifatto con combobox custom:
+  - Input di ricerca con auto-focus che filtra in tempo reale su **codice + nome + descrizione + categoria** (case-insensitive)
+  - Lista scrollabile (max 56 righe visibili) con icona, codice, nome, descrizione, prezzo/UM, giacenza, categoria
+  - Selezionato l'articolo, viene mostrata una card di conferma con bottone "X" per cambiare selezione
+  - Fallback: lista vuota → messaggio "Nessun risultato per '...'", magazzino vuoto → messaggio dedicato
+  - Se articoli > 30 senza query, mostra hint "Digita per cercare tra N articoli…"
+- ✅ Build frontend pulita (nessun warning nuovo).
+
 ## MQ nel PDF + Larghezza personalizzata (2026-02)
 - Nuovo campo Cliente `larghezza_personalizzata` (opzionale): se impostato sovrascrive la larghezza automatica a scaglioni
 - Helper `larghezza_barca(lunghezza, larghezza_personalizzata)` gestisce l'override

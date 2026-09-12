@@ -67,6 +67,7 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
   const [magPickerOpen, setMagPickerOpen] = useState(false);
   const [magPickerId, setMagPickerId] = useState("");
   const [magPickerQty, setMagPickerQty] = useState(1);
+  const [magPickerQuery, setMagPickerQuery] = useState("");
   const { year } = useYear();
 
   useEffect(() => {
@@ -882,7 +883,7 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => { setMagPickerId(""); setMagPickerQty(1); setMagPickerOpen(true); }}
+                  onClick={() => { setMagPickerId(""); setMagPickerQty(1); setMagPickerQuery(""); setMagPickerOpen(true); }}
                   disabled={(f.lavorazioni_extra || []).length >= MAX_EXTRA}
                   data-testid="btn-add-from-magazzino"
                 >
@@ -1022,22 +1023,84 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
           <div className="space-y-3">
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Articolo</Label>
-              <Select value={magPickerId} onValueChange={setMagPickerId}>
-                <SelectTrigger className="mt-1.5" data-testid="mag-picker-select">
-                  <SelectValue placeholder="Seleziona un articolo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {articoliMag.length === 0 && (
-                    <div className="px-2 py-1.5 text-xs text-muted-foreground">Nessun articolo in magazzino</div>
-                  )}
-                  {articoliMag.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.codice ? `[${a.codice}] ` : ""}{a.nome}
-                      <span className="text-muted-foreground text-xs"> · {fmtEuro(a.prezzo_listino)}/{a.unita_misura || "pz"}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {(() => {
+                const selected = articoliMag.find((x) => x.id === magPickerId);
+                if (selected) {
+                  return (
+                    <div className="mt-1.5 flex items-center gap-2 rounded-md border border-primary/40 bg-primary/5 p-2.5" data-testid="mag-picker-selected">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">
+                          {selected.codice && <span className="font-mono text-xs text-muted-foreground mr-1.5">[{selected.codice}]</span>}
+                          {selected.nome}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {fmtEuro(selected.prezzo_listino)}/{selected.unita_misura || "pz"}
+                          {" · giacenza "}{selected.quantita} {selected.unita_misura || "pz"}
+                          {selected.categoria && <span className="ml-2">· {selected.categoria}</span>}
+                        </div>
+                      </div>
+                      <Button type="button" size="icon" variant="ghost" onClick={() => { setMagPickerId(""); setMagPickerQuery(""); }} data-testid="mag-picker-clear">
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  );
+                }
+                const q = magPickerQuery.trim().toLowerCase();
+                const filtered = q === ""
+                  ? articoliMag.slice(0, 30)
+                  : articoliMag.filter((a) =>
+                      [a.codice, a.nome, a.descrizione, a.categoria]
+                        .filter(Boolean).some((v) => String(v).toLowerCase().includes(q))
+                    ).slice(0, 50);
+                return (
+                  <div className="mt-1.5 space-y-2">
+                    <Input
+                      autoFocus
+                      value={magPickerQuery}
+                      onChange={(e) => setMagPickerQuery(e.target.value)}
+                      placeholder="Cerca per codice, nome, descrizione…"
+                      data-testid="mag-picker-search"
+                    />
+                    <div className="max-h-56 overflow-y-auto rounded-md border border-border divide-y divide-border/60" data-testid="mag-picker-list">
+                      {articoliMag.length === 0 && (
+                        <div className="px-3 py-3 text-xs text-muted-foreground text-center">Nessun articolo in magazzino</div>
+                      )}
+                      {articoliMag.length > 0 && filtered.length === 0 && (
+                        <div className="px-3 py-3 text-xs text-muted-foreground text-center">Nessun risultato per "{magPickerQuery}"</div>
+                      )}
+                      {filtered.map((a) => (
+                        <button
+                          type="button"
+                          key={a.id}
+                          onClick={() => setMagPickerId(a.id)}
+                          className="w-full text-left px-3 py-2 hover:bg-muted/60 transition-colors flex items-start gap-2 group"
+                          data-testid={`mag-picker-opt-${a.id}`}
+                        >
+                          <Package className="w-3.5 h-3.5 mt-0.5 text-muted-foreground group-hover:text-primary shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm">
+                              {a.codice && <span className="font-mono text-xs text-muted-foreground mr-1.5">[{a.codice}]</span>}
+                              <span className="font-medium">{a.nome}</span>
+                            </div>
+                            {a.descrizione && (
+                              <div className="text-[11px] text-muted-foreground truncate">{a.descrizione}</div>
+                            )}
+                            <div className="text-[11px] text-muted-foreground/80">
+                              {fmtEuro(a.prezzo_listino)}/{a.unita_misura || "pz"} · giac. {a.quantita}
+                              {a.categoria && <> · {a.categoria}</>}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    {articoliMag.length > 30 && !q && (
+                      <div className="text-[10px] text-muted-foreground text-center">
+                        Digita per cercare tra {articoliMag.length} articoli…
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <div>
