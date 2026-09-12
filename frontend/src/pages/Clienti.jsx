@@ -42,10 +42,16 @@ export default function Clienti() {
 
   const load = () => {
     setLoading(true);
-    api.get(`/clienti?anno=${year}`).then((r) => {
-      setClienti(r.data);
-      setLoading(false);
-    });
+    api.get(`/clienti?anno=${year}`)
+      .then((r) => setClienti(r.data))
+      .catch((e) => {
+        const status = e?.response?.status;
+        if (status !== 401) {
+          toast.error(e.response?.data?.detail || "Impossibile caricare i clienti");
+        }
+        setClienti([]);
+      })
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, [year]);

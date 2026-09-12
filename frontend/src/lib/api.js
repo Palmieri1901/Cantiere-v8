@@ -7,7 +7,25 @@ export const api = axios.create({
   baseURL: API,
   headers: { "Content-Type": "application/json" },
   withCredentials: true,
+  timeout: 30000,
 });
+
+// Interceptor: su 401 reindirizza al login (sessione scaduta o mancante)
+api.interceptors.response.use(
+  (r) => r,
+  (err) => {
+    const status = err?.response?.status;
+    const url = err?.config?.url || "";
+    // Evita loop se già sulla pagina di login o su endpoint di auth
+    if (status === 401 && !url.includes("/auth/")) {
+      const path = window.location.pathname;
+      if (!path.startsWith("/login") && !path.startsWith("/forgot-password") && !path.startsWith("/reset-password")) {
+        window.location.replace(`/login?redirect=${encodeURIComponent(path)}`);
+      }
+    }
+    return Promise.reject(err);
+  }
+);
 
 export const fmtEuro = (n) =>
   new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);

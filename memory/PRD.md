@@ -78,6 +78,13 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - ✅ E2E: creato lavoro con 3pz su articolo giacenza 20 → 17. DELETE → 20 ✓. Movimenti: scarico -3 + carico +3 di storno ✓. Edge case articolo eliminato dal magazzino → `articoli_saltati:1`, nessun errore ✓.
 
 - Refactor: builder contratto estratto in `build_contratto_pdf_bytes(cliente, cantiere, testo, titolo)` in `routers/contratti.py`, riusato dal nuovo endpoint
+
+## Iter34 (2026-02-XX) — Hotfix pagina bloccata
+- 🐛 **Fix `TypeError: nav.map is not a function`** in `Layout.jsx`: la costante `nav` (array del menu) veniva sovrascritta dalla local `const nav = useNavigate()` introdotta con la feature Logout. Ora `useNavigate()` è assegnato a `navigate` per evitare shadow.
+- ✅ **`lib/api.js`**: aggiunto timeout 30s e interceptor axios su risposta 401 che reindirizza automaticamente a `/login?redirect=<path>` — evita spinner infiniti quando la sessione scade a metà navigazione.
+- ✅ **`Clienti.jsx`**: `.then` sostituito con `try/catch` + `.finally` per rimuovere lo spinner e mostrare un toast in caso di errore di rete.
+- ✅ **`server.py` CORS**: `allow_origins` esplicito su `FRONTEND_URL` (anziché `*`) per essere compatibile con `allow_credentials=True` nei browser moderni.
+
 - Nuovo bottone icona (FileSignature) sulla riga cliente in `Clienti.jsx` accanto al PDF preventivo
 - Verificato: 3 pagine totali con "PREVENTIVO", "CONTRATTO" e "CLAUSOLE VESSATORIE" presenti nel PDF unificato
 

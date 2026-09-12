@@ -20,7 +20,7 @@ const nav = [
 
 export default function Layout() {
   const loc = useLocation();
-  const nav = useNavigate();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [c, setC] = useState(null);
 
@@ -32,7 +32,7 @@ export default function Layout() {
 
   const handleLogout = async () => {
     await logout();
-    nav("/login", { replace: true });
+    navigate("/login", { replace: true });
   };
 
   return (
