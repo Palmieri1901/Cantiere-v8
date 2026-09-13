@@ -132,6 +132,14 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 ## Iter39 (2026-02-XX) — Bottone "Gestione magazzino" in Home
 - ✅ **`Home.jsx`**: aggiunto nell'hero, subito dopo "Gestione clienti", un bottone **"Gestione magazzino"** (icona Package, `data-testid="cta-magazzino"`) che porta a `/magazzino`. Stesso stile outline dell'altro CTA per coerenza visiva.
 
+## Iter40 (2026-02-XX) — Ricarico % editabile nel form articolo
+- ✅ **`Magazzino.jsx` — ArticoloForm**: nuovo campo **Ricarico % (modificabile)** subito dopo i due prezzi. Comportamento bidirezionale:
+  - Se il prezzo di acquisto è impostato e l'utente scrive un ricarico → il **prezzo di vendita** si ricalcola automaticamente (`acquisto × (1 + ricarico/100)`).
+  - Se il prezzo di vendita viene modificato manualmente → il ricarico si aggiorna a sua volta nel campo (perché il valore mostrato è derivato).
+  - Se non c'è ancora il prezzo di acquisto, il valore inserito viene memorizzato come "ricarico atteso" con un toast informativo che invita a inserire prima il costo.
+- ✅ La card riassuntiva "Ricarico calcolato · margine €" resta visibile quando entrambi i prezzi sono presenti.
+
+
 - Nuovo input "Larghezza personalizzata (m)" accanto alla lunghezza (lasciare vuoto per auto)
 - Sosta (dentro/fuori/temporanea), Copertura e Antivegetativa ora calcolati sulla **superficie occupata** in mq = lunghezza × larghezza a scaglioni
 - Larghezza automatica: **≤ 6,50 m → 2,5 m · ≤ 9 m → 3 m · > 9 m → 4 m** (helper `larghezza_barca` in `helpers.py`)

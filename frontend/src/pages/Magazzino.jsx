@@ -477,6 +477,41 @@ function ArticoloForm({ open, onOpenChange, value, fornitori, onSaved }) {
           <FormField label="Prezzo vendita €">
             <Input type="number" step="0.01" value={form.prezzo_listino} onChange={(e) => set("prezzo_listino", e.target.value)} data-testid="input-prezzo-listino" />
           </FormField>
+          <FormField label="Ricarico % (modificabile)" full>
+            {(() => {
+              const pa = Number(form.prezzo_acquisto || 0);
+              const pv = Number(form.prezzo_listino || 0);
+              const calcolato = pa > 0 && pv > 0 ? ((pv - pa) / pa) * 100 : null;
+              const displayed = calcolato !== null ? calcolato.toFixed(1) : "";
+              const onRicaricoChange = (val) => {
+                const num = parseFloat(val);
+                if (Number.isNaN(num)) return;
+                if (pa > 0) {
+                  // Aggiorna prezzo vendita in base al ricarico
+                  const nuovoPv = +(pa * (1 + num / 100)).toFixed(2);
+                  set("prezzo_listino", nuovoPv);
+                } else {
+                  // Nessun prezzo di acquisto: memorizzo il ricarico "desiderato"
+                  set("_ricarico_atteso", num);
+                  toast.info("Imposta prima il prezzo di acquisto per calcolare la vendita");
+                }
+              };
+              return (
+                <div className="relative">
+                  <Input
+                    type="number"
+                    step="0.1"
+                    placeholder={pa > 0 ? "es. 30" : "Inserisci prezzo acquisto per calcolare"}
+                    value={displayed || form._ricarico_atteso || ""}
+                    onChange={(e) => onRicaricoChange(e.target.value)}
+                    className="pr-8 font-mono-num"
+                    data-testid="input-ricarico"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                </div>
+              );
+            })()}
+          </FormField>
           {(() => {
             const pa = Number(form.prezzo_acquisto || 0);
             const pv = Number(form.prezzo_listino || 0);
