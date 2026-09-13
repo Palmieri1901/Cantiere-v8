@@ -15,6 +15,7 @@ from models import (
     Fornitore, FornitoreCreate,
     MovimentoMagazzino, MovimentoCreate,
     ScanArticoloRequest, ScanDDTRequest,
+    RicaricoCategoria, RicaricoCategoriaCreate,
 )
 
 
@@ -388,13 +389,60 @@ from pydantic import BaseModel as _BM
 class ImportArticoliRequest(_BM):
     fornitore_id: Optional[str] = None
     articoli: List[dict]
+    aggiorna_prezzi: Optional[bool] = True  # aggiorna prezzo acquisto degli articoli esistenti
+    mantieni_ricarico: Optional[bool] = True  # mantiene il ricarico % corrente ricalcolando la vendita
+
+
+async def _default_markup_for(categoria: Optional[str]) -> Optional[float]:
+    if not categoria:
+        return None
+    doc = await db.ricarichi_categoria.find_one({"categoria": categoria.strip()}, {"_id": 0, "ricarico_percent": 1})
+    if doc and isinstance(doc.get("ricarico_percent"), (int, float)):
+        return float(doc["ricarico_percent"])
+    return None
+
+
+@router.get("/ricarichi-categoria", response_model=List[RicaricoCategoria])
+async def list_ricarichi():
+    docs = await db.ricarichi_categoria.find({}, {"_id": 0}).sort("categoria", 1).to_list(500)
+    return [RicaricoCategoria(**_to_dt(d)) for d in docs]
+
+
+@router.post("/ricarichi-categoria", response_model=RicaricoCategoria)
+async def upsert_ricarico(payload: RicaricoCategoriaCreate):
+    cat = (payload.categoria or "").strip()
+    if not cat:
+        raise HTTPException(400, "Categoria obbligatoria")
+    # Upsert su categoria
+    existing = await db.ricarichi_categoria.find_one({"categoria": cat}, {"_id": 0})
+    if existing:
+        await db.ricarichi_categoria.update_one(
+            {"categoria": cat}, {"$set": {"ricarico_percent": float(payload.ricarico_percent)}}
+        )
+        existing["ricarico_percent"] = float(payload.ricarico_percent)
+        return RicaricoCategoria(**_to_dt(existing))
+    r = RicaricoCategoria(categoria=cat, ricarico_percent=float(payload.ricarico_percent))
+    await db.ricarichi_categoria.insert_one(r.model_dump())
+    return r
+
+
+@router.delete("/ricarichi-categoria/{rid}")
+async def delete_ricarico(rid: str):
+    res = await db.ricarichi_categoria.delete_one({"id": rid})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Ricarico non trovato")
+    return {"ok": True}
 
 
 @router.post("/importa-articoli")
 async def importa_articoli(payload: ImportArticoliRequest):
-    """Importa in blocco articoli dopo scan DDT. Se codice esiste già → carico
-    quantità; se nuovo → crea articolo."""
-    created, updated = 0, 0
+    """Importa in blocco articoli dopo scan DDT.
+    - Articolo esistente (match per codice): se aggiorna_prezzi=True aggiorna prezzo_acquisto
+      e, se mantieni_ricarico=True, ricalcola prezzo_listino mantenendo il ricarico corrente.
+    - Articolo nuovo: crea articolo; se esiste un ricarico default per la sua categoria
+      calcola automaticamente prezzo_listino = prezzo_acquisto × (1 + ricarico/100).
+    """
+    created, updated, prezzi_aggiornati = 0, 0, 0
     for a in payload.articoli:
         codice = (a.get("codice") or "").strip()
         nome = (a.get("nome") or "").strip()
@@ -407,30 +455,48 @@ async def importa_articoli(payload: ImportArticoliRequest):
         if codice:
             existing = await db.articoli.find_one({"codice": codice}, {"_id": 0})
         if existing:
-            nuova_qt = float(existing.get("quantita", 0)) + qt
-            await db.articoli.update_one(
-                {"id": existing["id"]},
-                {"$set": {
-                    "quantita": nuova_qt,
-                    "prezzo_acquisto": prezzo if prezzo > 0 else existing.get("prezzo_acquisto", 0),
-                    "fornitore_id": payload.fornitore_id or existing.get("fornitore_id"),
-                    "updated_at": datetime.now(timezone.utc),
-                }},
-            )
+            update_set = {
+                "quantita": float(existing.get("quantita", 0)) + qt,
+                "fornitore_id": payload.fornitore_id or existing.get("fornitore_id"),
+                "updated_at": datetime.now(timezone.utc),
+            }
+            if prezzo > 0 and payload.aggiorna_prezzi:
+                old_pa = float(existing.get("prezzo_acquisto") or 0)
+                old_pv = float(existing.get("prezzo_listino") or 0)
+                update_set["prezzo_acquisto"] = prezzo
+                if payload.mantieni_ricarico and old_pa > 0 and old_pv > 0:
+                    ricarico = (old_pv - old_pa) / old_pa
+                    update_set["prezzo_listino"] = round(prezzo * (1 + ricarico), 2)
+                elif payload.mantieni_ricarico:
+                    # ricarico corrente non calcolabile: prova con default categoria
+                    default_mkup = await _default_markup_for(existing.get("categoria"))
+                    if default_mkup is not None:
+                        update_set["prezzo_listino"] = round(prezzo * (1 + default_mkup / 100), 2)
+                prezzi_aggiornati += 1
+            await db.articoli.update_one({"id": existing["id"]}, {"$set": update_set})
             mv = MovimentoMagazzino(
                 articolo_id=existing["id"], tipo="carico", quantita=qt,
-                quantita_dopo=nuova_qt, motivo="Carico da DDT",
+                quantita_dopo=update_set["quantita"], motivo="Carico da DDT",
                 data=datetime.now().strftime("%Y-%m-%d"),
                 note=a.get("descrizione", ""),
             )
             await db.movimenti_magazzino.insert_one(mv.model_dump())
             updated += 1
         else:
+            categoria = (a.get("categoria") or "").strip()
+            prezzo_listino = 0.0
+            if prezzo > 0:
+                default_mkup = await _default_markup_for(categoria)
+                if default_mkup is not None:
+                    prezzo_listino = round(prezzo * (1 + default_mkup / 100), 2)
+                else:
+                    prezzo_listino = prezzo  # senza default, prezzo di vendita = acquisto
             art = Articolo(
                 codice=codice, nome=nome or codice,
                 descrizione=a.get("descrizione", ""),
+                categoria=categoria,
                 fornitore_id=payload.fornitore_id,
-                prezzo_acquisto=prezzo, prezzo_listino=prezzo,
+                prezzo_acquisto=prezzo, prezzo_listino=prezzo_listino,
                 quantita=qt,
             )
             await db.articoli.insert_one(art.model_dump())
@@ -442,7 +508,7 @@ async def importa_articoli(payload: ImportArticoliRequest):
                 )
                 await db.movimenti_magazzino.insert_one(mv.model_dump())
             created += 1
-    return {"created": created, "updated": updated}
+    return {"created": created, "updated": updated, "prezzi_aggiornati": prezzi_aggiornati}
 
 
 # ---------------------------------------------------------------------------

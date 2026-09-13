@@ -525,3 +525,16 @@ class ScanDDTRequest(BaseModel):
     image_base64: Optional[str] = None
     file_base64: Optional[str] = None
     mime_type: Optional[str] = None
+
+
+class RicaricoCategoria(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    categoria: str
+    ricarico_percent: float = 30.0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class RicaricoCategoriaCreate(BaseModel):
+    categoria: str
+    ricarico_percent: float

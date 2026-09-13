@@ -19,6 +19,7 @@ import {
   Package, Plus, Search, Trash2, Pencil, FileDown, FileSpreadsheet,
   Sparkles, Camera, ScanLine, AlertTriangle, Building2, ArrowUpCircle,
   ArrowDownCircle, RefreshCw, Filter, Image as ImageIcon, X, ShoppingCart,
+  Percent, Save,
 } from "lucide-react";
 
 const EMPTY_ART = {
@@ -91,6 +92,7 @@ function ArticoliTab() {
   const [exportForn, setExportForn] = useState("all");
   const [exportCat, setExportCat] = useState("all");
   const [exportOpen, setExportOpen] = useState(false);
+  const [ricarichiOpen, setRicarichiOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -226,6 +228,9 @@ function ArticoliTab() {
           <Button variant="outline" onClick={() => setDdtOpen(true)} data-testid="btn-scan-ddt">
             <ScanLine className="w-4 h-4 mr-1.5" /> Scan DDT (AI)
           </Button>
+          <Button variant="outline" onClick={() => setRicarichiOpen(true)} data-testid="btn-ricarichi-categoria">
+            <Percent className="w-4 h-4 mr-1.5" /> Ricarichi categoria
+          </Button>
           <div className="ml-auto flex gap-2">
             <Button variant="outline" onClick={() => setExportOpen(true)} data-testid="btn-listino-pdf">
               <FileDown className="w-4 h-4 mr-1.5" /> Listino PDF
@@ -325,6 +330,12 @@ function ArticoliTab() {
         onOpenChange={setDdtOpen}
         fornitori={fornitori}
         onDone={() => { setDdtOpen(false); load(); }}
+      />
+
+      <RicarichiCategoriaDialog
+        open={ricarichiOpen}
+        onOpenChange={setRicarichiOpen}
+        categorie={categorie}
       />
 
       {/* Export listino filtrato */}
@@ -762,11 +773,14 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
   const [rows, setRows] = useState([]);
   const [fornitoreId, setFornitoreId] = useState("none");
   const [saving, setSaving] = useState(false);
+  const [aggiornaPrezzi, setAggiornaPrezzi] = useState(true);
+  const [mantieniRicarico, setMantieniRicarico] = useState(true);
 
   useEffect(() => {
     if (open) {
       setImage(""); setFileName(""); setFileB64(""); setFileMime(""); setIsPdf(false);
       setResult(null); setRows([]); setFornitoreId("none");
+      setAggiornaPrezzi(true); setMantieniRicarico(true);
     }
   }, [open]);
 
@@ -816,8 +830,13 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
       const r = await api.post("/magazzino/importa-articoli", {
         fornitore_id: fornitoreId === "none" ? null : fornitoreId,
         articoli: sel,
+        aggiorna_prezzi: aggiornaPrezzi,
+        mantieni_ricarico: mantieniRicarico,
       });
-      toast.success(`Importati: ${r.data.created} nuovi, ${r.data.updated} ricaricati`);
+      const pa = r.data.prezzi_aggiornati || 0;
+      toast.success(
+        `Importati: ${r.data.created} nuovi, ${r.data.updated} ricaricati${pa > 0 ? `, ${pa} prezzi aggiornati` : ""}`
+      );
       onDone();
     } catch (e) {
       toast.error(e.response?.data?.detail || "Errore importazione");
@@ -897,6 +916,40 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
             </div>
           </div>
 
+          {rows.length > 0 && (
+            <div className="mb-3 rounded-md border border-primary/30 bg-primary/5 p-3 space-y-2" data-testid="ddt-price-options">
+              <div className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                <Percent className="w-3.5 h-3.5" /> Gestione prezzi articoli esistenti
+              </div>
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={aggiornaPrezzi}
+                  onChange={(e) => setAggiornaPrezzi(e.target.checked)}
+                  data-testid="ddt-check-aggiorna"
+                />
+                <span>
+                  <b>Aggiorna prezzo di acquisto</b>
+                  <span className="block text-xs text-muted-foreground">Se l'articolo è già a listino, sostituisci il prezzo con quello nuovo del DDT.</span>
+                </span>
+              </label>
+              <label className={`flex items-start gap-2 text-sm cursor-pointer ${!aggiornaPrezzi ? "opacity-40" : ""}`}>
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  disabled={!aggiornaPrezzi}
+                  checked={mantieniRicarico}
+                  onChange={(e) => setMantieniRicarico(e.target.checked)}
+                  data-testid="ddt-check-mantieni-ricarico"
+                />
+                <span>
+                  <b>Mantieni il ricarico corrente</b>
+                  <span className="block text-xs text-muted-foreground">Ricalcola automaticamente il prezzo di vendita conservando la percentuale di ricarico attuale (se non presente usa il default della categoria).</span>
+                </span>
+              </label>
+            </div>
+          )}
           {rows.length > 0 && (
             <div className="rounded-md border border-border overflow-hidden">
               <Table>
@@ -1230,5 +1283,186 @@ function MovimentiTab() {
         </DialogContent>
       </Dialog>
     </Card>
+  );
+}
+
+
+// ============================================================================
+// DIALOG: Ricarichi Categoria (default markup per categoria)
+// ============================================================================
+
+function RicarichiCategoriaDialog({ open, onOpenChange, categorie }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [nuovaCat, setNuovaCat] = useState("");
+  const [nuovoPercent, setNuovoPercent] = useState(30);
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await api.get("/magazzino/ricarichi-categoria");
+      setItems(r.data);
+    } catch {
+      toast.error("Errore caricamento ricarichi");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { if (open) load(); }, [open]);
+
+  const saveOne = async (categoria, ricarico_percent) => {
+    try {
+      await api.post("/magazzino/ricarichi-categoria", {
+        categoria, ricarico_percent: Number(ricarico_percent),
+      });
+      toast.success(`Ricarico salvato: ${categoria} → +${ricarico_percent}%`);
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Errore salvataggio");
+    }
+  };
+
+  const remove = async (id) => {
+    try {
+      await api.delete(`/magazzino/ricarichi-categoria/${id}`);
+      toast.success("Rimosso");
+      load();
+    } catch {
+      toast.error("Errore");
+    }
+  };
+
+  const aggiungi = async () => {
+    const cat = nuovaCat.trim();
+    if (!cat) { toast.error("Inserisci la categoria"); return; }
+    const p = Number(nuovoPercent);
+    if (!Number.isFinite(p)) { toast.error("Ricarico non valido"); return; }
+    setSaving(true);
+    await saveOne(cat, p);
+    setNuovaCat(""); setNuovoPercent(30);
+    setSaving(false);
+  };
+
+  const categorieNonMappate = categorie.filter((c) => !items.some((i) => i.categoria === c));
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl" data-testid="dialog-ricarichi">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Percent className="w-4 h-4 text-primary" /> Ricarichi predefiniti per categoria
+          </DialogTitle>
+          <DialogDescription>
+            Imposta un ricarico % standard per ogni categoria. Sarà applicato automaticamente:
+            <span className="block mt-1">• ai <b>nuovi articoli</b> importati dal DDT (calcolando il prezzo di vendita)</span>
+            <span className="block">• agli articoli aggiornati dal DDT senza ricarico corrente</span>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="max-h-[55vh] overflow-y-auto pr-1 space-y-3">
+          {/* Nuovo ricarico */}
+          <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-2">
+            <div className="text-xs font-semibold uppercase tracking-wider text-primary">Aggiungi ricarico</div>
+            <div className="flex flex-wrap gap-2">
+              {categorieNonMappate.length > 0 ? (
+                <Select value={nuovaCat} onValueChange={setNuovaCat}>
+                  <SelectTrigger className="w-[220px]" data-testid="ricarichi-select-cat"><SelectValue placeholder="Categoria esistente" /></SelectTrigger>
+                  <SelectContent>
+                    {categorieNonMappate.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={nuovaCat}
+                  onChange={(e) => setNuovaCat(e.target.value)}
+                  placeholder="Nome categoria (es. Ferramenta)"
+                  className="w-[220px]"
+                />
+              )}
+              <Input
+                value={nuovaCat}
+                onChange={(e) => setNuovaCat(e.target.value)}
+                placeholder="oppure digitala"
+                className="w-[220px]"
+                data-testid="ricarichi-input-cat"
+              />
+              <div className="relative w-[110px]">
+                <Input
+                  type="number" step="0.1"
+                  value={nuovoPercent}
+                  onChange={(e) => setNuovoPercent(e.target.value)}
+                  className="pr-8 font-mono-num"
+                  data-testid="ricarichi-input-perc"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+              </div>
+              <Button onClick={aggiungi} disabled={saving || !nuovaCat.trim()} className="bg-primary hover:bg-primary/90" data-testid="btn-ricarichi-add">
+                <Plus className="w-4 h-4 mr-1" /> Aggiungi
+              </Button>
+            </div>
+          </div>
+
+          {/* Lista ricarichi */}
+          <div className="rounded-md border border-border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40">
+                  <TableHead>Categoria</TableHead>
+                  <TableHead className="text-right w-[160px]">Ricarico %</TableHead>
+                  <TableHead className="text-right w-[80px]">Azioni</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading && <TableRow><TableCell colSpan={3} className="text-center py-6 text-muted-foreground">Caricamento…</TableCell></TableRow>}
+                {!loading && items.length === 0 && (
+                  <TableRow><TableCell colSpan={3} className="text-center py-6 text-muted-foreground" data-testid="empty-ricarichi">Nessun ricarico impostato</TableCell></TableRow>
+                )}
+                {items.map((it) => (
+                  <RicaricoRow key={it.id} item={it} onSave={saveOne} onDelete={() => remove(it.id)} />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Chiudi</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RicaricoRow({ item, onSave, onDelete }) {
+  const [val, setVal] = useState(item.ricarico_percent);
+  const dirty = Number(val) !== Number(item.ricarico_percent);
+  return (
+    <TableRow data-testid={`row-ricarico-${item.id}`}>
+      <TableCell className="font-medium">{item.categoria}</TableCell>
+      <TableCell className="text-right">
+        <div className="relative w-[110px] inline-block">
+          <Input
+            type="number" step="0.1"
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            className="pr-8 h-8 text-right font-mono-num"
+            data-testid={`input-ricarico-${item.id}`}
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">%</span>
+        </div>
+      </TableCell>
+      <TableCell className="text-right">
+        {dirty && (
+          <Button size="icon" variant="ghost" onClick={() => onSave(item.categoria, val)} data-testid={`btn-save-ricarico-${item.id}`}>
+            <Save className="w-3.5 h-3.5 text-primary" />
+          </Button>
+        )}
+        <Button size="icon" variant="ghost" onClick={onDelete} data-testid={`btn-del-ricarico-${item.id}`}>
+          <Trash2 className="w-3.5 h-3.5 text-destructive" />
+        </Button>
+      </TableCell>
+    </TableRow>
   );
 }

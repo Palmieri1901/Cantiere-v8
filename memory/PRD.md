@@ -144,6 +144,19 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - Sosta (dentro/fuori/temporanea), Copertura e Antivegetativa ora calcolati sulla **superficie occupata** in mq = lunghezza × larghezza a scaglioni
 - Larghezza automatica: **≤ 6,50 m → 2,5 m · ≤ 9 m → 3 m · > 9 m → 4 m** (helper `larghezza_barca` in `helpers.py`)
 - Tariffe rinominate a €/mq (chiavi campo invariate per compatibilità DB, solo etichette e listino PDF aggiornati)
+
+## Iter41 (2026-02-XX) — Aggiorna prezzi da DDT + Ricarichi default per categoria
+- ✅ **Modello `RicaricoCategoria`**: nuova collezione `ricarichi_categoria` `{id, categoria, ricarico_percent, created_at}`.
+- ✅ **Backend `magazzino.py`** nuovi endpoint:
+  - `GET /magazzino/ricarichi-categoria` · `POST /magazzino/ricarichi-categoria` (upsert su categoria unica) · `DELETE /magazzino/ricarichi-categoria/{id}`
+- ✅ **`POST /magazzino/importa-articoli`** ora accetta `aggiorna_prezzi` e `mantieni_ricarico`:
+  - **Articolo esistente**: se aggiorna_prezzi=True aggiorna `prezzo_acquisto` col nuovo prezzo DDT; se mantieni_ricarico=True, ricalcola `prezzo_listino` conservando la percentuale di ricarico corrente (`(old_pv - old_pa) / old_pa`). Se il ricarico corrente non è calcolabile prova con il default della categoria.
+  - **Articolo nuovo**: se esiste un ricarico default per la sua categoria, calcola `prezzo_listino = prezzo_acquisto × (1 + ricarico/100)`. Altrimenti `prezzo_listino = prezzo_acquisto`.
+  - Risposta arricchita con `prezzi_aggiornati` (contatore).
+- ✅ **`Magazzino.jsx`**: nuovo bottone **"Ricarichi categoria"** (icona Percent) nella toolbar Articoli. Dialog dedicato con lista + inline edit + delete + aggiunta rapida (dropdown categorie esistenti oppure input libero).
+- ✅ **Dialog Scan DDT**: nuovo box "Gestione prezzi articoli esistenti" con 2 checkbox (`Aggiorna prezzo di acquisto` + `Mantieni il ricarico corrente`) attive di default, che passano i flag alla chiamata di import. Toast finale include `N prezzi aggiornati`.
+- ✅ E2E test: setup 2 ricarichi (Ferramenta +40%, Vernici +25%), articolo esistente `FTST-01` pa=10 pv=15 (ricarico 50%). Import DDT con `mantieni_ricarico=true` e prezzo nuovo 12 → risultato pa=12 pv=18 ricarico=50% ✓. Nuovo articolo `NUOVO-01` categoria Ferramenta pa=0.50 → pv=0.70 (+40% da default) ✓.
+
 - Restano al metro lineare: lavaggi stagionali, maggiorazione scafo sporco, movimentazione/taccaggio fuori sede
 - Verificato: L=5m (mq 12,5) sosta 2250€; L=8m (mq 24) sosta 4320€; L=10m (mq 40) sosta 7200€ + copertura 1800€ (tariffe default)
 
