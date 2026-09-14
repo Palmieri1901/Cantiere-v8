@@ -440,26 +440,31 @@ class Fornitore(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     nome: str
     abbreviazione: Optional[str] = ""
+    user: Optional[str] = ""
+    password: Optional[str] = ""
+    note: Optional[str] = ""
+    ricarico_default_percent: Optional[float] = None
+    # Campi legacy mantenuti per compatibilità (non più mostrati in UI)
     referente: Optional[str] = ""
     telefono: Optional[str] = ""
     email: Optional[str] = ""
     piva: Optional[str] = ""
     indirizzo: Optional[str] = ""
-    note: Optional[str] = ""
-    ricarico_default_percent: Optional[float] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class FornitoreCreate(BaseModel):
     nome: str
     abbreviazione: Optional[str] = ""
+    user: Optional[str] = ""
+    password: Optional[str] = ""
+    note: Optional[str] = ""
+    ricarico_default_percent: Optional[float] = None
     referente: Optional[str] = ""
     telefono: Optional[str] = ""
     email: Optional[str] = ""
     piva: Optional[str] = ""
     indirizzo: Optional[str] = ""
-    note: Optional[str] = ""
-    ricarico_default_percent: Optional[float] = None
 
 
 class Articolo(BaseModel):

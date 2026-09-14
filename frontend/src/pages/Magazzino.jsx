@@ -19,7 +19,7 @@ import {
   Package, Plus, Search, Trash2, Pencil, FileDown, FileSpreadsheet,
   Sparkles, Camera, ScanLine, AlertTriangle, Building2, ArrowUpCircle,
   ArrowDownCircle, RefreshCw, Filter, Image as ImageIcon, X, ShoppingCart,
-  Percent, Save,
+  Percent, Save, Eye, EyeOff, Copy,
 } from "lucide-react";
 
 const EMPTY_ART = {
@@ -1246,7 +1246,7 @@ function FornitoriTab() {
   return (
     <Card className="p-4">
       <div className="flex items-center gap-2 mb-4">
-        <Button onClick={() => { setEditing({ nome: "", referente: "", telefono: "", email: "", piva: "", indirizzo: "", note: "" }); setFormOpen(true); }} className="bg-primary hover:bg-primary/90" data-testid="btn-nuovo-fornitore">
+        <Button onClick={() => { setEditing({ nome: "", user: "", password: "", note: "" }); setFormOpen(true); }} className="bg-primary hover:bg-primary/90" data-testid="btn-nuovo-fornitore">
           <Plus className="w-4 h-4 mr-1.5" /> Nuovo fornitore
         </Button>
       </div>
@@ -1256,24 +1256,22 @@ function FornitoriTab() {
           <TableHeader>
             <TableRow className="bg-muted/40">
               <TableHead>Nome</TableHead>
-              <TableHead>Referente</TableHead>
-              <TableHead>Telefono</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>P.IVA</TableHead>
+              <TableHead>Sigla</TableHead>
+              <TableHead>User</TableHead>
+              <TableHead>Password</TableHead>
               <TableHead className="text-right" title="Ricarico % predefinito applicato agli articoli di questo fornitore">Ricarico %</TableHead>
-              <TableHead className="text-right w-[120px]">Azioni</TableHead>
+              <TableHead className="text-right w-[140px]">Azioni</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Caricamento…</TableCell></TableRow>}
-            {!loading && items.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground" data-testid="empty-fornitori">Nessun fornitore</TableCell></TableRow>}
+            {loading && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Caricamento…</TableCell></TableRow>}
+            {!loading && items.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground" data-testid="empty-fornitori">Nessun fornitore</TableCell></TableRow>}
             {items.map((f) => (
               <TableRow key={f.id} data-testid={`row-fornitore-${f.id}`}>
                 <TableCell className="font-medium">{f.nome}</TableCell>
-                <TableCell>{f.referente || "—"}</TableCell>
-                <TableCell>{f.telefono || "—"}</TableCell>
-                <TableCell className="text-sm">{f.email || "—"}</TableCell>
-                <TableCell className="font-mono text-xs">{f.piva || "—"}</TableCell>
+                <TableCell><Badge variant="secondary" className="font-mono">{f.abbreviazione || "—"}</Badge></TableCell>
+                <TableCell className="font-mono text-xs">{f.user || "—"}</TableCell>
+                <TableCell><PasswordCell value={f.password} testId={`pwd-forn-${f.id}`} /></TableCell>
                 <TableCell className="text-right font-mono-num text-sm">
                   {f.ricarico_default_percent != null
                     ? <span className="text-primary font-semibold">+{Number(f.ricarico_default_percent).toFixed(1)}%</span>
@@ -1350,12 +1348,14 @@ function FornitoreForm({ open, onOpenChange, value, onSaved }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [initialRicarico, setInitialRicarico] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (open) {
-      const init = { nome: "", referente: "", telefono: "", email: "", piva: "", indirizzo: "", note: "", ...value };
+      const init = { nome: "", abbreviazione: "", user: "", password: "", note: "", ...value };
       setForm(init);
       setInitialRicarico(init.ricarico_default_percent ?? null);
+      setShowPassword(false);
     }
   }, [open, value]);
 
@@ -1390,11 +1390,25 @@ function FornitoreForm({ open, onOpenChange, value, onSaved }) {
           <FormField label="Sigla (min 3)">
             <Input maxLength={5} minLength={3} value={form.abbreviazione || ""} onChange={(e) => set("abbreviazione", e.target.value)} placeholder="es. Osc, Fni, MTM" data-testid="forn-input-sigla" />
           </FormField>
-          <FormField label="Referente"><Input value={form.referente || ""} onChange={(e) => set("referente", e.target.value)} /></FormField>
-          <FormField label="Telefono"><Input value={form.telefono || ""} onChange={(e) => set("telefono", e.target.value)} /></FormField>
-          <FormField label="Email" full><Input value={form.email || ""} onChange={(e) => set("email", e.target.value)} /></FormField>
-          <FormField label="P.IVA"><Input value={form.piva || ""} onChange={(e) => set("piva", e.target.value)} /></FormField>
-          <FormField label="Indirizzo"><Input value={form.indirizzo || ""} onChange={(e) => set("indirizzo", e.target.value)} /></FormField>
+          <FormField label="User" full>
+            <Input autoComplete="off" value={form.user || ""} onChange={(e) => set("user", e.target.value)} placeholder="Nome utente area riservata fornitore" data-testid="forn-input-user" />
+          </FormField>
+          <FormField label="Password" full>
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                value={form.password || ""}
+                onChange={(e) => set("password", e.target.value)}
+                placeholder="Password portale fornitore"
+                className="pr-9 font-mono"
+                data-testid="forn-input-password"
+              />
+              <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" tabIndex={-1} aria-label={showPassword ? "Nascondi" : "Mostra"}>
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </FormField>
           <FormField label="Ricarico % predefinito" full>
             <div className="relative">
               <Input
@@ -1419,6 +1433,27 @@ function FornitoreForm({ open, onOpenChange, value, onSaved }) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function PasswordCell({ value, testId }) {
+  const [show, setShow] = useState(false);
+  if (!value) return <span className="text-muted-foreground">—</span>;
+  const copy = async (e) => {
+    e.stopPropagation();
+    try { await navigator.clipboard.writeText(value); toast.success("Password copiata"); }
+    catch { toast.error("Copia non riuscita"); }
+  };
+  return (
+    <div className="flex items-center gap-1" data-testid={testId}>
+      <span className="font-mono text-xs">{show ? value : "•".repeat(Math.min(value.length, 10))}</span>
+      <button type="button" onClick={(e) => { e.stopPropagation(); setShow((v) => !v); }} className="text-muted-foreground hover:text-foreground p-0.5" title={show ? "Nascondi" : "Mostra"}>
+        {show ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+      </button>
+      <button type="button" onClick={copy} className="text-muted-foreground hover:text-foreground p-0.5" title="Copia">
+        <Copy className="w-3.5 h-3.5" />
+      </button>
+    </div>
   );
 }
 
