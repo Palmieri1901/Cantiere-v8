@@ -158,7 +158,9 @@ async def delete_preventivo(pid: str):
 # PDF
 # --------------------------------------------------------------------------
 def _fmt_eur(v: float) -> str:
-    return f"€ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    """Formatta il valore in stile italiano: 6.375,00 € (simbolo dopo l'importo)."""
+    n = f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"{n} €"
 
 
 @router.get("/preventivi/{pid}/pdf")
