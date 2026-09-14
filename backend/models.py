@@ -445,6 +445,7 @@ class Fornitore(BaseModel):
     piva: Optional[str] = ""
     indirizzo: Optional[str] = ""
     note: Optional[str] = ""
+    ricarico_default_percent: Optional[float] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -456,6 +457,7 @@ class FornitoreCreate(BaseModel):
     piva: Optional[str] = ""
     indirizzo: Optional[str] = ""
     note: Optional[str] = ""
+    ricarico_default_percent: Optional[float] = None
 
 
 class Articolo(BaseModel):

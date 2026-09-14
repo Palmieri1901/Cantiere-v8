@@ -178,6 +178,15 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - ✅ E2E test: setup 2 ricarichi (Ferramenta +40%, Vernici +25%), articolo esistente `FTST-01` pa=10 pv=15 (ricarico 50%). Import DDT con `mantieni_ricarico=true` e prezzo nuovo 12 → risultato pa=12 pv=18 ricarico=50% ✓. Nuovo articolo `NUOVO-01` categoria Ferramenta pa=0.50 → pv=0.70 (+40% da default) ✓.
 
 - Restano al metro lineare: lavaggi stagionali, maggiorazione scafo sporco, movimentazione/taccaggio fuori sede
+
+## Iter44 (2026-02-XX) — Ricarico % predefinito per Fornitore (prevale su quello di categoria)
+- ✅ **Modello `Fornitore`**: nuovo campo opzionale `ricarico_default_percent: Optional[float] = None`. Esteso anche `FornitoreCreate`.
+- ✅ **Backend `magazzino.py`**: nuovo helper `_default_markup_for_articolo(fornitore_id, categoria)` che risolve la priorità: **1) ricarico fornitore → 2) ricarico categoria → 3) nessuno**.
+- ✅ **`importa-articoli`** ora usa il nuovo helper sia per articoli nuovi che per quelli aggiornati senza ricarico corrente calcolabile.
+- ✅ **Frontend `FornitoriTab`**: nuova colonna **Ricarico %** in tabella fornitori (badge primary se impostato, "—" altrimenti).
+- ✅ **Frontend `FornitoreForm`**: nuovo campo **"Ricarico % predefinito"** con hint "Applicato ai nuovi articoli di questo fornitore importati da DDT. Ha priorità sul ricarico di categoria." Lasciando il campo vuoto si torna al fallback categoria.
+- ✅ E2E test verificato: fornitore con ricarico 45% + categoria Vernici 25%. Import nuovo articolo Vernici → prezzo vendita = 100 × (1+45/100) = 145 ✓ (ricarico fornitore ha battuto quello di categoria come atteso).
+
 - Verificato: L=5m (mq 12,5) sosta 2250€; L=8m (mq 24) sosta 4320€; L=10m (mq 40) sosta 7200€ + copertura 1800€ (tariffe default)
 
 ## Toggle ricambi motore ON/OFF (2026-02)

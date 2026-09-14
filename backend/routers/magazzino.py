@@ -437,6 +437,15 @@ async def _default_markup_for(categoria: Optional[str]) -> Optional[float]:
     return None
 
 
+async def _default_markup_for_articolo(fornitore_id: Optional[str], categoria: Optional[str]) -> Optional[float]:
+    """Preferenza: ricarico del fornitore > ricarico default della categoria."""
+    if fornitore_id:
+        f = await db.fornitori.find_one({"id": fornitore_id}, {"_id": 0, "ricarico_default_percent": 1})
+        if f and isinstance(f.get("ricarico_default_percent"), (int, float)):
+            return float(f["ricarico_default_percent"])
+    return await _default_markup_for(categoria)
+
+
 @router.get("/ricarichi-categoria", response_model=List[RicaricoCategoria])
 async def list_ricarichi():
     docs = await db.ricarichi_categoria.find({}, {"_id": 0}).sort("categoria", 1).to_list(500)
@@ -503,8 +512,11 @@ async def importa_articoli(payload: ImportArticoliRequest):
                     ricarico = (old_pv - old_pa) / old_pa
                     update_set["prezzo_listino"] = round(prezzo * (1 + ricarico), 2)
                 elif payload.mantieni_ricarico:
-                    # ricarico corrente non calcolabile: prova con default categoria
-                    default_mkup = await _default_markup_for(existing.get("categoria"))
+                    # ricarico corrente non calcolabile: prova con default fornitore/categoria
+                    default_mkup = await _default_markup_for_articolo(
+                        existing.get("fornitore_id") or payload.fornitore_id,
+                        existing.get("categoria"),
+                    )
                     if default_mkup is not None:
                         update_set["prezzo_listino"] = round(prezzo * (1 + default_mkup / 100), 2)
                 prezzi_aggiornati += 1
@@ -521,7 +533,7 @@ async def importa_articoli(payload: ImportArticoliRequest):
             categoria = (a.get("categoria") or "").strip()
             prezzo_listino = 0.0
             if prezzo > 0:
-                default_mkup = await _default_markup_for(categoria)
+                default_mkup = await _default_markup_for_articolo(payload.fornitore_id, categoria)
                 if default_mkup is not None:
                     prezzo_listino = round(prezzo * (1 + default_mkup / 100), 2)
                 else:

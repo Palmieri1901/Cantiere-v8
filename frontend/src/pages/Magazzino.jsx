@@ -1114,12 +1114,13 @@ function FornitoriTab() {
               <TableHead>Telefono</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>P.IVA</TableHead>
-              <TableHead className="text-right w-[100px]">Azioni</TableHead>
+              <TableHead className="text-right" title="Ricarico % predefinito applicato agli articoli di questo fornitore">Ricarico %</TableHead>
+              <TableHead className="text-right w-[120px]">Azioni</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Caricamento…</TableCell></TableRow>}
-            {!loading && items.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground" data-testid="empty-fornitori">Nessun fornitore</TableCell></TableRow>}
+            {loading && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Caricamento…</TableCell></TableRow>}
+            {!loading && items.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground" data-testid="empty-fornitori">Nessun fornitore</TableCell></TableRow>}
             {items.map((f) => (
               <TableRow key={f.id} data-testid={`row-fornitore-${f.id}`}>
                 <TableCell className="font-medium">{f.nome}</TableCell>
@@ -1127,6 +1128,11 @@ function FornitoriTab() {
                 <TableCell>{f.telefono || "—"}</TableCell>
                 <TableCell className="text-sm">{f.email || "—"}</TableCell>
                 <TableCell className="font-mono text-xs">{f.piva || "—"}</TableCell>
+                <TableCell className="text-right font-mono-num text-sm">
+                  {f.ricarico_default_percent != null
+                    ? <span className="text-primary font-semibold">+{Number(f.ricarico_default_percent).toFixed(1)}%</span>
+                    : <span className="text-muted-foreground">—</span>}
+                </TableCell>
                 <TableCell className="text-right">
                   <Button asChild variant="ghost" size="icon" title="Ordine PDF sotto scorta" data-testid={`btn-ordine-forn-${f.id}`}>
                     <a href={`${API}/magazzino/ordine-fornitore.pdf?fornitore_id=${f.id}`} download>
@@ -1195,6 +1201,22 @@ function FornitoreForm({ open, onOpenChange, value, onSaved }) {
           <FormField label="Email" full><Input value={form.email || ""} onChange={(e) => set("email", e.target.value)} /></FormField>
           <FormField label="P.IVA"><Input value={form.piva || ""} onChange={(e) => set("piva", e.target.value)} /></FormField>
           <FormField label="Indirizzo"><Input value={form.indirizzo || ""} onChange={(e) => set("indirizzo", e.target.value)} /></FormField>
+          <FormField label="Ricarico % predefinito" full>
+            <div className="relative">
+              <Input
+                type="number" step="0.1"
+                placeholder="Lascia vuoto per usare quello di categoria"
+                value={form.ricarico_default_percent ?? ""}
+                onChange={(e) => set("ricarico_default_percent", e.target.value === "" ? null : Number(e.target.value))}
+                className="pr-8 font-mono-num"
+                data-testid="forn-input-ricarico"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1">
+              Applicato ai nuovi articoli di questo fornitore importati da DDT. Ha priorità sul ricarico di categoria.
+            </div>
+          </FormField>
           <FormField label="Note" full><Textarea rows={2} value={form.note || ""} onChange={(e) => set("note", e.target.value)} /></FormField>
         </div>
         <DialogFooter>
