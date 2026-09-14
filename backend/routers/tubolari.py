@@ -46,11 +46,14 @@ async def update_config(payload: TubolariConfigUpdate):
 # UTIL: calcolo totale
 # --------------------------------------------------------------------------
 def _calc_totale(p: PreventivoTubolare) -> float:
-    tot = float(p.prezzo_al_metro) * float(p.metri or 0)
+    metri = float(p.metri or 0)
+    tot = float(p.prezzo_al_metro) * metri
     if p.tessuto == "orca":
-        tot += float(p.supplemento_orca)
+        # Supplemento ORCA calcolato al metro lineare
+        tot += float(p.supplemento_orca) * metri
     if p.include_rifinitura_strisciato:
-        tot += float(p.prezzo_rifinitura_strisciato)
+        # Rifinitura interna strisciato calcolata al metro lineare
+        tot += float(p.prezzo_rifinitura_strisciato) * metri
     if p.include_bottazzo_doppio:
         tot += float(p.prezzo_bottazzo_doppio)
     if p.include_pezze_velocita:
@@ -208,6 +211,7 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     docp = SimpleDocTemplate(buf, pagesize=A4, leftMargin=18*mm, rightMargin=18*mm, topMargin=14*mm, bottomMargin=14*mm)
     styles = getSampleStyleSheet()
     story = []
+    metri_val = float(p.metri or 0)
 
     # Logo (se presente)
     logo_b64 = cantiere.get("logo_base64") or ""
@@ -314,13 +318,15 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     story.append(Spacer(1, 6))
 
     # Tabella MATERIALI IMPIEGATI
-    orca_val = _fmt_eur(p.supplemento_orca) if p.tessuto == "orca" else _fmt_eur(p.supplemento_orca)
+    orca_tot = float(p.supplemento_orca) * metri_val
+    orca_val = f"{_fmt_eur(p.supplemento_orca)}/m × {metri_val:g}m = {_fmt_eur(orca_tot)}"
     rows_m = [
         [Paragraph("<b>MATERIALI IMPIEGATI:</b>", styles["Normal"]), "", ""],
         ["neoprene hypalon 1° scelta tessuto NOVURANIA",
          "incluso" if p.tessuto == "hypalon" else "—", ""],
-        ["per tessuti ORCA (da aggiungere al preventivo in caso di scelta)",
-         orca_val, "+ iva"],
+        ["per tessuti ORCA (al metro lineare)",
+         orca_val if p.tessuto == "orca" else f"{_fmt_eur(p.supplemento_orca)}/m",
+         "+ iva"],
     ]
     tm = Table(rows_m, colWidths=[110*mm, 45*mm, 15*mm])
     tm.setStyle(TableStyle([
@@ -346,10 +352,17 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
             return "da valutare"
         return "—"
 
+    # Rifinitura interna strisciato al metro lineare
+    if p.include_rifinitura_strisciato and p.prezzo_rifinitura_strisciato > 0:
+        rif_tot = float(p.prezzo_rifinitura_strisciato) * metri_val
+        rif_val = f"{_fmt_eur(p.prezzo_rifinitura_strisciato)}/m × {metri_val:g}m = {_fmt_eur(rif_tot)}"
+    else:
+        rif_val = "—"
+
     rows_e = [
         [Paragraph("<b>Lavorazioni extra da aggiungere al preventivo in caso di richiesta</b>", styles["Normal"]), "", ""],
-        ["B) Rifinitura interna strisciato",
-         _extra_val(p.include_rifinitura_strisciato, p.prezzo_rifinitura_strisciato), "+ iva"],
+        ["B) Rifinitura interna strisciato (al metro lineare)",
+         rif_val, "+ iva"],
         ["C) Bottazzo doppio h 90 mm",
          _extra_val(p.include_bottazzo_doppio, p.prezzo_bottazzo_doppio), "+ iva"],
         ["D) Apposizione pezze di velocità su coni dx-sx (se necessarie)",

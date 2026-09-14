@@ -277,9 +277,10 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const totale = useMemo(() => {
-    let t = Number(form.prezzo_al_metro || 0) * Number(form.metri || 0);
-    if (form.tessuto === "orca") t += Number(form.supplemento_orca || 0);
-    if (form.include_rifinitura_strisciato) t += Number(form.prezzo_rifinitura_strisciato || 0);
+    const metri = Number(form.metri || 0);
+    let t = Number(form.prezzo_al_metro || 0) * metri;
+    if (form.tessuto === "orca") t += Number(form.supplemento_orca || 0) * metri;
+    if (form.include_rifinitura_strisciato) t += Number(form.prezzo_rifinitura_strisciato || 0) * metri;
     if (form.include_bottazzo_doppio) t += Number(form.prezzo_bottazzo_doppio || 0);
     if (form.include_pezze_velocita) t += Number(form.prezzo_pezze_velocita || 0);
     if (form.maniglioni_aggiuntivi > 0) t += Number(form.maniglioni_aggiuntivi) * Number(form.prezzo_maniglione || 0);
@@ -420,17 +421,17 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
               </Select>
             </Field>
             <Field label="Prezzo €/metro (Hypalon)"><Input type="number" step="0.01" value={form.prezzo_al_metro} onChange={(e) => set("prezzo_al_metro", Number(e.target.value))} data-testid="prev-pxm" /></Field>
-            <Field label="Supplemento ORCA €"><Input type="number" step="0.01" value={form.supplemento_orca} onChange={(e) => set("supplemento_orca", Number(e.target.value))} disabled={form.tessuto !== "orca"} data-testid="prev-orca" /></Field>
+            <Field label="Supplemento ORCA €/metro"><Input type="number" step="0.01" value={form.supplemento_orca} onChange={(e) => set("supplemento_orca", Number(e.target.value))} disabled={form.tessuto !== "orca"} data-testid="prev-orca" /></Field>
           </div>
           <div className="text-xs text-muted-foreground mt-2">
             <b>Base:</b> {fmtEuro(form.prezzo_al_metro)}/m × {Number(form.metri || 0).toFixed(1)}m = <b>{fmtEuro(base)}</b>
-            {form.tessuto === "orca" && <> + supplemento ORCA <b>{fmtEuro(form.supplemento_orca)}</b></>}
+            {form.tessuto === "orca" && <> + supplemento ORCA {fmtEuro(form.supplemento_orca)}/m × {Number(form.metri || 0).toFixed(1)}m = <b>{fmtEuro(Number(form.supplemento_orca || 0) * Number(form.metri || 0))}</b></>}
           </div>
         </Section>
 
         {/* Extra */}
         <Section title="Lavorazioni extra">
-          <ExtraRow label="B) Rifinitura interna strisciato" flag={form.include_rifinitura_strisciato} setFlag={(v) => set("include_rifinitura_strisciato", v)} price={form.prezzo_rifinitura_strisciato} setPrice={(v) => set("prezzo_rifinitura_strisciato", v)} testId="extra-B" />
+          <ExtraRow label="B) Rifinitura interna strisciato (al metro lineare)" flag={form.include_rifinitura_strisciato} setFlag={(v) => set("include_rifinitura_strisciato", v)} price={form.prezzo_rifinitura_strisciato} setPrice={(v) => set("prezzo_rifinitura_strisciato", v)} suffix="€/m" testId="extra-B" totalCalc={Number(form.prezzo_rifinitura_strisciato || 0) * Number(form.metri || 0)} />
           <ExtraRow label="C) Bottazzo doppio h 90 mm" flag={form.include_bottazzo_doppio} setFlag={(v) => set("include_bottazzo_doppio", v)} price={form.prezzo_bottazzo_doppio} setPrice={(v) => set("prezzo_bottazzo_doppio", v)} testId="extra-C" />
           <ExtraRow label="D) Apposizione pezze velocità coni dx-sx" flag={form.include_pezze_velocita} setFlag={(v) => set("include_pezze_velocita", v)} price={form.prezzo_pezze_velocita} setPrice={(v) => set("prezzo_pezze_velocita", v)} placeholder="da valutare" testId="extra-D" />
 
@@ -538,7 +539,7 @@ function Field({ label, children, full }) {
   );
 }
 
-function ExtraRow({ label, flag, setFlag, price, setPrice, placeholder = "0.00", testId }) {
+function ExtraRow({ label, flag, setFlag, price, setPrice, placeholder = "0.00", testId, suffix = "€", totalCalc = null }) {
   return (
     <div className="flex items-center gap-3 py-2 border-t border-border/60 first:border-t-0">
       <label className="flex-1 flex items-center gap-2 cursor-pointer">
@@ -554,7 +555,12 @@ function ExtraRow({ label, flag, setFlag, price, setPrice, placeholder = "0.00",
         disabled={!flag}
         data-testid={`${testId}-price`}
       />
-      <span className="text-xs text-muted-foreground w-8">€</span>
+      <span className="text-xs text-muted-foreground w-10">{suffix}</span>
+      {totalCalc !== null && flag && (
+        <span className="text-xs text-primary font-mono-num font-semibold w-24 text-right" title="Totale al metro">
+          = {(totalCalc).toLocaleString("it-IT", { style: "currency", currency: "EUR" })}
+        </span>
+      )}
     </div>
   );
 }
@@ -610,7 +616,7 @@ function TubolariConfigDialog({ open, onOpenChange, value, onSaved }) {
             <Field label="Prezzo €/metro (Hypalon 1670)">
               <Input type="number" step="0.01" value={form.prezzo_al_metro ?? ""} onChange={(e) => set("prezzo_al_metro", e.target.value)} data-testid="cfg-pxm" />
             </Field>
-            <Field label="Supplemento tessuto ORCA €">
+            <Field label="Supplemento tessuto ORCA €/metro">
               <Input type="number" step="0.01" value={form.supplemento_orca ?? ""} onChange={(e) => set("supplemento_orca", e.target.value)} data-testid="cfg-orca" />
             </Field>
           </div>
@@ -618,7 +624,7 @@ function TubolariConfigDialog({ open, onOpenChange, value, onSaved }) {
 
         <Section title="Prezzi extra">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <Field label="B) Rifinitura interna strisciato €">
+            <Field label="B) Rifinitura interna strisciato €/metro">
               <Input type="number" step="0.01" value={form.rifinitura_interna_strisciato ?? ""} onChange={(e) => set("rifinitura_interna_strisciato", e.target.value)} data-testid="cfg-rif" />
             </Field>
             <Field label="C) Bottazzo doppio h 90mm €">
