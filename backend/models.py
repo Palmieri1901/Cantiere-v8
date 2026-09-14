@@ -577,3 +577,118 @@ class SpesaCreate(BaseModel):
     fornitore_nome: Optional[str] = ""
     documento_ref: Optional[str] = ""
     note: Optional[str] = ""
+
+
+
+# ============================================================================
+# RIFACIMENTO TUBOLARI (sostituzione tubolari gommoni)
+# ============================================================================
+
+
+class TubolariConfig(BaseModel):
+    """Configurazione prezzi del modulo Rifacimento Tubolari (singleton id=default)."""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: "default")
+    # Prezzo base al metro (Hypalon 1670 prima scelta)
+    prezzo_al_metro: float = 1250.0
+    # Supplemento se il cliente sceglie tessuto ORCA anziché Hypalon
+    supplemento_orca: float = 357.0
+    # Lavorazioni extra
+    rifinitura_interna_strisciato: float = 382.50
+    bottazzo_doppio_90mm: float = 357.0
+    maniglione_aggiuntivo_cad: float = 50.0
+    # Testi standard del preventivo (modificabili)
+    validita_giorni: int = 90
+    tempi_esecuzione_giorni: int = 90
+    garanzia_mesi: int = 12
+    note_standard: str = (
+        "- I prezzi sono IVA esclusa\n"
+        "- Franco cantiere chiavi in mano\n"
+        "- 12 mesi garanzia sugli incollaggi\n"
+        "- Validità preventivo 90 gg\n"
+        "- Alaggi/vari/movimentazione del battello non sono inclusi nel preventivo"
+    )
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class TubolariConfigUpdate(BaseModel):
+    prezzo_al_metro: Optional[float] = None
+    supplemento_orca: Optional[float] = None
+    rifinitura_interna_strisciato: Optional[float] = None
+    bottazzo_doppio_90mm: Optional[float] = None
+    maniglione_aggiuntivo_cad: Optional[float] = None
+    validita_giorni: Optional[int] = None
+    tempi_esecuzione_giorni: Optional[int] = None
+    garanzia_mesi: Optional[int] = None
+    note_standard: Optional[str] = None
+
+
+class PreventivoTubolare(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    numero: Optional[str] = ""  # numero progressivo umano
+    data: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
+    # Cliente (libero — non collegato a rubrica)
+    cliente_nome: str = ""
+    cliente_telefono: str = ""
+    cliente_email: str = ""
+    # Gommone
+    marca_gommone: str = ""
+    modello_gommone: str = ""
+    metri: float = 0.0
+    tessuto: str = "hypalon"  # hypalon | orca
+    # Snapshot prezzi al momento della creazione (per non alterare i vecchi preventivi)
+    prezzo_al_metro: float = 1250.0
+    supplemento_orca: float = 357.0
+    # Extra (checkbox on/off + quantità per maniglioni)
+    include_rifinitura_strisciato: bool = False
+    prezzo_rifinitura_strisciato: float = 382.50
+    include_bottazzo_doppio: bool = False
+    prezzo_bottazzo_doppio: float = 357.0
+    include_pezze_velocita: bool = False
+    prezzo_pezze_velocita: float = 0.0  # "da valutare" di default
+    maniglioni_aggiuntivi: int = 0
+    prezzo_maniglione: float = 50.0
+    # Voci "da valutare" / variazioni
+    scritte_loghi_laser: bool = False
+    prezzo_scritte_loghi: float = 0.0
+    grafiche_particolari: bool = False
+    prezzo_grafiche_particolari: float = 0.0
+    rinforzi_diving: bool = False
+    prezzo_rinforzi_diving: float = 0.0
+    # Note e stato
+    note: str = ""
+    stato: str = "bozza"  # bozza | inviato | accettato | rifiutato
+    totale: float = 0.0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class PreventivoTubolareCreate(BaseModel):
+    numero: Optional[str] = ""
+    data: Optional[str] = None
+    cliente_nome: Optional[str] = ""
+    cliente_telefono: Optional[str] = ""
+    cliente_email: Optional[str] = ""
+    marca_gommone: Optional[str] = ""
+    modello_gommone: Optional[str] = ""
+    metri: Optional[float] = 0.0
+    tessuto: Optional[str] = "hypalon"
+    prezzo_al_metro: Optional[float] = None
+    supplemento_orca: Optional[float] = None
+    include_rifinitura_strisciato: Optional[bool] = False
+    prezzo_rifinitura_strisciato: Optional[float] = None
+    include_bottazzo_doppio: Optional[bool] = False
+    prezzo_bottazzo_doppio: Optional[float] = None
+    include_pezze_velocita: Optional[bool] = False
+    prezzo_pezze_velocita: Optional[float] = 0.0
+    maniglioni_aggiuntivi: Optional[int] = 0
+    prezzo_maniglione: Optional[float] = None
+    scritte_loghi_laser: Optional[bool] = False
+    prezzo_scritte_loghi: Optional[float] = 0.0
+    grafiche_particolari: Optional[bool] = False
+    prezzo_grafiche_particolari: Optional[float] = 0.0
+    rinforzi_diving: Optional[bool] = False
+    prezzo_rinforzi_diving: Optional[float] = 0.0
+    note: Optional[str] = ""
+    stato: Optional[str] = "bozza"

@@ -14,6 +14,7 @@ import Impostazioni from "@/pages/Impostazioni";
 import Report from "@/pages/Report";
 import Contratti from "@/pages/Contratti";
 import Magazzino from "@/pages/Magazzino";
+import Tubolari from "@/pages/Tubolari";
 import Login from "@/pages/Login";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
@@ -54,6 +55,7 @@ function App() {
                 <Route path="/report" element={<Report />} />
                 <Route path="/contratti" element={<Contratti />} />
                 <Route path="/magazzino" element={<Magazzino />} />
+                <Route path="/tubolari" element={<Tubolari />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Routes>

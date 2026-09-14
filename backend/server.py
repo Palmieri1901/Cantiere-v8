@@ -19,7 +19,7 @@ from auth import auth_router, seed_admin, get_current_user
 from fastapi import Depends
 from routers import (
     tariffe, clienti, lavori, stats, export,
-    cantiere, backup, preventivo, report, anni, contratti, magazzino,
+    cantiere, backup, preventivo, report, anni, contratti, magazzino, tubolari,
 )
 
 
@@ -46,6 +46,7 @@ api_router.include_router(report.router)
 api_router.include_router(anni.router)
 api_router.include_router(contratti.router)
 api_router.include_router(magazzino.router)
+api_router.include_router(tubolari.router)
 
 app.include_router(api_router)
 app.include_router(auth_router)
