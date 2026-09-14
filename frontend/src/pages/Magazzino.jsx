@@ -99,6 +99,8 @@ function ArticoliTab() {
   const [exportCat, setExportCat] = useState("all");
   const [exportOpen, setExportOpen] = useState(false);
   const [ricarichiOpen, setRicarichiOpen] = useState(false);
+  const [scaricoInput, setScaricoInput] = useState({}); // { [id]: "3" }
+  const [scaricoLoading, setScaricoLoading] = useState({}); // { [id]: true }
 
   const load = async () => {
     setLoading(true);
@@ -166,6 +168,33 @@ function ArticoliTab() {
     if (exportCat !== "all") p.set("categoria", exportCat);
     const qs = p.toString();
     return `${API}/magazzino/listino.pdf${qs ? `?${qs}` : ""}`;
+  };
+
+  const doScarico = async (art) => {
+    const raw = (scaricoInput[art.id] || "").toString().replace(",", ".").trim();
+    const qt = parseFloat(raw);
+    if (!qt || qt <= 0) { toast.error("Inserisci una quantità positiva"); return; }
+    const disponibile = Number(art.quantita || 0);
+    if (qt > disponibile) {
+      if (!window.confirm(`Attenzione: giacenza attuale ${disponibile}. Vuoi comunque scaricare ${qt}?`)) return;
+    }
+    setScaricoLoading((s) => ({ ...s, [art.id]: true }));
+    try {
+      await api.post("/magazzino/movimenti", {
+        articolo_id: art.id,
+        tipo: "scarico",
+        quantita: qt,
+        motivo: "Scarico rapido",
+      });
+      const nuovaQta = disponibile - qt;
+      setArticoli((prev) => prev.map((x) => x.id === art.id ? { ...x, quantita: nuovaQta } : x));
+      setScaricoInput((s) => ({ ...s, [art.id]: "" }));
+      toast.success(`Scaricato ${qt} ${art.unita_misura || "pz"} — nuova giacenza ${nuovaQta}`);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Errore scarico");
+    } finally {
+      setScaricoLoading((s) => ({ ...s, [art.id]: false }));
+    }
   };
 
   return (
@@ -271,13 +300,15 @@ function ArticoliTab() {
                 <TableHead className="text-right">Prezzo vendita</TableHead>
                 <TableHead className="text-right" title="Prezzo di vendita + IVA 22%">Vendita IVA inc.</TableHead>
                 <TableHead className="text-right">Ricarico</TableHead>
+                <TableHead className="text-right w-[80px]">Giacenza</TableHead>
+                <TableHead className="text-right w-[140px]" title="Digita la quantità e premi Invio per scaricare">Scarica</TableHead>
                 <TableHead className="text-right w-[100px]">Azioni</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Caricamento…</TableCell></TableRow>}
+              {loading && <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">Caricamento…</TableCell></TableRow>}
               {!loading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8" data-testid="empty-articoli">Nessun articolo</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8" data-testid="empty-articoli">Nessun articolo</TableCell></TableRow>
               )}
               {filtered.map((a) => {
                 const pa = Number(a.prezzo_acquisto || 0);
@@ -306,6 +337,31 @@ function ArticoliTab() {
                           {rk >= 0 ? "+" : ""}{rk.toFixed(0)}%
                         </span>
                       ) : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-right font-mono-num text-sm" data-testid={`cell-giacenza-${a.id}`}>
+                      <span className={Number(a.quantita) <= 0 ? "text-destructive font-semibold" : Number(a.quantita) <= Number(a.scorta_minima) ? "text-amber-600 font-semibold" : "font-semibold"}>
+                        {Number(a.quantita || 0)}
+                      </span>
+                      <span className="text-muted-foreground text-xs ml-1">{a.unita_misura || "pz"}</span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center gap-1 justify-end">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="q.tà"
+                          value={scaricoInput[a.id] ?? ""}
+                          onChange={(e) => setScaricoInput((s) => ({ ...s, [a.id]: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); doScarico(a); } }}
+                          disabled={!!scaricoLoading[a.id]}
+                          className="h-8 w-[70px] text-right font-mono-num text-sm px-2"
+                          data-testid={`input-scarico-${a.id}`}
+                        />
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => doScarico(a)} disabled={!!scaricoLoading[a.id] || !scaricoInput[a.id]} title="Scarica" data-testid={`btn-scarico-${a.id}`}>
+                          <ArrowDownCircle className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => { setEditing(a); setFormOpen(true); }} data-testid={`btn-edit-${a.id}`}>
