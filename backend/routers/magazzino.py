@@ -392,10 +392,22 @@ async def scan_ddt(payload: ScanDDTRequest):
         "- 'Sconto %' / 'Sc%' = sconto in percentuale\n"
         "- 'Importo' / 'Totale' / 'Netto' = importo unitario NETTO scontato IVA ESCLUSA (prezzo di acquisto)\n"
         "- Se 'Importo' è il totale riga, dividilo per la quantità.\n\n"
+        "CATEGORIZZAZIONE (obbligatoria, DEDUCILA dal nome/descrizione anche se non indicata in fattura). "
+        "Usa ESATTAMENTE una di queste categorie:\n"
+        "- 'Motore' → candele, filtri motore, olio motore, pompe acqua, giranti, anodi motore, cinghie, kit tagliando\n"
+        "- 'Ferramenta' → bulloneria, viti, dadi, rondelle, staffe, catene, moschettoni, grilli, funi/cime, bitte, gallocce\n"
+        "- 'Elettrica' → cavi, fusibili, interruttori, batterie, caricabatterie, luci di via, fari, pannelli LED, voltmetri, contaore\n"
+        "- 'Nautica' → salvagenti, giubbotti, boe, ancore, parabordi, cime d'ormeggio, catene calibrate\n"
+        "- 'Vernici' → antivegetative, primer, diluenti, stucchi, pennelli, rulli, mastici, sigillanti\n"
+        "- 'Coperture' → tessuti, teli, tende, custodie, occhielli, cerniere, elastici\n"
+        "- 'Idraulica' → pompe di sentina, tubi, raccordi, filtri acqua, valvole, wc marino\n"
+        "- 'Carburante' → tubi carburante, filtri gasolio/benzina, serbatoi, taniche, imbuti\n"
+        "- 'Consumabili' → carta abrasiva, guanti, stracci, nastri, detergenti, sgrassatori\n"
+        "- 'Altro' → solo se davvero non riconducibile ai gruppi sopra\n\n"
         "Rispondi SOLO con un oggetto JSON:\n"
         '{"fornitore": "", "numero_ddt": "", "data": "", "iva_percent": 22,\n'
         ' "articoli": [\n'
-        '   {"codice": "", "nome": "", "descrizione": "", "unita_misura": "pz", "quantita": 0,\n'
+        '   {"codice": "", "nome": "", "descrizione": "", "categoria": "Motore", "unita_misura": "pz", "quantita": 0,\n'
         '    "prezzo_listino_ivato": 0, "sconto_percent": 0, "importo_netto": 0}\n'
         " ],\n"
         ' "spese_accessorie": [\n'
@@ -458,6 +470,7 @@ async def scan_ddt(payload: ScanDDTRequest):
             "codice": str(a.get("codice", "") or ""),
             "nome": str(a.get("nome", "") or ""),
             "descrizione": str(a.get("descrizione", "") or ""),
+            "categoria": str(a.get("categoria", "") or "").strip(),
             "unita_misura": um,
             "quantita": float(a.get("quantita", 0) or 0),
             "prezzo_listino_ivato": listino_iva,

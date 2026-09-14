@@ -932,6 +932,7 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
         ...a,
         // Backfill mancanti in fase iniziale
         unita_misura: a.unita_misura || "pz",
+        categoria: a.categoria || "",
         prezzo_listino_ivato: a.prezzo_listino_ivato ?? 0,
         sconto_percent: a.sconto_percent ?? 0,
         importo_netto: a.importo_netto ?? a.prezzo_unitario ?? 0,
@@ -1117,6 +1118,11 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
             </div>
           )}
           {rows.length > 0 && (
+            <datalist id="ddt-categorie-suggerite">
+              {["Motore","Ferramenta","Elettrica","Nautica","Vernici","Coperture","Idraulica","Carburante","Consumabili","Altro"].map((c) => <option key={c} value={c} />)}
+            </datalist>
+          )}
+          {rows.length > 0 && (
             <div className="rounded-md border border-border overflow-hidden">
               <Table>
                 <TableHeader>
@@ -1124,6 +1130,7 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
                     <TableHead className="w-10"></TableHead>
                     <TableHead className="min-w-[80px]">Codice</TableHead>
                     <TableHead className="min-w-[180px]">Nome</TableHead>
+                    <TableHead className="min-w-[110px]" title="Categoria dedotta automaticamente dalla AI (modificabile)">Categoria</TableHead>
                     <TableHead className="text-center w-20">U.M.</TableHead>
                     <TableHead className="text-right w-20">Q.tà</TableHead>
                     <TableHead className="text-right w-28" title="Prezzo unitario IVA compresa">Listino IVA €</TableHead>
@@ -1139,6 +1146,16 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
                       </TableCell>
                       <TableCell><Input value={r.codice} onChange={(e) => updateRow(r._i, "codice", e.target.value)} className="h-8" /></TableCell>
                       <TableCell><Input value={r.nome} onChange={(e) => updateRow(r._i, "nome", e.target.value)} className="h-8" /></TableCell>
+                      <TableCell>
+                        <Input
+                          value={r.categoria || ""}
+                          onChange={(e) => updateRow(r._i, "categoria", e.target.value)}
+                          list="ddt-categorie-suggerite"
+                          placeholder="AI…"
+                          className={`h-8 ${r.categoria ? "border-primary/40 text-primary font-medium" : ""}`}
+                          data-testid={`ddt-cat-${r._i}`}
+                        />
+                      </TableCell>
                       <TableCell>
                         <Select value={r.unita_misura || "pz"} onValueChange={(v) => updateRow(r._i, "unita_misura", v)}>
                           <SelectTrigger className="h-8 text-xs px-2" data-testid={`ddt-um-${r._i}`}><SelectValue /></SelectTrigger>
