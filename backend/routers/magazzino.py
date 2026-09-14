@@ -929,9 +929,8 @@ async def inventario_xlsx():
     ws = wb.active
     ws.title = "Inventario"
 
-    headers = ["Codice", "Nome", "Descrizione", "Categoria", "Fornitore",
-               "U.M.", "Quantità", "Scorta min.", "Prezzo acquisto €",
-               "Prezzo listino €", "Valore giacenza €", "Sotto scorta"]
+    headers = ["Codice", "Fornitore", "Nome", "U.M.", "Quantità",
+               "Prezzo acquisto €", "Valore giacenza €"]
     ws.append(headers)
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill("solid", fgColor="0F172A")
@@ -948,27 +947,26 @@ async def inventario_xlsx():
         val = q * p
         tot_valore += val
         ws.append([
-            a.get("codice", ""), a.get("nome", ""), a.get("descrizione", ""),
-            a.get("categoria", ""),
+            a.get("codice", ""),
             forn_map.get(a.get("fornitore_id"), ""),
+            a.get("nome", ""),
             a.get("unita_misura", "pz"),
-            q, float(a.get("scorta_minima", 0)),
-            p, float(a.get("prezzo_listino", 0)),
+            q,
+            p,
             val,
-            "SÌ" if q <= float(a.get("scorta_minima", 0)) else "",
         ])
 
     last = ws.max_row + 1
-    ws.cell(row=last, column=10, value="TOTALE VALORE").font = Font(bold=True)
-    ws.cell(row=last, column=11, value=tot_valore).font = Font(bold=True)
-    ws.cell(row=last, column=11).number_format = '#,##0.00 "€"'
+    ws.cell(row=last, column=6, value="TOTALE VALORE").font = Font(bold=True)
+    ws.cell(row=last, column=7, value=tot_valore).font = Font(bold=True)
+    ws.cell(row=last, column=7).number_format = '#,##0.00 "€"'
 
-    for i in range(9, 12):
+    for i in (6, 7):
         for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=i, max_col=i):
             for cell in row:
                 cell.number_format = '#,##0.00 "€"'
 
-    widths = [12, 30, 40, 18, 22, 6, 10, 10, 15, 15, 18, 12]
+    widths = [14, 22, 34, 8, 10, 16, 18]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
     ws.freeze_panes = "A2"
