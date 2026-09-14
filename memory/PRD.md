@@ -155,6 +155,11 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
   - Risposta arricchita con `prezzi_aggiornati` (contatore).
 - ✅ **`Magazzino.jsx`**: nuovo bottone **"Ricarichi categoria"** (icona Percent) nella toolbar Articoli. Dialog dedicato con lista + inline edit + delete + aggiunta rapida (dropdown categorie esistenti oppure input libero).
 - ✅ **Dialog Scan DDT**: nuovo box "Gestione prezzi articoli esistenti" con 2 checkbox (`Aggiorna prezzo di acquisto` + `Mantieni il ricarico corrente`) attive di default, che passano i flag alla chiamata di import. Toast finale include `N prezzi aggiornati`.
+
+## Iter42 (2026-02-XX) — Conferma eliminazione anche sui Ricarichi
+- ✅ **`Magazzino.jsx` — RicarichiCategoriaDialog**: la rimozione di un ricarico predefinito adesso passa da un AlertDialog con conferma (prima era diretta). Testo del prompt personalizzato: "Vuoi rimuovere il ricarico predefinito per **[categoria]** (+X%)? I nuovi articoli di questa categoria non useranno più un ricarico automatico."
+- ✅ Le altre eliminazioni del Magazzino avevano già la conferma: Articoli (con avviso movimenti collegati) e Fornitori (con avviso che gli articoli restano senza fornitore).
+
 - ✅ E2E test: setup 2 ricarichi (Ferramenta +40%, Vernici +25%), articolo esistente `FTST-01` pa=10 pv=15 (ricarico 50%). Import DDT con `mantieni_ricarico=true` e prezzo nuovo 12 → risultato pa=12 pv=18 ricarico=50% ✓. Nuovo articolo `NUOVO-01` categoria Ferramenta pa=0.50 → pv=0.70 (+40% da default) ✓.
 
 - Restano al metro lineare: lavaggi stagionali, maggiorazione scafo sporco, movimentazione/taccaggio fuori sede

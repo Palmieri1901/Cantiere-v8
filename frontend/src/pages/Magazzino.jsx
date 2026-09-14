@@ -1297,6 +1297,7 @@ function RicarichiCategoriaDialog({ open, onOpenChange, categorie }) {
   const [nuovaCat, setNuovaCat] = useState("");
   const [nuovoPercent, setNuovoPercent] = useState(30);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -1324,10 +1325,11 @@ function RicarichiCategoriaDialog({ open, onOpenChange, categorie }) {
     }
   };
 
-  const remove = async (id) => {
+  const remove = async (item) => {
     try {
-      await api.delete(`/magazzino/ricarichi-categoria/${id}`);
-      toast.success("Rimosso");
+      await api.delete(`/magazzino/ricarichi-categoria/${item.id}`);
+      toast.success(`Rimosso ricarico ${item.categoria}`);
+      setConfirmDelete(null);
       load();
     } catch {
       toast.error("Errore");
@@ -1420,7 +1422,7 @@ function RicarichiCategoriaDialog({ open, onOpenChange, categorie }) {
                   <TableRow><TableCell colSpan={3} className="text-center py-6 text-muted-foreground" data-testid="empty-ricarichi">Nessun ricarico impostato</TableCell></TableRow>
                 )}
                 {items.map((it) => (
-                  <RicaricoRow key={it.id} item={it} onSave={saveOne} onDelete={() => remove(it.id)} />
+                  <RicaricoRow key={it.id} item={it} onSave={saveOne} onDelete={() => setConfirmDelete(it)} />
                 ))}
               </TableBody>
             </Table>
@@ -1430,6 +1432,26 @@ function RicarichiCategoriaDialog({ open, onOpenChange, categorie }) {
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Chiudi</Button>
         </DialogFooter>
+
+        <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-destructive" />
+                Rimuovi ricarico
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Vuoi rimuovere il ricarico predefinito per <b>{confirmDelete?.categoria}</b> (+{confirmDelete?.ricarico_percent}%)? I nuovi articoli di questa categoria non useranno più un ricarico automatico.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="ricarichi-del-cancel">Annulla</AlertDialogCancel>
+              <AlertDialogAction onClick={() => remove(confirmDelete)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" data-testid="ricarichi-del-confirm">
+                Rimuovi
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
