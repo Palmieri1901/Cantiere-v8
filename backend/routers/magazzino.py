@@ -16,6 +16,7 @@ from models import (
     MovimentoMagazzino, MovimentoCreate,
     ScanArticoloRequest, ScanDDTRequest,
     RicaricoCategoria, RicaricoCategoriaCreate,
+    SpesaAccessoria, SpesaCreate,
 )
 
 
@@ -339,28 +340,39 @@ async def scan_ddt(payload: ScanDDTRequest):
         raise HTTPException(400, "Nessun file/immagine fornito")
 
     prompt = (
-        "Analizza questa foto o scansione di un Documento Di Trasporto (DDT) italiano di forniture "
-        "nautiche. Estrai TUTTE le righe articolo della bolla.\n\n"
-        "SIGNIFICATO DELLE COLONNE (importante):\n"
-        "- 'Prezzo unitario' o 'Prezzo listino' o 'PU' = prezzo di listino IVA COMPRESA (22%)\n"
-        "- 'Sconto %' o 'Sc%' = sconto applicato in percentuale\n"
-        "- 'Importo' o 'Totale' o 'Netto' = importo unitario NETTO scontato ESCLUSA IVA (è il vero prezzo di acquisto)\n"
-        "- Quando 'Importo' è il totale riga (già moltiplicato per la quantità), dividi per la quantità e riporta l'unitario netto\n\n"
+        "Analizza questa foto o scansione di un Documento Di Trasporto (DDT) o fattura italiana di "
+        "forniture nautiche. Estrai TUTTE le righe.\n\n"
+        "Distinguerai DUE gruppi di righe:\n"
+        "  1) ARTICOLI (beni fisici, ricambi, materiali) → vanno in 'articoli'\n"
+        "  2) SPESE ACCESSORIE (costi di trasporto, bancarie, spedizione, imballo, assicurazione, "
+        "     carburante, sovrapprezzi non merceologici) → vanno in 'spese_accessorie'\n\n"
+        "SIGNIFICATO COLONNE per gli articoli:\n"
+        "- 'Prezzo unitario' / 'Prezzo listino' / 'PU' = prezzo unitario IVA COMPRESA (22%)\n"
+        "- 'Sconto %' / 'Sc%' = sconto in percentuale\n"
+        "- 'Importo' / 'Totale' / 'Netto' = importo unitario NETTO scontato IVA ESCLUSA (prezzo di acquisto)\n"
+        "- Se 'Importo' è il totale riga, dividilo per la quantità.\n\n"
         "Rispondi SOLO con un oggetto JSON:\n"
-        '{"fornitore": "", "numero_ddt": "", "data": "", "iva_percent": 22, "articoli": [\n'
-        '  {"codice": "", "nome": "", "descrizione": "", "quantita": 0,\n'
-        '   "prezzo_listino_ivato": 0, "sconto_percent": 0, "importo_netto": 0}\n'
-        "]}\n\n"
+        '{"fornitore": "", "numero_ddt": "", "data": "", "iva_percent": 22,\n'
+        ' "articoli": [\n'
+        '   {"codice": "", "nome": "", "descrizione": "", "quantita": 0,\n'
+        '    "prezzo_listino_ivato": 0, "sconto_percent": 0, "importo_netto": 0}\n'
+        " ],\n"
+        ' "spese_accessorie": [\n'
+        '   {"tipo": "trasporto", "descrizione": "Trasporto merce", "importo": 0}\n'
+        " ]}\n\n"
+        "TIPI DI SPESA riconosciuti (usa esattamente uno di questi valori nel campo 'tipo'):\n"
+        "- 'bancarie' (spese bancarie, commissioni bonifico, incasso RIBA)\n"
+        "- 'trasporto' (trasporto, corriere, consegna)\n"
+        "- 'spedizione' (porto, franco destino, spedizione)\n"
+        "- 'imballo' (imballaggio, cassa, pallet)\n"
+        "- 'assicurazione'\n"
+        "- 'carburante' (sovrapprezzo carburante, adeguamento gasolio)\n"
+        "- 'altro' (qualsiasi altra spesa non merceologica)\n\n"
         "Regole:\n"
-        "- fornitore: nome/ragione sociale del mittente in alto.\n"
-        "- numero_ddt e data: se visibili in intestazione.\n"
-        "- iva_percent: se leggi un'aliquota diversa da 22, riportala.\n"
-        "- prezzo_listino_ivato: prezzo unitario IVA compresa dalla colonna 'Prezzo unitario/Listino'.\n"
-        "- sconto_percent: percentuale sconto se presente (colonna Sc%), altrimenti 0.\n"
-        "- importo_netto: prezzo unitario netto scontato IVA esclusa. Se il DDT mostra il totale riga, dividilo per la quantità.\n"
-        "- Se solo 2 dei 3 valori sono presenti, riempi solo quelli letti (l'app calcolerà i mancanti).\n"
-        "- Ignora totali generali, sconti aggregati e note in coda.\n"
-        "- Se un valore non è leggibile lascialo 0 o stringa vuota.\n"
+        "- l'importo delle spese è quello NETTO IVA esclusa (se leggi solo l'ivato, dividi per 1.22).\n"
+        "- Non trattare sconti totali o abbuoni come spese.\n"
+        "- Se non ci sono spese accessorie usa una lista vuota.\n"
+        "- Ignora totali generali del documento.\n"
         "Rispondi SOLO con il JSON, nessun testo aggiuntivo."
     )
     try:
@@ -410,6 +422,15 @@ async def scan_ddt(payload: ScanDDTRequest):
         "data": str(data.get("data", "") or ""),
         "iva_percent": iva_percent,
         "articoli": articoli,
+        "spese_accessorie": [
+            {
+                "tipo": str(s.get("tipo", "altro") or "altro").lower().strip(),
+                "descrizione": str(s.get("descrizione", "") or ""),
+                "importo": float(s.get("importo", 0) or 0),
+            }
+            for s in (data.get("spese_accessorie") or [])
+            if isinstance(s, dict) and (s.get("importo") or 0) > 0
+        ],
         "raw": raw,
     }
 
@@ -423,9 +444,12 @@ from pydantic import BaseModel as _BM
 
 class ImportArticoliRequest(_BM):
     fornitore_id: Optional[str] = None
-    articoli: List[dict]
-    aggiorna_prezzi: Optional[bool] = True  # aggiorna prezzo acquisto degli articoli esistenti
-    mantieni_ricarico: Optional[bool] = True  # mantiene il ricarico % corrente ricalcolando la vendita
+    articoli: List[dict] = []
+    spese_accessorie: Optional[List[dict]] = None
+    documento_ref: Optional[str] = ""  # numero DDT/fattura
+    data_documento: Optional[str] = None  # ISO YYYY-MM-DD
+    aggiorna_prezzi: Optional[bool] = True
+    mantieni_ricarico: Optional[bool] = True
 
 
 async def _default_markup_for(categoria: Optional[str]) -> Optional[float]:
@@ -487,6 +511,15 @@ async def importa_articoli(payload: ImportArticoliRequest):
       calcola automaticamente prezzo_listino = prezzo_acquisto × (1 + ricarico/100).
     """
     created, updated, prezzi_aggiornati = 0, 0, 0
+    spese_salvate = 0
+
+    fornitore_nome = ""
+    if payload.fornitore_id:
+        f = await db.fornitori.find_one({"id": payload.fornitore_id}, {"_id": 0, "nome": 1})
+        if f:
+            fornitore_nome = f.get("nome", "")
+
+    data_doc = payload.data_documento or datetime.now().strftime("%Y-%m-%d")
     for a in payload.articoli:
         codice = (a.get("codice") or "").strip()
         nome = (a.get("nome") or "").strip()
@@ -555,7 +588,107 @@ async def importa_articoli(payload: ImportArticoliRequest):
                 )
                 await db.movimenti_magazzino.insert_one(mv.model_dump())
             created += 1
-    return {"created": created, "updated": updated, "prezzi_aggiornati": prezzi_aggiornati}
+    # Salva le spese accessorie separate dal magazzino
+    for sp in payload.spese_accessorie or []:
+        if not isinstance(sp, dict):
+            continue
+        importo = float(sp.get("importo") or 0)
+        if importo <= 0:
+            continue
+        spesa = SpesaAccessoria(
+            tipo=str(sp.get("tipo") or "altro").lower().strip() or "altro",
+            descrizione=str(sp.get("descrizione") or ""),
+            importo=importo,
+            data=data_doc,
+            fornitore_id=payload.fornitore_id,
+            fornitore_nome=fornitore_nome,
+            documento_ref=payload.documento_ref or "",
+        )
+        await db.spese_accessorie.insert_one(spesa.model_dump())
+        spese_salvate += 1
+
+    return {"created": created, "updated": updated, "prezzi_aggiornati": prezzi_aggiornati, "spese_salvate": spese_salvate}
+
+
+@router.get("/spese", response_model=List[SpesaAccessoria])
+async def list_spese(
+    tipo: Optional[str] = None,
+    fornitore_id: Optional[str] = None,
+    anno: Optional[int] = None,
+    limit: int = 1000,
+):
+    query = {}
+    if tipo:
+        query["tipo"] = tipo
+    if fornitore_id:
+        query["fornitore_id"] = fornitore_id
+    if anno:
+        query["data"] = {"$regex": f"^{anno}-"}
+    docs = await db.spese_accessorie.find(query, {"_id": 0}).sort("data", -1).to_list(limit)
+    return [SpesaAccessoria(**_to_dt(d)) for d in docs]
+
+
+@router.post("/spese", response_model=SpesaAccessoria)
+async def create_spesa(payload: SpesaCreate):
+    if payload.importo <= 0:
+        raise HTTPException(400, "Importo obbligatorio")
+    nome = payload.fornitore_nome or ""
+    if payload.fornitore_id and not nome:
+        f = await db.fornitori.find_one({"id": payload.fornitore_id}, {"_id": 0, "nome": 1})
+        if f:
+            nome = f.get("nome", "")
+    sp = SpesaAccessoria(
+        tipo=payload.tipo.lower().strip(),
+        descrizione=payload.descrizione or "",
+        importo=float(payload.importo),
+        data=payload.data or datetime.now().strftime("%Y-%m-%d"),
+        fornitore_id=payload.fornitore_id,
+        fornitore_nome=nome,
+        documento_ref=payload.documento_ref or "",
+        note=payload.note or "",
+    )
+    await db.spese_accessorie.insert_one(sp.model_dump())
+    return sp
+
+
+@router.put("/spese/{sid}", response_model=SpesaAccessoria)
+async def update_spesa(sid: str, payload: SpesaCreate):
+    existing = await db.spese_accessorie.find_one({"id": sid}, {"_id": 0})
+    if not existing:
+        raise HTTPException(404, "Spesa non trovata")
+    data = {**existing, **payload.model_dump(exclude_unset=True)}
+    sp = SpesaAccessoria(**_to_dt(data))
+    await db.spese_accessorie.update_one({"id": sid}, {"$set": sp.model_dump()})
+    return sp
+
+
+@router.delete("/spese/{sid}")
+async def delete_spesa(sid: str):
+    r = await db.spese_accessorie.delete_one({"id": sid})
+    if r.deleted_count == 0:
+        raise HTTPException(404, "Spesa non trovata")
+    return {"ok": True}
+
+
+@router.get("/spese-report")
+async def spese_report(anno: Optional[int] = None):
+    """Aggregato spese per tipo (con totali). Filtro opzionale per anno."""
+    match = {}
+    if anno:
+        match["data"] = {"$regex": f"^{anno}-"}
+    pipeline = [
+        {"$match": match} if match else {"$match": {}},
+        {"$group": {
+            "_id": "$tipo",
+            "totale": {"$sum": "$importo"},
+            "count": {"$sum": 1},
+        }},
+        {"$sort": {"totale": -1}},
+    ]
+    docs = await db.spese_accessorie.aggregate(pipeline).to_list(500)
+    per_tipo = [{"tipo": d["_id"] or "altro", "totale": float(d["totale"]), "count": d["count"]} for d in docs]
+    totale_generale = sum(x["totale"] for x in per_tipo)
+    return {"anno": anno, "totale_generale": totale_generale, "per_tipo": per_tipo}
 
 
 # ---------------------------------------------------------------------------

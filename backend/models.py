@@ -540,3 +540,28 @@ class RicaricoCategoria(BaseModel):
 class RicaricoCategoriaCreate(BaseModel):
     categoria: str
     ricarico_percent: float
+
+
+class SpesaAccessoria(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tipo: str  # bancarie | trasporto | imballo | spedizione | assicurazione | carburante | altro
+    descrizione: str = ""
+    importo: float = 0.0
+    data: str  # ISO YYYY-MM-DD
+    fornitore_id: Optional[str] = None
+    fornitore_nome: Optional[str] = ""
+    documento_ref: Optional[str] = ""  # numero DDT/fattura
+    note: Optional[str] = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class SpesaCreate(BaseModel):
+    tipo: str
+    descrizione: Optional[str] = ""
+    importo: float
+    data: Optional[str] = None
+    fornitore_id: Optional[str] = None
+    fornitore_nome: Optional[str] = ""
+    documento_ref: Optional[str] = ""
+    note: Optional[str] = ""

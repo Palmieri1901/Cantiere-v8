@@ -45,12 +45,15 @@ export default function Magazzino() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="grid grid-cols-3 max-w-md">
+        <TabsList className="grid grid-cols-4 max-w-2xl">
           <TabsTrigger value="articoli" data-testid="tab-articoli">
             <Package className="w-3.5 h-3.5 mr-1.5" /> Articoli
           </TabsTrigger>
           <TabsTrigger value="fornitori" data-testid="tab-fornitori">
             <Building2 className="w-3.5 h-3.5 mr-1.5" /> Fornitori
+          </TabsTrigger>
+          <TabsTrigger value="spese" data-testid="tab-spese">
+            <Percent className="w-3.5 h-3.5 mr-1.5" /> Spese
           </TabsTrigger>
           <TabsTrigger value="movimenti" data-testid="tab-movimenti">
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Movimenti
@@ -62,6 +65,9 @@ export default function Magazzino() {
         </TabsContent>
         <TabsContent value="fornitori" className="mt-6">
           <FornitoriTab />
+        </TabsContent>
+        <TabsContent value="spese" className="mt-6">
+          <SpeseTab />
         </TabsContent>
         <TabsContent value="movimenti" className="mt-6">
           <MovimentiTab />
@@ -771,6 +777,7 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState(null);
   const [rows, setRows] = useState([]);
+  const [spese, setSpese] = useState([]);
   const [fornitoreId, setFornitoreId] = useState("none");
   const [saving, setSaving] = useState(false);
   const [aggiornaPrezzi, setAggiornaPrezzi] = useState(true);
@@ -779,7 +786,7 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
   useEffect(() => {
     if (open) {
       setImage(""); setFileName(""); setFileB64(""); setFileMime(""); setIsPdf(false);
-      setResult(null); setRows([]); setFornitoreId("none");
+      setResult(null); setRows([]); setSpese([]); setFornitoreId("none");
       setAggiornaPrezzi(true); setMantieniRicarico(true);
     }
   }, [open]);
@@ -820,7 +827,11 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
         _sel: true,
         _i: i,
       })));
-      toast.success(`Trovati ${data.articoli?.length || 0} articoli`);
+      setSpese((data.spese_accessorie || []).map((s, i) => ({
+        ...s, _sel: true, _i: i,
+      })));
+      const tot = (data.articoli?.length || 0) + (data.spese_accessorie?.length || 0);
+      toast.success(`Trovati ${data.articoli?.length || 0} articoli e ${data.spese_accessorie?.length || 0} spese`);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Impossibile analizzare il DDT");
     } finally {
@@ -858,22 +869,28 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
 
   const importa = async () => {
     const sel = rows.filter((r) => r._sel && (r.nome || r.codice));
-    if (sel.length === 0) { toast.error("Nessun articolo selezionato"); return; }
+    const speseSel = spese.filter((s) => s._sel && Number(s.importo) > 0);
+    if (sel.length === 0 && speseSel.length === 0) { toast.error("Nessuna riga selezionata"); return; }
     setSaving(true);
     try {
       const r = await api.post("/magazzino/importa-articoli", {
         fornitore_id: fornitoreId === "none" ? null : fornitoreId,
-        // Invio come prezzo_unitario il netto (prezzo di acquisto)
         articoli: sel.map((a) => ({
           ...a,
           prezzo_unitario: Number(a.importo_netto ?? a.prezzo_unitario ?? 0),
         })),
+        spese_accessorie: speseSel.map((s) => ({
+          tipo: s.tipo, descrizione: s.descrizione, importo: Number(s.importo),
+        })),
+        documento_ref: result?.numero_ddt || "",
+        data_documento: result?.data || null,
         aggiorna_prezzi: aggiornaPrezzi,
         mantieni_ricarico: mantieniRicarico,
       });
       const pa = r.data.prezzi_aggiornati || 0;
+      const sp = r.data.spese_salvate || 0;
       toast.success(
-        `Importati: ${r.data.created} nuovi, ${r.data.updated} ricaricati${pa > 0 ? `, ${pa} prezzi aggiornati` : ""}`
+        `Import: ${r.data.created} nuovi, ${r.data.updated} ricaricati${pa > 0 ? `, ${pa} prezzi aggiornati` : ""}${sp > 0 ? `, ${sp} spese` : ""}`
       );
       onDone();
     } catch (e) {
@@ -1045,6 +1062,45 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
               <div className="p-2 text-[11px] text-muted-foreground bg-muted/20 border-t border-border">
                 Modifica <b>Listino IVA</b> o <b>Sconto</b> per ricalcolare il <b>Netto</b>. Modifica direttamente il <b>Netto</b> per ricalcolare lo sconto. IVA assunta al 22%.
               </div>
+            </div>
+          )}
+
+          {spese.length > 0 && (
+            <div className="mt-4 rounded-md border border-primary/30 bg-primary/5 overflow-hidden" data-testid="ddt-spese-preview">
+              <div className="px-3 py-2 border-b border-primary/20 flex items-center gap-2">
+                <Percent className="w-3.5 h-3.5 text-primary" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-primary">Spese accessorie rilevate</span>
+                <span className="text-[11px] text-muted-foreground ml-auto">Verranno salvate nel report Spese, non nel magazzino</span>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-primary/5">
+                    <TableHead className="w-10"></TableHead>
+                    <TableHead className="w-32">Tipo</TableHead>
+                    <TableHead>Descrizione</TableHead>
+                    <TableHead className="text-right w-32">Importo €</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {spese.map((s) => (
+                    <TableRow key={s._i} data-testid={`ddt-spesa-${s._i}`}>
+                      <TableCell>
+                        <input type="checkbox" checked={s._sel} onChange={(e) => setSpese((sp) => sp.map((x) => x._i === s._i ? { ...x, _sel: e.target.checked } : x))} />
+                      </TableCell>
+                      <TableCell>
+                        <Select value={s.tipo} onValueChange={(v) => setSpese((sp) => sp.map((x) => x._i === s._i ? { ...x, tipo: v } : x))}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {TIPI_SPESA.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell><Input value={s.descrizione} onChange={(e) => setSpese((sp) => sp.map((x) => x._i === s._i ? { ...x, descrizione: e.target.value } : x))} className="h-8" /></TableCell>
+                      <TableCell><Input type="number" step="0.01" value={s.importo} onChange={(e) => setSpese((sp) => sp.map((x) => x._i === s._i ? { ...x, importo: Number(e.target.value) } : x))} className="h-8 text-right font-mono-num" /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </div>
@@ -1467,6 +1523,7 @@ function RicarichiCategoriaDialog({ open, onOpenChange, categorie }) {
                   </SelectContent>
                 </Select>
               ) : (
+
                 <Input
                   value={nuovaCat}
                   onChange={(e) => setNuovaCat(e.target.value)}
@@ -1577,5 +1634,230 @@ function RicaricoRow({ item, onSave, onDelete }) {
         </Button>
       </TableCell>
     </TableRow>
+  );
+}
+
+
+// ============================================================================
+// TAB SPESE (spese accessorie da DDT/fattura + inserimento manuale)
+// ============================================================================
+
+const TIPI_SPESA = [
+  { value: "bancarie", label: "Bancarie" },
+  { value: "trasporto", label: "Trasporto" },
+  { value: "spedizione", label: "Spedizione" },
+  { value: "imballo", label: "Imballo" },
+  { value: "assicurazione", label: "Assicurazione" },
+  { value: "carburante", label: "Carburante" },
+  { value: "altro", label: "Altro" },
+];
+
+function labelTipo(t) {
+  const found = TIPI_SPESA.find((x) => x.value === t);
+  return found ? found.label : (t || "Altro");
+}
+
+function SpeseTab() {
+  const [items, setItems] = useState([]);
+  const [report, setReport] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [tipoFilter, setTipoFilter] = useState("all");
+  const [addOpen, setAddOpen] = useState(false);
+  const [form, setForm] = useState({ tipo: "trasporto", descrizione: "", importo: "", data: new Date().toISOString().slice(0, 10), documento_ref: "" });
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [l, r] = await Promise.all([
+        api.get("/magazzino/spese"),
+        api.get("/magazzino/spese-report"),
+      ]);
+      setItems(l.data);
+      setReport(r.data);
+    } catch {
+      toast.error("Errore caricamento spese");
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const filtered = tipoFilter === "all" ? items : items.filter((s) => s.tipo === tipoFilter);
+
+  const save = async () => {
+    if (!form.tipo) { toast.error("Tipo obbligatorio"); return; }
+    const imp = Number(form.importo);
+    if (!Number.isFinite(imp) || imp <= 0) { toast.error("Importo non valido"); return; }
+    setSaving(true);
+    try {
+      await api.post("/magazzino/spese", { ...form, importo: imp });
+      toast.success("Spesa registrata");
+      setAddOpen(false);
+      setForm({ tipo: "trasporto", descrizione: "", importo: "", data: new Date().toISOString().slice(0, 10), documento_ref: "" });
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Errore");
+    } finally { setSaving(false); }
+  };
+
+  const remove = async () => {
+    if (!confirmDelete) return;
+    try {
+      await api.delete(`/magazzino/spese/${confirmDelete.id}`);
+      toast.success("Spesa eliminata");
+      setConfirmDelete(null);
+      load();
+    } catch { toast.error("Errore"); }
+  };
+
+  return (
+    <>
+      {/* KPI per tipo */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <Card className="p-4">
+          <div className="label-mini">Totale spese</div>
+          <div className="font-mono-num text-2xl font-semibold mt-1" data-testid="kpi-spese-tot">{fmtEuro(report?.totale_generale || 0)}</div>
+        </Card>
+        {(report?.per_tipo || []).slice(0, 3).map((r) => (
+          <Card key={r.tipo} className="p-4">
+            <div className="label-mini">{labelTipo(r.tipo)}</div>
+            <div className="font-mono-num text-lg font-semibold mt-1">{fmtEuro(r.totale)}</div>
+            <div className="text-[10px] text-muted-foreground">{r.count} voci</div>
+          </Card>
+        ))}
+      </div>
+
+      <Card className="p-4">
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <Select value={tipoFilter} onValueChange={setTipoFilter}>
+            <SelectTrigger className="w-[200px]" data-testid="filter-tipo-spesa">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tutti i tipi</SelectItem>
+              {TIPI_SPESA.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button className="ml-auto bg-primary hover:bg-primary/90" onClick={() => setAddOpen(true)} data-testid="btn-nuova-spesa">
+            <Plus className="w-4 h-4 mr-1.5" /> Nuova spesa
+          </Button>
+        </div>
+
+        {/* Riepilogo per tipo (barre) */}
+        {report?.per_tipo?.length > 0 && (
+          <div className="mb-4 space-y-1.5" data-testid="report-spese">
+            {report.per_tipo.map((r) => {
+              const pct = report.totale_generale > 0 ? (r.totale / report.totale_generale) * 100 : 0;
+              return (
+                <div key={r.tipo} className="flex items-center gap-3 text-xs">
+                  <div className="w-28 shrink-0 font-medium">{labelTipo(r.tipo)}</div>
+                  <div className="flex-1 h-2 bg-muted rounded overflow-hidden">
+                    <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="w-24 text-right font-mono-num">{fmtEuro(r.totale)}</div>
+                  <div className="w-10 text-right text-muted-foreground">{pct.toFixed(0)}%</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="rounded-md border border-border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/40">
+                <TableHead>Data</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Descrizione</TableHead>
+                <TableHead>Fornitore</TableHead>
+                <TableHead>Doc.</TableHead>
+                <TableHead className="text-right">Importo</TableHead>
+                <TableHead className="text-right w-[60px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Caricamento…</TableCell></TableRow>}
+              {!loading && filtered.length === 0 && (
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground" data-testid="empty-spese">Nessuna spesa registrata</TableCell></TableRow>
+              )}
+              {filtered.map((s) => (
+                <TableRow key={s.id} data-testid={`row-spesa-${s.id}`}>
+                  <TableCell className="font-mono text-xs">{s.data}</TableCell>
+                  <TableCell><Badge variant="secondary">{labelTipo(s.tipo)}</Badge></TableCell>
+                  <TableCell className="text-sm">{s.descrizione || "—"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{s.fornitore_nome || "—"}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{s.documento_ref || "—"}</TableCell>
+                  <TableCell className="text-right font-mono-num font-semibold">{fmtEuro(s.importo)}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" onClick={() => setConfirmDelete(s)} data-testid={`btn-del-spesa-${s.id}`}>
+                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+
+      {/* Nuova spesa */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent data-testid="dialog-spesa">
+          <DialogHeader>
+            <DialogTitle>Nuova spesa accessoria</DialogTitle>
+            <DialogDescription>Registra manualmente una spesa non merceologica (bancaria, trasporto, ecc.)</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <FormField label="Tipo *" full>
+              <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v })}>
+                <SelectTrigger data-testid="spesa-input-tipo"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TIPI_SPESA.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label="Descrizione" full>
+              <Input value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} placeholder="es. Trasporto merce" data-testid="spesa-input-desc" />
+            </FormField>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Importo € *">
+                <Input type="number" step="0.01" value={form.importo} onChange={(e) => setForm({ ...form, importo: e.target.value })} data-testid="spesa-input-importo" />
+              </FormField>
+              <FormField label="Data">
+                <Input type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} data-testid="spesa-input-data" />
+              </FormField>
+            </div>
+            <FormField label="Riferimento documento" full>
+              <Input value={form.documento_ref} onChange={(e) => setForm({ ...form, documento_ref: e.target.value })} placeholder="es. DDT 4521/2026" />
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>Annulla</Button>
+            <Button onClick={save} disabled={saving} className="bg-primary hover:bg-primary/90" data-testid="btn-save-spesa">
+              {saving ? "Salvataggio…" : "Salva"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Elimina spesa
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Vuoi eliminare la spesa <b>{labelTipo(confirmDelete?.tipo)}</b> del {confirmDelete?.data} da {fmtEuro(confirmDelete?.importo || 0)}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={remove} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" data-testid="btn-del-spesa-confirm">Elimina</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

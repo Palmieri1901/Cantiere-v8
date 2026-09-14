@@ -189,6 +189,16 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 
 - Verificato: L=5m (mq 12,5) sosta 2250€; L=8m (mq 24) sosta 4320€; L=10m (mq 40) sosta 7200€ + copertura 1800€ (tariffe default)
 
+
+## Iter45 (2026-02-XX) — Report Spese Accessorie separato dal magazzino
+- ✅ **Nuovo modello `SpesaAccessoria`** `{id, tipo, descrizione, importo, data, fornitore_id, fornitore_nome, documento_ref, note, created_at}` con 7 tipi predefiniti: bancarie, trasporto, spedizione, imballo, assicurazione, carburante, altro.
+- ✅ **Backend endpoints**: `GET /magazzino/spese` (filtri tipo/fornitore/anno) · `POST` · `PUT` · `DELETE` · `GET /magazzino/spese-report` (aggregato per tipo via pipeline MongoDB con totali e count).
+- ✅ **Backend `scan-ddt`**: prompt Gemini esteso per distinguere **articoli fisici** vs **spese accessorie** (banking, trasporto, imballo…). Response include ora `spese_accessorie`. Import DDT salva le spese nella collezione dedicata (non nel magazzino).
+- ✅ **`importa-articoli`** accetta `spese_accessorie[]`, `documento_ref`, `data_documento`. Risposta include `spese_salvate`.
+- ✅ **Frontend `Magazzino.jsx`**: nuovo tab **"Spese"** con KPI totale + 3 badge per tipo top, riepilogo per tipo con barre percentuali, tabella filtrabile per tipo, add manuale + delete con AlertDialog di conferma.
+- ✅ **ScanDDTDialog**: dopo la preview articoli, se sono state rilevate spese appare la sezione **"Spese accessorie rilevate"** (evidenziata primary) con select tipo + descrizione + importo editabili e checkbox selezione. Toast conclusivo mostra "N spese salvate".
+- ✅ E2E: 3 spese create (bancarie 8.50, trasporto 25+32=57, imballo 15) → report aggregato: totale 80.50€, trasporto 57€ (2 voci), imballo 15€, bancarie 8.50€ ✓.
+
 ## Toggle ricambi motore ON/OFF (2026-02)
 - Nuovi campi Cliente + ClienteCreate: `filtro_olio_attivo`, `anodi_interni_attivo`, `anodi_esterni_attivo`, `olio_piede_attivo`, `ingrassaggio_attivo` (default True) + varianti `_2_attivo` per il 2° motore
 - `calcola_ricambi` accetta i flag e azzera le voci disattivate
