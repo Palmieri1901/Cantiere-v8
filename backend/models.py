@@ -395,6 +395,11 @@ class RestoreRequest(BaseModel):
     tariffe: Optional[dict] = None
     clienti: Optional[List[dict]] = None
     lavori: Optional[List[dict]] = None
+    articoli: Optional[List[dict]] = None
+    fornitori: Optional[List[dict]] = None
+    ricarichi_categoria: Optional[List[dict]] = None
+    spese_accessorie: Optional[List[dict]] = None
+    movimenti_magazzino: Optional[List[dict]] = None
 
 
 class PagatoUpdate(BaseModel):

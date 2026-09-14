@@ -39,7 +39,10 @@ export default function Home() {
     reader.onload = () => {
       try {
         const data = JSON.parse(reader.result);
-        if (!data.clienti && !data.tariffe && !data.cantiere) {
+        // Un backup valido deve contenere almeno una sezione riconosciuta
+        const hasAny = ["clienti", "lavori", "tariffe", "cantiere", "articoli", "fornitori", "spese_accessorie", "movimenti_magazzino", "ricarichi_categoria"]
+          .some((k) => data[k] !== undefined && data[k] !== null);
+        if (!hasAny) {
           toast.error("File di backup non valido");
           return;
         }
@@ -58,7 +61,15 @@ export default function Home() {
     try {
       const r = await api.post("/restore", restoreData);
       const rst = r.data.restored;
-      toast.success(`Ripristinati: ${rst.clienti} clienti, ${rst.lavori} lavori`);
+      const parts = [];
+      if (rst.clienti) parts.push(`${rst.clienti} clienti`);
+      if (rst.lavori) parts.push(`${rst.lavori} lavori`);
+      if (rst.articoli) parts.push(`${rst.articoli} articoli`);
+      if (rst.fornitori) parts.push(`${rst.fornitori} fornitori`);
+      if (rst.spese_accessorie) parts.push(`${rst.spese_accessorie} spese`);
+      if (rst.movimenti_magazzino) parts.push(`${rst.movimenti_magazzino} movimenti`);
+      if (rst.ricarichi_categoria) parts.push(`${rst.ricarichi_categoria} ricarichi`);
+      toast.success(`Ripristinati: ${parts.join(" · ") || "impostazioni"}`);
       setRestoreData(null);
       load();
     } catch {
@@ -261,10 +272,11 @@ export default function Home() {
               <div className="flex items-center gap-1.5 label-mini mb-2">
                 <Database className="w-3.5 h-3.5" /> Backup dati
               </div>
-              <h3 className="font-display text-xl font-semibold">Salva & Recupera tutti i dati</h3>
+              <h3 className="font-display text-xl font-semibold">Backup completo & Ripristino</h3>
               <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-                Scarica un file di backup con clienti, lavori, tariffe e informazioni del cantiere.
-                Puoi conservarlo come archivio o ripristinarlo in caso di problemi.
+                Scarica un file di backup con <b>tutto l'archivio</b>: clienti, lavori, tariffe, informazioni cantiere e
+                l'intero modulo Magazzino (articoli, fornitori, ricarichi, spese accessorie e movimenti). Conservalo come
+                archivio o ripristinalo in caso di problemi.
               </p>
             </div>
             <div className="flex gap-2 shrink-0">
@@ -297,6 +309,11 @@ export default function Home() {
                 <ul className="list-disc pl-5 text-sm space-y-1">
                   <li><b>{restoreData?.clienti?.length || 0}</b> clienti</li>
                   <li><b>{restoreData?.lavori?.length || 0}</b> lavori</li>
+                  <li><b>{restoreData?.articoli?.length || 0}</b> articoli magazzino</li>
+                  <li><b>{restoreData?.fornitori?.length || 0}</b> fornitori</li>
+                  <li><b>{restoreData?.spese_accessorie?.length || 0}</b> spese accessorie</li>
+                  <li><b>{restoreData?.movimenti_magazzino?.length || 0}</b> movimenti magazzino</li>
+                  <li><b>{restoreData?.ricarichi_categoria?.length || 0}</b> ricarichi per categoria</li>
                   <li>Tariffe: <b>{restoreData?.tariffe ? "sì" : "no"}</b></li>
                   <li>Cantiere: <b>{restoreData?.cantiere ? "sì" : "no"}</b></li>
                 </ul>
