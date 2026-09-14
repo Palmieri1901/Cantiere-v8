@@ -264,14 +264,15 @@ function ArticoliTab() {
                 <TableHead>Fornitore</TableHead>
                 <TableHead className="text-right">Prezzo acquisto</TableHead>
                 <TableHead className="text-right">Prezzo vendita</TableHead>
+                <TableHead className="text-right" title="Prezzo di vendita + IVA 22%">Vendita IVA inc.</TableHead>
                 <TableHead className="text-right">Ricarico</TableHead>
                 <TableHead className="text-right w-[100px]">Azioni</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Caricamento…</TableCell></TableRow>}
+              {loading && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Caricamento…</TableCell></TableRow>}
               {!loading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8" data-testid="empty-articoli">Nessun articolo</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8" data-testid="empty-articoli">Nessun articolo</TableCell></TableRow>
               )}
               {filtered.map((a) => {
                 const pa = Number(a.prezzo_acquisto || 0);
@@ -293,6 +294,7 @@ function ArticoliTab() {
                     <TableCell className="text-sm text-muted-foreground">{fornMap[a.fornitore_id] || "—"}</TableCell>
                     <TableCell className="text-right font-mono-num text-muted-foreground">{fmtEuro(pa)}</TableCell>
                     <TableCell className="text-right font-mono-num font-semibold">{fmtEuro(pv)}</TableCell>
+                    <TableCell className="text-right font-mono-num text-primary" data-testid={`cell-pv-iva-${a.id}`}>{fmtEuro(pv * 1.22)}</TableCell>
                     <TableCell className="text-right font-mono-num text-xs">
                       {rk !== null ? (
                         <span className={rk < 0 ? "text-destructive" : rk >= 20 ? "text-primary" : "text-muted-foreground"}>
@@ -493,6 +495,16 @@ function ArticoloForm({ open, onOpenChange, value, fornitori, onSaved }) {
           </FormField>
           <FormField label="Prezzo vendita €">
             <Input type="number" step="0.01" value={form.prezzo_listino} onChange={(e) => set("prezzo_listino", e.target.value)} data-testid="input-prezzo-listino" />
+          </FormField>
+          <FormField label="Prezzo vendita IVA inc. (22%) €" full>
+            <Input
+              type="text"
+              readOnly
+              tabIndex={-1}
+              value={(Number(form.prezzo_listino || 0) * 1.22).toFixed(2)}
+              className="bg-muted/40 font-mono-num text-primary font-semibold cursor-not-allowed"
+              data-testid="input-prezzo-listino-iva"
+            />
           </FormField>
           <FormField label="Ricarico % (modificabile)" full>
             {(() => {
