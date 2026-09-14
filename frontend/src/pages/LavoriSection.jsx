@@ -65,7 +65,20 @@ export default function LavoriSection({ clienteId }) {
   const openEdit = (l) => {
     setEditing(l);
     setForm({ ...l });
-    setArtSelezionati([]); // in edit non gestiamo articoli (già scaricati alla creazione)
+    // Ripopola gli articoli già scaricati sul lavoro così l'utente può aggiungerne/toglierne
+    const preselezionati = Array.isArray(l?.articoli_magazzino) ? l.articoli_magazzino : [];
+    setArtSelezionati(preselezionati.map((it) => {
+      const art = articoliMag.find((x) => x.id === it.articolo_id);
+      return {
+        articolo_id: it.articolo_id,
+        codice: it.codice || art?.codice || "",
+        nome: it.nome || art?.nome || "",
+        quantita: Number(it.quantita) || 0,
+        prezzo_unitario: Number(it.prezzo_unitario) || 0,
+        // Giacenza corrente + quantità già scaricata su questo lavoro = giacenza spendibile
+        giacenza: (Number(art?.quantita) || 0) + (Number(it.quantita) || 0),
+      };
+    }));
     setDialogOpen(true);
   };
 
@@ -108,14 +121,18 @@ export default function LavoriSection({ clienteId }) {
     const payload = {
       ...form,
       costo: Number(form.costo) || 0,
-      articoli_magazzino: editing ? undefined : artSelezionati.map((a) => ({
+      // In modifica invio SEMPRE la lista aggiornata: il backend calcola il delta
+      // rispetto a quella già salvata e scarica/ricarica il magazzino di conseguenza.
+      articoli_magazzino: artSelezionati.map((a) => ({
         articolo_id: a.articolo_id, quantita: Number(a.quantita), prezzo_unitario: Number(a.prezzo_unitario),
       })),
     };
     try {
       if (editing) {
         await api.put(`/lavori/${editing.id}`, payload);
-        toast.success("Lavoro aggiornato");
+        toast.success(artSelezionati.length > 0
+          ? "Lavoro aggiornato · magazzino sincronizzato"
+          : "Lavoro aggiornato");
       } else {
         await api.post("/lavori", payload);
         toast.success(artSelezionati.length > 0
