@@ -771,7 +771,7 @@ async def listino_pdf(
     story.append(Paragraph(datetime.now().strftime("Aggiornato al %d/%m/%Y"), styles["Normal"]))
     story.append(Spacer(1, 8))
 
-    headers = ["Codice", "Nome", "Descrizione", "Cat.", "U.M.", "Prezzo €"]
+    headers = ["Codice", "Nome", "Descrizione", "Cat.", "U.M.", "Prezzo € (IVA inc.)"]
     data = [headers]
     for d in docs:
         data.append([
@@ -780,9 +780,9 @@ async def listino_pdf(
             (d.get("descrizione", "") or "")[:80],
             d.get("categoria", "") or "",
             d.get("unita_misura", "pz") or "pz",
-            f"{float(d.get('prezzo_listino', 0)):.2f}",
+            f"{float(d.get('prezzo_listino', 0)) * 1.22:.2f}",
         ])
-    table = Table(data, colWidths=[25*mm, 45*mm, 55*mm, 25*mm, 15*mm, 20*mm], repeatRows=1)
+    table = Table(data, colWidths=[25*mm, 45*mm, 55*mm, 25*mm, 15*mm, 25*mm], repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
