@@ -915,6 +915,78 @@ async def ordine_fornitore_pdf(fornitore_id: Optional[str] = None):
     return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
+@router.get("/inventario.pdf")
+async def inventario_pdf():
+    """Export inventario in PDF A4 (Codice, Fornitore, Nome, U.M., Quantità, Prezzo acquisto, Valore giacenza)."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+
+    articoli = await db.articoli.find({}, {"_id": 0}).sort("nome", 1).to_list(5000)
+    fornitori = await db.fornitori.find({}, {"_id": 0}).to_list(1000)
+    forn_map = {f["id"]: f.get("nome", "") for f in fornitori}
+    cantiere = await db.cantiere.find_one({"id": "default"}, {"_id": 0}) or {}
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=15*mm, bottomMargin=15*mm)
+    styles = getSampleStyleSheet()
+    story = []
+
+    nome_cantiere = cantiere.get("nome") or "Portomare"
+    story.append(Paragraph(f"<b>{nome_cantiere}</b>", styles["Title"]))
+    story.append(Paragraph("Inventario magazzino", styles["Heading3"]))
+    story.append(Paragraph(datetime.now().strftime("Aggiornato al %d/%m/%Y"), styles["Normal"]))
+    story.append(Spacer(1, 8))
+
+    headers = ["Codice", "Fornitore", "Nome", "U.M.", "Q.tà", "Prezzo acq. €", "Valore giac. €"]
+    data = [headers]
+    tot_valore = 0.0
+    for a in articoli:
+        q = float(a.get("quantita", 0) or 0)
+        p = float(a.get("prezzo_acquisto", 0) or 0)
+        val = q * p
+        tot_valore += val
+        data.append([
+            a.get("codice", "") or "—",
+            forn_map.get(a.get("fornitore_id"), "") or "—",
+            (a.get("nome", "") or "")[:60],
+            a.get("unita_misura", "pz") or "pz",
+            f"{q:g}",
+            f"{p:.2f}",
+            f"{val:.2f}",
+        ])
+    # Riga totale
+    data.append(["TOTALE", "", "", "", "", "", f"{tot_valore:.2f}"])
+
+    table = Table(data, colWidths=[22*mm, 32*mm, 58*mm, 12*mm, 15*mm, 22*mm, 25*mm], repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("ALIGN", (4, 1), (-1, -1), "RIGHT"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#f8fafc")]),
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#cbd5e1")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        # Riga totale evidenziata
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#fef3c7")),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("SPAN", (0, -1), (5, -1)),
+        ("ALIGN", (0, -1), (5, -1), "RIGHT"),
+    ]))
+    story.append(table)
+
+    doc.build(story)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="inventario_magazzino.pdf"'},
+    )
+
+
 @router.get("/inventario.xlsx")
 async def inventario_xlsx():
     from openpyxl import Workbook

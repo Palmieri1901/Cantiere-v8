@@ -246,6 +246,11 @@ function ArticoliTab() {
                 <ShoppingCart className="w-4 h-4 mr-1.5" /> Ordine PDF
               </a>
             </Button>
+            <Button asChild variant="outline" data-testid="btn-inventario-pdf">
+              <a href={`${API}/magazzino/inventario.pdf`} download>
+                <FileDown className="w-4 h-4 mr-1.5" /> Inventario PDF
+              </a>
+            </Button>
             <Button asChild variant="outline" data-testid="btn-inventario-xlsx">
               <a href={`${API}/magazzino/inventario.xlsx`} download>
                 <FileSpreadsheet className="w-4 h-4 mr-1.5" /> Inventario Excel
