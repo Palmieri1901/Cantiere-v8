@@ -74,6 +74,44 @@ async def delete_fornitore(fid: str):
     return {"ok": True}
 
 
+@router.post("/fornitori/{fid}/applica-ricarico")
+async def applica_ricarico_fornitore(fid: str):
+    """Applica il ricarico % del fornitore a TUTTI i suoi articoli, ricalcolando
+    prezzo_listino = prezzo_acquisto × (1 + ricarico/100).
+    Salta gli articoli senza prezzo_acquisto valido."""
+    f = await db.fornitori.find_one({"id": fid}, {"_id": 0})
+    if not f:
+        raise HTTPException(404, "Fornitore non trovato")
+    ricarico = f.get("ricarico_default_percent")
+    if ricarico is None:
+        raise HTTPException(400, "Nessun ricarico % impostato per questo fornitore")
+    ricarico = float(ricarico)
+
+    docs = await db.articoli.find({"fornitore_id": fid}, {"_id": 0, "id": 1, "prezzo_acquisto": 1}).to_list(10000)
+    updated = 0
+    skipped = 0
+    now = datetime.now(timezone.utc)
+    for d in docs:
+        pa = float(d.get("prezzo_acquisto") or 0)
+        if pa <= 0:
+            skipped += 1
+            continue
+        nuovo_listino = round(pa * (1 + ricarico / 100), 2)
+        await db.articoli.update_one(
+            {"id": d["id"]},
+            {"$set": {"prezzo_listino": nuovo_listino, "updated_at": now}},
+        )
+        updated += 1
+    return {
+        "ok": True,
+        "fornitore_id": fid,
+        "ricarico_percent": ricarico,
+        "articoli_aggiornati": updated,
+        "articoli_saltati": skipped,
+        "totale": len(docs),
+    }
+
+
 # ---------------------------------------------------------------------------
 # ARTICOLI
 # ---------------------------------------------------------------------------

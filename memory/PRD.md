@@ -38,6 +38,13 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - ✅ Frontend nuove pagine `ForgotPassword.jsx` e `ResetPassword.jsx`, link "Password dimenticata?" in `Login.jsx`.
 - ✅ Frontend `Layout.jsx`: mostra utente loggato in sidebar + bottone **Esci**.
 - ✅ Frontend `Impostazioni.jsx`: sezione "Sicurezza account" con cambio password (verifica password attuale).
+
+## Iter41 (2026-02-14) — Applica ricarico fornitore a tutti gli articoli
+- ✅ Backend `POST /api/magazzino/fornitori/{fid}/applica-ricarico`: ricalcola `prezzo_listino = prezzo_acquisto × (1 + ricarico%)` per TUTTI gli articoli del fornitore, saltando quelli senza prezzo di acquisto. Ritorna `{articoli_aggiornati, articoli_saltati, totale, ricarico_percent}`.
+- ✅ Frontend `Magazzino.jsx` tab Fornitori: nuovo bottone icona **%** in ogni riga (disabled se ricarico non impostato) che apre AlertDialog di conferma prima del ricalcolo.
+- ✅ Frontend `FornitoreForm`: quando si modifica il ricarico % predefinito e si salva, viene aperto automaticamente l'AlertDialog "Vuoi applicare il nuovo ricarico X% a tutti gli articoli?".
+- ✅ Test manuale curl: Gibellato (6 articoli, ricarico 55%): tutti aggiornati con prezzo listino esatto (pa × 1.55, arrotondato 2 dec). Errori 404/400 gestiti.
+
 - ✅ E2E test manuale: login → hit `/api/clienti` con cookie 200, senza cookie 401. Forgot → email 202 Accepted a info@gebnautica.it → token DB → reset → login con nuova password → change-password → login con originale ✅.
 
 ## Iter31 (2026-02-XX) — Magazzino accessori nautici + AI vision + Password toggle

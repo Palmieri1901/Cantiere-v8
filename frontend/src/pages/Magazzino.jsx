@@ -1131,6 +1131,8 @@ function FornitoriTab() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [applyMarkup, setApplyMarkup] = useState(null); // { fornitore, reason }
+  const [applying, setApplying] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -1151,6 +1153,21 @@ function FornitoriTab() {
       setConfirmDelete(null);
       load();
     } catch { toast.error("Errore"); }
+  };
+
+  const applicaRicarico = async () => {
+    if (!applyMarkup?.fornitore?.id) return;
+    setApplying(true);
+    try {
+      const r = await api.post(`/magazzino/fornitori/${applyMarkup.fornitore.id}/applica-ricarico`);
+      const d = r.data || {};
+      toast.success(`Aggiornati ${d.articoli_aggiornati} articoli (${d.ricarico_percent}%)` + (d.articoli_saltati ? ` — ${d.articoli_saltati} saltati (senza prezzo acquisto)` : ""));
+      setApplyMarkup(null);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Errore aggiornamento prezzi");
+    } finally {
+      setApplying(false);
+    }
   };
 
   return (
@@ -1190,6 +1207,9 @@ function FornitoriTab() {
                     : <span className="text-muted-foreground">—</span>}
                 </TableCell>
                 <TableCell className="text-right">
+                  <Button variant="ghost" size="icon" onClick={() => setApplyMarkup({ fornitore: f, reason: "manual" })} disabled={f.ricarico_default_percent == null} title={f.ricarico_default_percent == null ? "Imposta prima un ricarico %" : `Applica +${Number(f.ricarico_default_percent).toFixed(1)}% a tutti gli articoli`} data-testid={`btn-applica-ricarico-${f.id}`}>
+                    <Percent className="w-3.5 h-3.5 text-primary" />
+                  </Button>
                   <Button asChild variant="ghost" size="icon" title="Ordine PDF sotto scorta" data-testid={`btn-ordine-forn-${f.id}`}>
                     <a href={`${API}/magazzino/ordine-fornitore.pdf?fornitore_id=${f.id}`} download>
                       <ShoppingCart className="w-3.5 h-3.5" />
@@ -1208,7 +1228,34 @@ function FornitoriTab() {
         </Table>
       </div>
 
-      <FornitoreForm open={formOpen} onOpenChange={setFormOpen} value={editing} onSaved={() => { setFormOpen(false); load(); }} />
+      <FornitoreForm open={formOpen} onOpenChange={setFormOpen} value={editing} onSaved={(saved, ricaricoChanged) => {
+        setFormOpen(false);
+        load();
+        if (ricaricoChanged && saved?.ricarico_default_percent != null) {
+          setApplyMarkup({ fornitore: saved, reason: "changed" });
+        }
+      }} />
+
+      <AlertDialog open={!!applyMarkup} onOpenChange={(o) => !o && !applying && setApplyMarkup(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Aggiornare i prezzi degli articoli?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {applyMarkup?.reason === "changed"
+                ? <>Hai modificato il ricarico di <b>{applyMarkup?.fornitore?.nome}</b> a <b>+{Number(applyMarkup?.fornitore?.ricarico_default_percent ?? 0).toFixed(1)}%</b>. Vuoi ricalcolare il <b>prezzo di listino</b> di TUTTI gli articoli di questo fornitore usando il nuovo ricarico?</>
+                : <>Ricalcolare il <b>prezzo di listino</b> di TUTTI gli articoli di <b>{applyMarkup?.fornitore?.nome}</b> applicando il ricarico corrente <b>+{Number(applyMarkup?.fornitore?.ricarico_default_percent ?? 0).toFixed(1)}%</b> al prezzo di acquisto?</>}
+              <br/><br/>
+              <span className="text-xs text-muted-foreground">Formula: prezzo_listino = prezzo_acquisto × (1 + ricarico%). Gli articoli senza prezzo di acquisto verranno saltati.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={applying} data-testid="btn-annulla-applica-ricarico">Non ora</AlertDialogCancel>
+            <AlertDialogAction onClick={applicaRicarico} disabled={applying} className="bg-primary hover:bg-primary/90" data-testid="btn-conferma-applica-ricarico">
+              {applying ? "Aggiornamento…" : "Sì, aggiorna prezzi"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
         <AlertDialogContent>
@@ -1229,8 +1276,15 @@ function FornitoriTab() {
 function FornitoreForm({ open, onOpenChange, value, onSaved }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [initialRicarico, setInitialRicarico] = useState(null);
 
-  useEffect(() => { if (open) setForm({ nome: "", referente: "", telefono: "", email: "", piva: "", indirizzo: "", note: "", ...value }); }, [open, value]);
+  useEffect(() => {
+    if (open) {
+      const init = { nome: "", referente: "", telefono: "", email: "", piva: "", indirizzo: "", note: "", ...value };
+      setForm(init);
+      setInitialRicarico(init.ricarico_default_percent ?? null);
+    }
+  }, [open, value]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -1238,10 +1292,18 @@ function FornitoreForm({ open, onOpenChange, value, onSaved }) {
     if (!form.nome?.trim()) { toast.error("Nome obbligatorio"); return; }
     setSaving(true);
     try {
-      if (form.id) await api.put(`/magazzino/fornitori/${form.id}`, form);
-      else await api.post("/magazzino/fornitori", form);
+      let saved;
+      if (form.id) {
+        const r = await api.put(`/magazzino/fornitori/${form.id}`, form);
+        saved = r.data;
+      } else {
+        const r = await api.post("/magazzino/fornitori", form);
+        saved = r.data;
+      }
       toast.success("Fornitore salvato");
-      onSaved();
+      const newRic = saved?.ricarico_default_percent ?? null;
+      const ricaricoChanged = !!form.id && Number(newRic) !== Number(initialRicarico) && newRic != null;
+      onSaved(saved, ricaricoChanged);
     } catch (e) { toast.error(e.response?.data?.detail || "Errore"); }
     finally { setSaving(false); }
   };
