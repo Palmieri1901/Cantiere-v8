@@ -439,6 +439,7 @@ class Fornitore(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     nome: str
+    abbreviazione: Optional[str] = ""
     referente: Optional[str] = ""
     telefono: Optional[str] = ""
     email: Optional[str] = ""
@@ -451,6 +452,7 @@ class Fornitore(BaseModel):
 
 class FornitoreCreate(BaseModel):
     nome: str
+    abbreviazione: Optional[str] = ""
     referente: Optional[str] = ""
     telefono: Optional[str] = ""
     email: Optional[str] = ""

@@ -1331,6 +1331,9 @@ function FornitoreForm({ open, onOpenChange, value, onSaved }) {
         <DialogHeader><DialogTitle>{form.id ? "Modifica fornitore" : "Nuovo fornitore"}</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Nome *" full><Input value={form.nome || ""} onChange={(e) => set("nome", e.target.value)} data-testid="forn-input-nome" /></FormField>
+          <FormField label="Sigla (min 3)">
+            <Input maxLength={5} minLength={3} value={form.abbreviazione || ""} onChange={(e) => set("abbreviazione", e.target.value)} placeholder="es. Osc, Fni, MTM" data-testid="forn-input-sigla" />
+          </FormField>
           <FormField label="Referente"><Input value={form.referente || ""} onChange={(e) => set("referente", e.target.value)} /></FormField>
           <FormField label="Telefono"><Input value={form.telefono || ""} onChange={(e) => set("telefono", e.target.value)} /></FormField>
           <FormField label="Email" full><Input value={form.email || ""} onChange={(e) => set("email", e.target.value)} /></FormField>

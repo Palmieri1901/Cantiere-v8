@@ -749,7 +749,9 @@ async def listino_pdf(
         query["fornitore_id"] = fornitore_id
     if categoria:
         query["categoria"] = categoria
-    docs = await db.articoli.find(query, {"_id": 0}).sort([("categoria", 1), ("nome", 1)]).to_list(5000)
+    docs = await db.articoli.find(query, {"_id": 0}).to_list(5000)
+    # Ordina alfabeticamente per la descrizione visualizzata (fallback su nome)
+    docs.sort(key=lambda d: ((d.get("descrizione") or d.get("nome") or "").strip().lower()))
     cantiere = await db.cantiere.find_one({"id": "default"}, {"_id": 0}) or {}
     fornitore = None
     if fornitore_id:
@@ -926,7 +928,7 @@ async def inventario_pdf():
 
     articoli = await db.articoli.find({}, {"_id": 0}).sort("nome", 1).to_list(5000)
     fornitori = await db.fornitori.find({}, {"_id": 0}).to_list(1000)
-    forn_map = {f["id"]: f.get("nome", "") for f in fornitori}
+    forn_map = {f["id"]: (f.get("abbreviazione") or f.get("nome") or "") for f in fornitori}
     cantiere = await db.cantiere.find_one({"id": "default"}, {"_id": 0}) or {}
 
     buf = io.BytesIO()
@@ -995,7 +997,7 @@ async def inventario_xlsx():
 
     articoli = await db.articoli.find({}, {"_id": 0}).sort("nome", 1).to_list(5000)
     fornitori = await db.fornitori.find({}, {"_id": 0}).to_list(1000)
-    forn_map = {f["id"]: f["nome"] for f in fornitori}
+    forn_map = {f["id"]: (f.get("abbreviazione") or f.get("nome") or "") for f in fornitori}
 
     wb = Workbook()
     ws = wb.active
