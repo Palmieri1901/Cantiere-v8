@@ -160,6 +160,21 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - ✅ **`Magazzino.jsx` — RicarichiCategoriaDialog**: la rimozione di un ricarico predefinito adesso passa da un AlertDialog con conferma (prima era diretta). Testo del prompt personalizzato: "Vuoi rimuovere il ricarico predefinito per **[categoria]** (+X%)? I nuovi articoli di questa categoria non useranno più un ricarico automatico."
 - ✅ Le altre eliminazioni del Magazzino avevano già la conferma: Articoli (con avviso movimenti collegati) e Fornitori (con avviso che gli articoli restano senza fornitore).
 
+
+## Iter43 (2026-02-XX) — DDT: riconoscimento sconto e IVA 22%, editabile
+- ✅ **Backend `scan-ddt`** — Prompt Gemini riscritto per spiegare esplicitamente le colonne DDT:
+  - `prezzo_listino_ivato` = prezzo unitario IVA compresa (22%)
+  - `sconto_percent` = percentuale sconto
+  - `importo_netto` = prezzo unitario NETTO scontato IVA esclusa (= vero prezzo di acquisto)
+  - `iva_percent` intestazione DDT (default 22)
+- ✅ **Backend fallback matematico**: se l'AI legge solo 2 dei 3 valori (listino/sconto/netto), il backend calcola il mancante (`netto = listino/1.22 × (1-sconto/100)`, `sconto = (1 - netto / (listino/1.22)) × 100`).
+- ✅ Retrocompatibilità: `prezzo_unitario` (usato dall'endpoint `importa-articoli`) è alias del `importo_netto` così l'articolo viene salvato con il prezzo di acquisto corretto.
+- ✅ **Frontend ScanDDTDialog** — Tabella preview con 3 nuove colonne editabili:
+  - **Listino IVA €** · **Sconto %** · **Netto acquisto €** (evidenziato in primary come valore chiave)
+  - Ricalcolo bidirezionale live: modifichi Listino/Sconto → si aggiorna il Netto; modifichi il Netto → si aggiorna lo Sconto.
+  - Nota in fondo tabella: "IVA assunta al 22%. Modifica anche solo lo sconto se non è stato riconosciuto".
+- ✅ Build frontend pulita.
+
 - ✅ E2E test: setup 2 ricarichi (Ferramenta +40%, Vernici +25%), articolo esistente `FTST-01` pa=10 pv=15 (ricarico 50%). Import DDT con `mantieni_ricarico=true` e prezzo nuovo 12 → risultato pa=12 pv=18 ricarico=50% ✓. Nuovo articolo `NUOVO-01` categoria Ferramenta pa=0.50 → pv=0.70 (+40% da default) ✓.
 
 - Restano al metro lineare: lavaggi stagionali, maggiorazione scafo sporco, movimentazione/taccaggio fuori sede

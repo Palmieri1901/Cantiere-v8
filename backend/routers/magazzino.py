@@ -339,17 +339,28 @@ async def scan_ddt(payload: ScanDDTRequest):
         raise HTTPException(400, "Nessun file/immagine fornito")
 
     prompt = (
-        "Analizza questa foto o scansione di un Documento Di Trasporto (DDT) italiano. "
-        "Estrai TUTTE le righe articolo della bolla. Rispondi SOLO con un oggetto JSON:\n"
-        '{"fornitore": "", "numero_ddt": "", "data": "", "articoli": [\n'
-        '  {"codice": "", "nome": "", "descrizione": "", "quantita": 0, "prezzo_unitario": 0}\n'
+        "Analizza questa foto o scansione di un Documento Di Trasporto (DDT) italiano di forniture "
+        "nautiche. Estrai TUTTE le righe articolo della bolla.\n\n"
+        "SIGNIFICATO DELLE COLONNE (importante):\n"
+        "- 'Prezzo unitario' o 'Prezzo listino' o 'PU' = prezzo di listino IVA COMPRESA (22%)\n"
+        "- 'Sconto %' o 'Sc%' = sconto applicato in percentuale\n"
+        "- 'Importo' o 'Totale' o 'Netto' = importo unitario NETTO scontato ESCLUSA IVA (è il vero prezzo di acquisto)\n"
+        "- Quando 'Importo' è il totale riga (già moltiplicato per la quantità), dividi per la quantità e riporta l'unitario netto\n\n"
+        "Rispondi SOLO con un oggetto JSON:\n"
+        '{"fornitore": "", "numero_ddt": "", "data": "", "iva_percent": 22, "articoli": [\n'
+        '  {"codice": "", "nome": "", "descrizione": "", "quantita": 0,\n'
+        '   "prezzo_listino_ivato": 0, "sconto_percent": 0, "importo_netto": 0}\n'
         "]}\n\n"
         "Regole:\n"
         "- fornitore: nome/ragione sociale del mittente in alto.\n"
         "- numero_ddt e data: se visibili in intestazione.\n"
-        "- Per ogni riga della tabella articoli, riporta codice/nome/quantità e prezzo se presente.\n"
-        "- Ignora totali, sconti aggregati e note in coda.\n"
-        "- Se un valore non è leggibile lascialo vuoto o 0.\n"
+        "- iva_percent: se leggi un'aliquota diversa da 22, riportala.\n"
+        "- prezzo_listino_ivato: prezzo unitario IVA compresa dalla colonna 'Prezzo unitario/Listino'.\n"
+        "- sconto_percent: percentuale sconto se presente (colonna Sc%), altrimenti 0.\n"
+        "- importo_netto: prezzo unitario netto scontato IVA esclusa. Se il DDT mostra il totale riga, dividilo per la quantità.\n"
+        "- Se solo 2 dei 3 valori sono presenti, riempi solo quelli letti (l'app calcolerà i mancanti).\n"
+        "- Ignora totali generali, sconti aggregati e note in coda.\n"
+        "- Se un valore non è leggibile lascialo 0 o stringa vuota.\n"
         "Rispondi SOLO con il JSON, nessun testo aggiuntivo."
     )
     try:
@@ -360,20 +371,44 @@ async def scan_ddt(payload: ScanDDTRequest):
     data = _extract_json(raw) or {}
     articoli_raw = data.get("articoli") or []
     articoli = []
+    iva_percent = float(data.get("iva_percent") or 22)
     for a in articoli_raw if isinstance(articoli_raw, list) else []:
         if not isinstance(a, dict):
             continue
+        listino_iva = float(a.get("prezzo_listino_ivato", 0) or 0)
+        sconto = float(a.get("sconto_percent", 0) or 0)
+        netto = float(a.get("importo_netto", 0) or 0)
+
+        # Se manca qualche valore, ricava dagli altri (assumendo IVA 22%)
+        iva_mul = 1 + iva_percent / 100
+        if netto == 0 and listino_iva > 0:
+            listino_no_iva = listino_iva / iva_mul
+            netto = round(listino_no_iva * (1 - sconto / 100), 4)
+        elif listino_iva == 0 and netto > 0 and sconto == 0:
+            listino_iva = round(netto * iva_mul, 4)
+        elif listino_iva > 0 and netto > 0 and sconto == 0:
+            listino_no_iva = listino_iva / iva_mul
+            if listino_no_iva > 0:
+                calc = (1 - netto / listino_no_iva) * 100
+                if 0 <= calc <= 99:
+                    sconto = round(calc, 2)
+
+        # Retrocompatibilità: `prezzo_unitario` continua ad essere quello di acquisto (netto)
         articoli.append({
             "codice": str(a.get("codice", "") or ""),
             "nome": str(a.get("nome", "") or ""),
             "descrizione": str(a.get("descrizione", "") or ""),
             "quantita": float(a.get("quantita", 0) or 0),
-            "prezzo_unitario": float(a.get("prezzo_unitario", 0) or 0),
+            "prezzo_listino_ivato": listino_iva,
+            "sconto_percent": sconto,
+            "importo_netto": netto,
+            "prezzo_unitario": netto,  # alias per compat con importa-articoli
         })
     return {
         "fornitore": str(data.get("fornitore", "") or ""),
         "numero_ddt": str(data.get("numero_ddt", "") or ""),
         "data": str(data.get("data", "") or ""),
+        "iva_percent": iva_percent,
         "articoli": articoli,
         "raw": raw,
     }

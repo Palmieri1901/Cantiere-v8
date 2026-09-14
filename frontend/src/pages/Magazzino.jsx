@@ -811,7 +811,15 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
         : { image_base64: fileB64 };
       const { data } = await api.post("/magazzino/scan-ddt", payload);
       setResult(data);
-      setRows((data.articoli || []).map((a, i) => ({ ...a, _sel: true, _i: i })));
+      setRows((data.articoli || []).map((a, i) => ({
+        ...a,
+        // Backfill mancanti in fase iniziale
+        prezzo_listino_ivato: a.prezzo_listino_ivato ?? 0,
+        sconto_percent: a.sconto_percent ?? 0,
+        importo_netto: a.importo_netto ?? a.prezzo_unitario ?? 0,
+        _sel: true,
+        _i: i,
+      })));
       toast.success(`Trovati ${data.articoli?.length || 0} articoli`);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Impossibile analizzare il DDT");
@@ -822,6 +830,32 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
 
   const updateRow = (i, k, v) => setRows((rr) => rr.map((r) => r._i === i ? { ...r, [k]: v } : r));
 
+  const IVA = 1.22; // IVA 22%
+  const updateRowDDT = (i, k, v) => setRows((rr) => rr.map((r) => {
+    if (r._i !== i) return r;
+    const nr = { ...r, [k]: v };
+    const listino = Number(nr.prezzo_listino_ivato) || 0;
+    const sconto = Number(nr.sconto_percent) || 0;
+    const netto = Number(nr.importo_netto) || 0;
+    if (k === "prezzo_listino_ivato" || k === "sconto_percent") {
+      // Ricalcolo netto = listino/1.22 * (1 - sconto/100)
+      const listinoNoIva = listino / IVA;
+      nr.importo_netto = +(listinoNoIva * (1 - sconto / 100)).toFixed(4);
+      nr.prezzo_unitario = nr.importo_netto;
+    } else if (k === "importo_netto") {
+      // Ricalcolo sconto dato listino e netto: sconto = (1 - netto / listinoNoIva) * 100
+      const listinoNoIva = listino / IVA;
+      if (listinoNoIva > 0) {
+        const calc = (1 - netto / listinoNoIva) * 100;
+        if (Number.isFinite(calc) && calc >= -0.5 && calc <= 99.5) {
+          nr.sconto_percent = +calc.toFixed(2);
+        }
+      }
+      nr.prezzo_unitario = netto;
+    }
+    return nr;
+  }));
+
   const importa = async () => {
     const sel = rows.filter((r) => r._sel && (r.nome || r.codice));
     if (sel.length === 0) { toast.error("Nessun articolo selezionato"); return; }
@@ -829,7 +863,11 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
     try {
       const r = await api.post("/magazzino/importa-articoli", {
         fornitore_id: fornitoreId === "none" ? null : fornitoreId,
-        articoli: sel,
+        // Invio come prezzo_unitario il netto (prezzo di acquisto)
+        articoli: sel.map((a) => ({
+          ...a,
+          prezzo_unitario: Number(a.importo_netto ?? a.prezzo_unitario ?? 0),
+        })),
         aggiorna_prezzi: aggiornaPrezzi,
         mantieni_ricarico: mantieniRicarico,
       });
@@ -956,10 +994,12 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
                 <TableHeader>
                   <TableRow className="bg-muted/40">
                     <TableHead className="w-10"></TableHead>
-                    <TableHead>Codice</TableHead>
-                    <TableHead>Nome</TableHead>
-                    <TableHead className="text-right w-24">Q.tà</TableHead>
-                    <TableHead className="text-right w-28">Prezzo €</TableHead>
+                    <TableHead className="min-w-[80px]">Codice</TableHead>
+                    <TableHead className="min-w-[180px]">Nome</TableHead>
+                    <TableHead className="text-right w-20">Q.tà</TableHead>
+                    <TableHead className="text-right w-28" title="Prezzo unitario IVA compresa">Listino IVA €</TableHead>
+                    <TableHead className="text-right w-20" title="Sconto in percentuale">Sconto %</TableHead>
+                    <TableHead className="text-right w-32" title="Prezzo di acquisto: netto scontato IVA esclusa">Netto acquisto €</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -971,11 +1011,40 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
                       <TableCell><Input value={r.codice} onChange={(e) => updateRow(r._i, "codice", e.target.value)} className="h-8" /></TableCell>
                       <TableCell><Input value={r.nome} onChange={(e) => updateRow(r._i, "nome", e.target.value)} className="h-8" /></TableCell>
                       <TableCell><Input type="number" step="0.01" value={r.quantita} onChange={(e) => updateRow(r._i, "quantita", Number(e.target.value))} className="h-8 text-right" /></TableCell>
-                      <TableCell><Input type="number" step="0.01" value={r.prezzo_unitario} onChange={(e) => updateRow(r._i, "prezzo_unitario", Number(e.target.value))} className="h-8 text-right" /></TableCell>
+                      <TableCell>
+                        <Input
+                          type="number" step="0.01"
+                          value={r.prezzo_listino_ivato ?? 0}
+                          onChange={(e) => updateRowDDT(r._i, "prezzo_listino_ivato", Number(e.target.value))}
+                          className="h-8 text-right font-mono-num"
+                          data-testid={`ddt-listino-${r._i}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number" step="0.1"
+                          value={r.sconto_percent ?? 0}
+                          onChange={(e) => updateRowDDT(r._i, "sconto_percent", Number(e.target.value))}
+                          className="h-8 text-right font-mono-num"
+                          data-testid={`ddt-sconto-${r._i}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number" step="0.01"
+                          value={r.importo_netto ?? r.prezzo_unitario ?? 0}
+                          onChange={(e) => updateRowDDT(r._i, "importo_netto", Number(e.target.value))}
+                          className="h-8 text-right font-mono-num bg-primary/5 border-primary/30 font-semibold"
+                          data-testid={`ddt-netto-${r._i}`}
+                        />
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+              <div className="p-2 text-[11px] text-muted-foreground bg-muted/20 border-t border-border">
+                Modifica <b>Listino IVA</b> o <b>Sconto</b> per ricalcolare il <b>Netto</b>. Modifica direttamente il <b>Netto</b> per ricalcolare lo sconto. IVA assunta al 22%.
+              </div>
             </div>
           )}
         </div>
