@@ -19,7 +19,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Plus, FileDown, Pencil, Trash2, Ship, Save, Settings2, AlertTriangle, Copy,
+  Plus, FileDown, Pencil, Trash2, Ship, Save, Settings2, AlertTriangle, Copy, FileText,
 } from "lucide-react";
 
 const STATO_LABELS = {
@@ -262,9 +262,16 @@ export default function Tubolari() {
 function PreventivoForm({ open, onOpenChange, value, onSaved }) {
   const [form, setForm] = useState(EMPTY_PREV);
   const [saving, setSaving] = useState(false);
+  const [showPreview, setShowPreview] = useState(true);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     if (open) setForm({ ...EMPTY_PREV, ...(value || {}) });
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, value]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -283,6 +290,53 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
   }, [form]);
 
   const base = Number(form.prezzo_al_metro || 0) * Number(form.metri || 0);
+
+  // Anteprima PDF live (debounced)
+  useEffect(() => {
+    if (!open || !showPreview) return;
+    // Non genera preview se manca il minimo indispensabile
+    if (!form.marca_gommone || !Number(form.metri)) return;
+
+    let cancelled = false;
+    setPreviewLoading(true);
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const payload = {
+          ...form,
+          metri: Number(form.metri),
+          maniglioni_aggiuntivi: parseInt(form.maniglioni_aggiuntivi || 0, 10),
+        };
+        const res = await api.post("/tubolari/preview-pdf", payload, {
+          responseType: "blob",
+          signal: controller.signal,
+        });
+        if (cancelled) return;
+        const blob = new Blob([res.data], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        setPreviewUrl((old) => { if (old) URL.revokeObjectURL(old); return url; });
+      } catch (e) {
+        // Ignora aborts
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    }, 600);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearTimeout(timer);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, showPreview, form.cliente_nome, form.marca_gommone, form.modello_gommone, form.metri, form.tessuto,
+      form.prezzo_al_metro, form.supplemento_orca,
+      form.include_rifinitura_strisciato, form.prezzo_rifinitura_strisciato,
+      form.include_bottazzo_doppio, form.prezzo_bottazzo_doppio,
+      form.include_pezze_velocita, form.prezzo_pezze_velocita,
+      form.maniglioni_aggiuntivi, form.prezzo_maniglione,
+      form.scritte_loghi_laser, form.prezzo_scritte_loghi,
+      form.grafiche_particolari, form.prezzo_grafiche_particolari,
+      form.rinforzi_diving, form.prezzo_rinforzi_diving,
+      form.note, form.data]);
 
   const save = async () => {
     if (!form.cliente_nome?.trim()) { toast.error("Nome cliente obbligatorio"); return; }
@@ -311,13 +365,27 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-prev-tubolari">
+      <DialogContent className={showPreview ? "max-w-[min(1400px,95vw)] max-h-[95vh] overflow-hidden p-0" : "max-w-3xl max-h-[90vh] overflow-y-auto"} data-testid="dialog-prev-tubolari">
+        <div className={showPreview ? "grid grid-cols-1 lg:grid-cols-2 gap-0 max-h-[95vh]" : ""}>
+          <div className={showPreview ? "overflow-y-auto p-6 border-r border-border" : ""}>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Ship className="w-5 h-5 text-primary" />
-            {form.id ? `Modifica preventivo ${form.numero || ""}` : "Nuovo preventivo tubolari"}
+          <DialogTitle className="flex items-center gap-2 justify-between">
+            <span className="flex items-center gap-2">
+              <Ship className="w-5 h-5 text-primary" />
+              {form.id ? `Modifica preventivo ${form.numero || ""}` : "Nuovo preventivo tubolari"}
+            </span>
+            <Button
+              variant={showPreview ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowPreview((v) => !v)}
+              className="mr-8"
+              data-testid="btn-toggle-preview"
+            >
+              <FileText className="w-3.5 h-3.5 mr-1.5" />
+              {showPreview ? "Nascondi anteprima" : "Mostra anteprima"}
+            </Button>
           </DialogTitle>
-          <DialogDescription>Compila i dati; il totale si aggiorna in tempo reale.</DialogDescription>
+          <DialogDescription>Compila i dati; il totale e l'anteprima PDF si aggiornano in tempo reale.</DialogDescription>
         </DialogHeader>
 
         {/* Cliente */}
@@ -414,6 +482,39 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
             <Save className="w-4 h-4 mr-1.5" /> {saving ? "Salvataggio…" : "Salva preventivo"}
           </Button>
         </DialogFooter>
+          </div>
+          {showPreview && (
+            <div className="hidden lg:flex flex-col bg-muted/30 max-h-[95vh]" data-testid="pdf-preview-panel">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-background/60 backdrop-blur">
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <FileText className="w-3.5 h-3.5" />
+                  Anteprima PDF
+                  {previewLoading && <span className="text-[10px] font-normal normal-case text-primary animate-pulse">generazione…</span>}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {form.marca_gommone && Number(form.metri) ? "Live" : "Inserisci marca e metri"}
+                </div>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                {previewUrl && form.marca_gommone && Number(form.metri) ? (
+                  <iframe
+                    key={previewUrl}
+                    src={previewUrl}
+                    title="Anteprima PDF"
+                    className="w-full h-full border-0"
+                    data-testid="pdf-preview-iframe"
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm p-6 text-center">
+                    {form.marca_gommone && Number(form.metri)
+                      ? "Caricamento anteprima…"
+                      : "Compila almeno marca gommone e metri per generare l'anteprima."}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

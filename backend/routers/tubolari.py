@@ -166,7 +166,34 @@ async def preventivo_pdf(pid: str):
     p = PreventivoTubolare(**doc)
     cfg = await _get_or_create_config()
     cantiere = await db.cantiere.find_one({"id": "default"}, {"_id": 0}) or {}
+    pdf_bytes = _build_preventivo_pdf(p, cfg, cantiere)
+    filename = f"preventivo_tubolari_{p.numero or p.id[:8]}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes), media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
+
+@router.post("/preview-pdf")
+async def preview_pdf(payload: PreventivoTubolareCreate):
+    """Genera un PDF di anteprima senza salvare nel DB.
+    Usato dal form del preventivo per la preview live."""
+    data = payload.model_dump()
+    data = await _apply_defaults_from_config(data)
+    if not data.get("data"):
+        data["data"] = datetime.now().strftime("%Y-%m-%d")
+    if not data.get("numero"):
+        data["numero"] = "ANTEPRIMA"
+    p = PreventivoTubolare(**{k: v for k, v in data.items() if v is not None})
+    p.totale = _calc_totale(p)
+    cfg = await _get_or_create_config()
+    cantiere = await db.cantiere.find_one({"id": "default"}, {"_id": 0}) or {}
+    pdf_bytes = _build_preventivo_pdf(p, cfg, cantiere)
+    return StreamingResponse(io.BytesIO(pdf_bytes), media_type="application/pdf")
+
+
+def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: dict) -> bytes:
+    """Costruisce il PDF del preventivo tubolari. Ritorna i bytes."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -378,8 +405,4 @@ async def preventivo_pdf(pid: str):
 
     docp.build(story)
     buf.seek(0)
-    filename = f"preventivo_tubolari_{p.numero or p.id[:8]}.pdf"
-    return StreamingResponse(
-        buf, media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+    return buf.getvalue()
