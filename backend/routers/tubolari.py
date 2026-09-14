@@ -198,262 +198,389 @@ async def preview_pdf(payload: PreventivoTubolareCreate):
 
 
 def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: dict) -> bytes:
-    """Costruisce il PDF del preventivo tubolari. Ritorna i bytes."""
+    """PDF preventivo tubolari — layout professionale."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
     from reportlab.platypus import (
-        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image,
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, HRFlowable,
     )
     import base64 as _b64
 
+    # Palette
+    NAVY = colors.HexColor("#0f2c4d")
+    NAVY_LIGHT = colors.HexColor("#1e4b7a")
+    ACCENT = colors.HexColor("#c9a349")
+    LIGHT_GREY = colors.HexColor("#f4f6f8")
+    BORDER = colors.HexColor("#d5dae0")
+    TEXT_MUTED = colors.HexColor("#5a6672")
+    GREEN_BG = colors.HexColor("#e8f2ea")
+    GREEN_HEAD = colors.HexColor("#2e6b3e")
+
     buf = io.BytesIO()
-    docp = SimpleDocTemplate(buf, pagesize=A4, leftMargin=18*mm, rightMargin=18*mm, topMargin=14*mm, bottomMargin=14*mm)
+    docp = SimpleDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=12*mm, rightMargin=12*mm,
+        topMargin=8*mm, bottomMargin=8*mm,
+    )
     styles = getSampleStyleSheet()
     story = []
     metri_val = float(p.metri or 0)
+    base = float(p.prezzo_al_metro) * metri_val
 
-    # Logo (se presente)
+    # ------------------------------------------------------------------
+    # STILI
+    # ------------------------------------------------------------------
+    st_company_name = ParagraphStyle("cname", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=14, textColor=NAVY, leading=16)
+    st_company_meta = ParagraphStyle("cmeta", parent=styles["Normal"], fontSize=8.5, textColor=TEXT_MUTED, leading=11)
+    st_doc_title = ParagraphStyle("dtitle", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=18, textColor=NAVY, alignment=TA_LEFT, spaceBefore=0, spaceAfter=0)
+    st_doc_sub = ParagraphStyle("dsub", parent=styles["Normal"], fontSize=9, textColor=TEXT_MUTED, alignment=TA_LEFT)
+    st_meta_label = ParagraphStyle("mlab", parent=styles["Normal"], fontSize=8, textColor=TEXT_MUTED, alignment=TA_LEFT)
+    st_meta_val = ParagraphStyle("mval", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10, textColor=NAVY, alignment=TA_LEFT)
+    st_section = ParagraphStyle("sec", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10, textColor=colors.white, alignment=TA_LEFT, leading=13)
+    st_row = ParagraphStyle("row", parent=styles["Normal"], fontSize=8.5, leading=11)
+    st_row_bold = ParagraphStyle("rowb", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=8.5, leading=11)
+    st_note_small = ParagraphStyle("ns", parent=styles["Normal"], fontSize=8.5, textColor=TEXT_MUTED, leading=11)
+    st_footer_terms = ParagraphStyle("ft", parent=styles["Normal"], fontSize=8, textColor=TEXT_MUTED, leading=10)
+    st_totale_val = ParagraphStyle("tv", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=16, textColor=colors.white, alignment=TA_RIGHT)
+    st_totale_label = ParagraphStyle("tl", parent=styles["Normal"], fontSize=9, textColor=colors.white, alignment=TA_RIGHT)
+
+    # ------------------------------------------------------------------
+    # HEADER: Logo + info azienda a sinistra, blocco preventivo a destra
+    # ------------------------------------------------------------------
+    logo_flowable = ""
     logo_b64 = cantiere.get("logo_base64") or ""
     if logo_b64 and logo_b64.startswith("data:image"):
         try:
             _, b64d = logo_b64.split(",", 1)
             img_bytes = _b64.b64decode(b64d)
-            img = Image(io.BytesIO(img_bytes), width=45*mm, height=45*mm, kind="proportional")
-            img.hAlign = "CENTER"
-            story.append(img)
+            logo_flowable = Image(io.BytesIO(img_bytes), width=32*mm, height=32*mm, kind="proportional")
         except Exception:
-            pass
+            logo_flowable = ""
 
-    # Intestazione azienda
-    header_style = ParagraphStyle("h", parent=styles["Normal"], alignment=TA_CENTER, fontSize=9)
-    intest = []
-    if cantiere.get("nome"):
-        intest.append(f"<b>{cantiere['nome']}</b>")
-    addr_parts = [cantiere.get("indirizzo",""), cantiere.get("cap",""), cantiere.get("citta",""), f"({cantiere.get('provincia','')})" if cantiere.get('provincia') else ""]
-    addr = " ".join(x for x in addr_parts if x).strip()
+    nome_az = cantiere.get("nome") or ""
+    addr = " ".join(x for x in [cantiere.get("indirizzo",""), cantiere.get("cap",""), cantiere.get("citta",""), (f"({cantiere.get('provincia','')})" if cantiere.get('provincia') else "")] if x).strip()
     tel = cantiere.get("telefono","")
-    if addr or tel:
-        line = " · ".join(x for x in [addr, f"Tel {tel}" if tel else ""] if x)
-        intest.append(line)
-    email_web = " · ".join(x for x in [cantiere.get("email",""), cantiere.get("sito","")] if x)
-    if email_web:
-        intest.append(email_web)
-    for line in intest:
-        story.append(Paragraph(line, header_style))
-    story.append(Spacer(1, 6))
+    email = cantiere.get("email","")
+    piva = cantiere.get("piva","") or cantiere.get("partita_iva","")
+    left_cell = []
+    if nome_az:
+        left_cell.append(Paragraph(nome_az, st_company_name))
+    if addr:
+        left_cell.append(Paragraph(addr, st_company_meta))
+    contact_parts = []
+    if tel: contact_parts.append(f"Tel {tel}")
+    if email: contact_parts.append(email)
+    if contact_parts:
+        left_cell.append(Paragraph(" · ".join(contact_parts), st_company_meta))
+    if piva:
+        left_cell.append(Paragraph(f"P.IVA {piva}", st_company_meta))
 
-    # Titolo box
-    titolo = Paragraph("<b>SOSTITUZIONE TUBOLARI</b>", ParagraphStyle("tit", parent=styles["Normal"], alignment=TA_CENTER, fontSize=12))
-    t = Table([[titolo]], colWidths=[70*mm])
-    t.setStyle(TableStyle([
-        ("BOX", (0,0), (-1,-1), 1, colors.black),
-        ("ALIGN", (0,0), (-1,-1), "CENTER"),
-        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-        ("BACKGROUND", (0,0), (-1,-1), colors.HexColor("#fff4c2")),
+    if logo_flowable:
+        header_left = Table([[logo_flowable, left_cell]], colWidths=[35*mm, 65*mm])
+        header_left.setStyle(TableStyle([
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+            ("LEFTPADDING", (0,0), (-1,-1), 0),
+            ("RIGHTPADDING", (0,0), (-1,-1), 0),
+        ]))
+    else:
+        header_left = left_cell
+
+    # Data italiana
+    try:
+        data_it = datetime.strptime(p.data, "%Y-%m-%d").strftime("%d/%m/%Y")
+    except Exception:
+        data_it = p.data or ""
+
+    right_data = [
+        [Paragraph("PREVENTIVO", st_doc_title)],
+        [Paragraph("Rifacimento tubolari — sostituzione", st_doc_sub)],
+        [Spacer(1, 4)],
+        [Table([
+            [Paragraph("N° preventivo", st_meta_label), Paragraph(p.numero or "—", st_meta_val)],
+            [Paragraph("Data", st_meta_label), Paragraph(data_it, st_meta_val)],
+            [Paragraph("Validità", st_meta_label), Paragraph(f"{cfg.validita_giorni} giorni", st_meta_val)],
+        ], colWidths=[26*mm, 40*mm], style=TableStyle([
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+            ("LEFTPADDING", (0,0), (-1,-1), 0),
+            ("RIGHTPADDING", (0,0), (-1,-1), 0),
+            ("TOPPADDING", (0,0), (-1,-1), 1.5),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 1.5),
+        ]))],
+    ]
+
+    header = Table(
+        [[header_left, right_data]],
+        colWidths=[110*mm, 68*mm],
+    )
+    header.setStyle(TableStyle([
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ("LEFTPADDING", (0,0), (-1,-1), 0),
+        ("RIGHTPADDING", (0,0), (-1,-1), 0),
+        ("TOPPADDING", (0,0), (-1,-1), 0),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 0),
+    ]))
+    story.append(header)
+    story.append(Spacer(1, 4))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=NAVY, spaceBefore=0, spaceAfter=4))
+
+    # ------------------------------------------------------------------
+    # DESTINATARIO + IMBARCAZIONE
+    # ------------------------------------------------------------------
+    dest_cell = [Paragraph("<b>CLIENTE</b>", ParagraphStyle("dl", parent=styles["Normal"], fontSize=8, textColor=NAVY, leading=10))]
+    if p.cliente_nome:
+        dest_cell.append(Paragraph(f"<b>{p.cliente_nome}</b>", st_row_bold))
+    if p.cliente_telefono:
+        dest_cell.append(Paragraph(f"Tel. {p.cliente_telefono}", st_note_small))
+    if p.cliente_email:
+        dest_cell.append(Paragraph(p.cliente_email, st_note_small))
+
+    barca_cell = [Paragraph("<b>IMBARCAZIONE</b>", ParagraphStyle("bl", parent=styles["Normal"], fontSize=8, textColor=NAVY, leading=10))]
+    marca = p.marca_gommone or "—"
+    mod = p.modello_gommone or ""
+    label_barca = f"Gommone <b>{marca}</b>" + (f" {mod}" if mod else "")
+    barca_cell.append(Paragraph(label_barca, st_row_bold))
+    barca_cell.append(Paragraph(f"Lunghezza: <b>{metri_val:g} m</b>  ·  Tessuto: <b>{'ORCA' if p.tessuto=='orca' else 'Hypalon 1670'}</b>", st_row))
+
+    dest_tbl = Table([[dest_cell, barca_cell]], colWidths=[92*mm, 94*mm])
+    dest_tbl.setStyle(TableStyle([
+        ("BOX", (0,0), (0,0), 0.6, BORDER),
+        ("BOX", (1,0), (1,0), 0.6, BORDER),
+        ("BACKGROUND", (0,0), (-1,-1), LIGHT_GREY),
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ("LEFTPADDING", (0,0), (-1,-1), 6),
+        ("RIGHTPADDING", (0,0), (-1,-1), 6),
         ("TOPPADDING", (0,0), (-1,-1), 4),
         ("BOTTOMPADDING", (0,0), (-1,-1), 4),
     ]))
-    t.hAlign = "CENTER"
-    story.append(t)
-    story.append(Spacer(1, 8))
-
-    # Riga saluto + data + destinatario
-    data_it = "-"
-    try:
-        d = datetime.strptime(p.data, "%Y-%m-%d")
-        data_it = d.strftime("%d/%m/%y")
-    except Exception:
-        pass
-    saluto = f"Buongiorno,     data <b>{data_it}</b>"
-    if p.cliente_nome:
-        saluto = f"Buongiorno <b>{p.cliente_nome}</b>,     data <b>{data_it}</b>"
-    if p.numero:
-        saluto += f"     Prev. <b>{p.numero}</b>"
-    story.append(Paragraph(saluto, styles["Normal"]))
-    story.append(Spacer(1, 2))
-    story.append(Paragraph("Come da gradita richiesta, allego preventivo per :", styles["Normal"]))
-    story.append(Spacer(1, 4))
-
-    # Riga barca
-    marca = p.marca_gommone or "—"
-    mod = p.modello_gommone or ""
-    barca_txt = f"sostituzione tubolare del  Gommone   <b>{marca}</b>"
-    if mod:
-        barca_txt += f" {mod}"
-    barca_txt += f"     metri   <b>{p.metri:g}</b>"
-    story.append(Paragraph(barca_txt, styles["Normal"]))
+    story.append(dest_tbl)
     story.append(Spacer(1, 6))
 
-    # ========================================================================
-    # PRIMA PARTE — A) Sostituzione tubolare: costi e inclusioni
-    # ========================================================================
-    base = float(p.prezzo_al_metro) * float(p.metri or 0)
-    rows_a = [
-        ["A)  Sostituzione tubolare con :", "", ""],
-        ["gomma pesante grammatura 1670 colore grigio o crema", "inclusi", ""],
-        ["4 maniglioni", "inclusi", ""],
-        ["bottazzo singolo h 90 mm o doppio h 60 mm", "incluso", ""],
-        ["rifinitura interna con profilo a unghia (non strisciato interno)", "incluso", ""],
-        ["colore di finitura a scelta", "inclusa", ""],
-        ["grafica GEB standard", "inclusa", ""],
-        ["Scritte / Loghi con taglio laser", "da valutare", ""],
-        ["", "", ""],
-        ["", f"totale  {_fmt_eur(base)}", "+ iva"],
-        ["per colori del tubo differenti o graffiati (carbon, perlage, ecc.)", "Da valutare variazione prezzi", ""],
+    # ------------------------------------------------------------------
+    # SEZIONE A) BASE
+    # ------------------------------------------------------------------
+    story.append(_section_header("A) SOSTITUZIONE TUBOLARE — VOCI INCLUSE", NAVY, st_section))
+    inclusi = [
+        ("Gomma pesante grammatura 1670 grigio / crema", "incluso"),
+        ("4 maniglioni", "inclusi"),
+        ("Bottazzo singolo h 90 mm o doppio h 60 mm", "incluso"),
+        ("Rifinitura interna con profilo a unghia", "incluso"),
+        ("Colore di finitura a scelta", "incluso"),
+        ("Grafica GEB standard", "inclusa"),
+        ("Scritte / Loghi con taglio laser", "da valutare"),
+        ("Colori tubo differenti / graffiati (carbon, perlage…)", "da valutare"),
     ]
-    ta = Table(rows_a, colWidths=[110*mm, 45*mm, 15*mm])
+    rows_a = [[Paragraph(f"•  {desc}", st_row), Paragraph(stato, st_row_bold)] for desc, stato in inclusi]
+    ta = Table(rows_a, colWidths=[141*mm, 45*mm])
     ta.setStyle(TableStyle([
-        ("FONTSIZE", (0,0), (-1,-1), 9),
-        ("FONTNAME", (0,0), (0,0), "Helvetica-Bold"),
-        ("BOX", (1,1), (1,7), 0.4, colors.grey),
-        ("BOX", (1,9), (1,9), 0.6, colors.black),
-        ("BACKGROUND", (1,9), (1,9), colors.HexColor("#fff4c2")),
-        ("ALIGN", (1,0), (2,-1), "CENTER"),
+        ("BOX", (0,0), (-1,-1), 0.4, BORDER),
+        ("INNERGRID", (0,0), (-1,-1), 0.25, BORDER),
+        ("ROWBACKGROUNDS", (0,0), (-1,-1), [colors.white, LIGHT_GREY]),
+        ("ALIGN", (1,0), (1,-1), "CENTER"),
         ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-        ("LEFTPADDING", (0,0), (-1,-1), 3),
-        ("RIGHTPADDING", (0,0), (-1,-1), 3),
+        ("LEFTPADDING", (0,0), (-1,-1), 8),
+        ("RIGHTPADDING", (0,0), (-1,-1), 8),
+        ("TOPPADDING", (0,0), (-1,-1), 2.5),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 2.5),
     ]))
     story.append(ta)
-    story.append(Spacer(1, 8))
 
-    # ========================================================================
-    # SECONDA PARTE — Listino delle variabili (sempre tutti i prezzi listino)
-    # ========================================================================
-
-    # MATERIALI: mostra sempre il listino ORCA con calcolo totale (€/m × metri)
-    orca_totale = float(p.supplemento_orca) * metri_val
-    orca_display = f"{_fmt_eur(p.supplemento_orca)}/m × {metri_val:g}m = {_fmt_eur(orca_totale)}"
-    rows_m = [
-        [Paragraph("<b>MATERIALI IMPIEGATI:</b>", styles["Normal"]), "", ""],
-        ["neoprene hypalon 1° scelta tessuto NOVURANIA", "incluso", ""],
-        ["per tessuti ORCA (al metro lineare)",
-         orca_display,
-         "+ iva"],
-    ]
-    tm = Table(rows_m, colWidths=[110*mm, 45*mm, 15*mm])
-    tm.setStyle(TableStyle([
-        ("FONTSIZE", (0,0), (-1,-1), 9),
-        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#fff4c2")),
-        ("SPAN", (0,0), (-1,0)),
-        ("ALIGN", (0,0), (-1,0), "CENTER"),
-        ("BOX", (1,1), (1,-1), 0.4, colors.grey),
-        ("ALIGN", (1,0), (2,-1), "CENTER"),
+    # Totale base — sotto la tabella A) in una fascia colorata a destra
+    tot_a_tbl = Table(
+        [[Paragraph(f"Totale sostituzione base ({metri_val:g}m × {_fmt_eur(p.prezzo_al_metro)}/m)", ParagraphStyle("tab", parent=styles["Normal"], fontSize=10, textColor=colors.white, alignment=TA_RIGHT)),
+          Paragraph(f"<b>{_fmt_eur(base)}</b> + IVA", ParagraphStyle("tav", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=12, textColor=colors.white, alignment=TA_RIGHT))]],
+        colWidths=[138*mm, 48*mm],
+    )
+    tot_a_tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,-1), NAVY_LIGHT),
         ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-        ("LEFTPADDING", (0,0), (-1,-1), 3),
-        ("RIGHTPADDING", (0,0), (-1,-1), 3),
-        ("BOX", (0,0), (-1,-1), 0.4, colors.grey),
+        ("TOPPADDING", (0,0), (-1,-1), 6),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+        ("LEFTPADDING", (0,0), (-1,-1), 10),
+        ("RIGHTPADDING", (0,0), (-1,-1), 10),
     ]))
-    story.append(tm)
+    story.append(tot_a_tbl)
     story.append(Spacer(1, 6))
 
-    # Lavorazioni extra: SEMPRE mostrate come listino con prezzo unitario
+    # ------------------------------------------------------------------
+    # LISTINO VARIABILI (materiali + lavorazioni extra)
+    # ------------------------------------------------------------------
+    story.append(_section_header("LISTINO OPZIONI E VARIANTI (prezzi indicativi)", NAVY, st_section))
+
+    orca_totale = float(p.supplemento_orca) * metri_val
     rif_totale = float(p.prezzo_rifinitura_strisciato) * metri_val
-    rif_display = f"{_fmt_eur(p.prezzo_rifinitura_strisciato)}/m × {metri_val:g}m = {_fmt_eur(rif_totale)}"
-    rows_e = [
-        [Paragraph("<b>Lavorazioni extra da aggiungere al preventivo in caso di richiesta</b>", styles["Normal"]), "", ""],
-        ["B) Rifinitura interna strisciato (al metro lineare)",
-         rif_display, "+ iva"],
-        ["C) Bottazzo doppio h 90 mm",
-         _fmt_eur(p.prezzo_bottazzo_doppio), "+ iva"],
-        ["D) Apposizione pezze di velocità su coni dx-sx (se necessarie)",
-         "da valutare", "+ iva"],
-        ["E) Maniglioni aggiuntivi   cad",
-         _fmt_eur(p.prezzo_maniglione), "+ iva"],
-        ["Per grafiche particolari o repliche originali",
-         "da valutare variazione prezzi", ""],
-        ["Rinforzi per gommoni diving",
-         "da valutare variazione prezzi", ""],
+
+    listino_rows = [
+        # Materiali
+        [Paragraph("<b>MATERIALI</b>", st_row_bold), "", ""],
+        [Paragraph("Neoprene Hypalon 1° scelta tessuto NOVURANIA", st_row),
+         Paragraph("incluso", st_row_bold), ""],
+        [Paragraph("Tessuto ORCA (al metro lineare)", st_row),
+         Paragraph(f"{_fmt_eur(p.supplemento_orca)}/m", st_row_bold),
+         Paragraph(f"= {_fmt_eur(orca_totale)}", st_row_bold)],
+        # Lavorazioni
+        [Paragraph("<b>LAVORAZIONI EXTRA</b>", st_row_bold), "", ""],
+        [Paragraph("B) Rifinitura interna strisciato (al metro lineare)", st_row),
+         Paragraph(f"{_fmt_eur(p.prezzo_rifinitura_strisciato)}/m", st_row_bold),
+         Paragraph(f"= {_fmt_eur(rif_totale)}", st_row_bold)],
+        [Paragraph("C) Bottazzo doppio h 90 mm", st_row),
+         Paragraph(_fmt_eur(p.prezzo_bottazzo_doppio), st_row_bold), ""],
+        [Paragraph("D) Apposizione pezze di velocità su coni dx-sx", st_row),
+         Paragraph("da valutare", st_row_bold), ""],
+        [Paragraph("E) Maniglioni aggiuntivi (cad.)", st_row),
+         Paragraph(_fmt_eur(p.prezzo_maniglione), st_row_bold), ""],
+        [Paragraph("Grafiche particolari / repliche originali", st_row),
+         Paragraph("da valutare", st_row_bold), ""],
+        [Paragraph("Rinforzi per gommoni diving", st_row),
+         Paragraph("da valutare", st_row_bold), ""],
     ]
-    te = Table(rows_e, colWidths=[110*mm, 45*mm, 15*mm])
-    te.setStyle(TableStyle([
-        ("FONTSIZE", (0,0), (-1,-1), 9),
-        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#fff4c2")),
+    tl = Table(listino_rows, colWidths=[111*mm, 40*mm, 35*mm])
+    tl_style = [
+        ("BOX", (0,0), (-1,-1), 0.4, BORDER),
+        ("INNERGRID", (0,0), (-1,-1), 0.25, BORDER),
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#e6ebf1")),
         ("SPAN", (0,0), (-1,0)),
-        ("ALIGN", (0,0), (-1,0), "CENTER"),
-        ("BOX", (1,1), (1,-1), 0.4, colors.grey),
-        ("ALIGN", (1,0), (2,-1), "CENTER"),
+        ("BACKGROUND", (0,3), (-1,3), colors.HexColor("#e6ebf1")),
+        ("SPAN", (0,3), (-1,3)),
+        ("ALIGN", (1,0), (-1,-1), "CENTER"),
         ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-        ("LEFTPADDING", (0,0), (-1,-1), 3),
-        ("RIGHTPADDING", (0,0), (-1,-1), 3),
-        ("BOX", (0,0), (-1,-1), 0.4, colors.grey),
-    ]))
-    story.append(te)
-    story.append(Spacer(1, 10))
+        ("LEFTPADDING", (0,0), (-1,-1), 8),
+        ("RIGHTPADDING", (0,0), (-1,-1), 8),
+        ("TOPPADDING", (0,0), (-1,-1), 2.5),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 2.5),
+        ("TEXTCOLOR", (0,0), (-1,0), NAVY),
+        ("TEXTCOLOR", (0,3), (-1,3), NAVY),
+    ]
+    tl.setStyle(TableStyle(tl_style))
+    story.append(tl)
+    story.append(Spacer(1, 6))
 
-    # ========================================================================
-    # RIEPILOGO SCELTE del cliente (solo se ha selezionato extra)
-    # ========================================================================
-    scelte_rows = []
+    # ------------------------------------------------------------------
+    # OPZIONI SCELTE (solo se ce ne sono)
+    # ------------------------------------------------------------------
+    scelte_rows_data = []
     if p.tessuto == "orca":
-        orca_tot = float(p.supplemento_orca) * metri_val
-        scelte_rows.append([f"Tessuto ORCA  ({_fmt_eur(p.supplemento_orca)}/m × {metri_val:g}m)", _fmt_eur(orca_tot), "+ iva"])
+        scelte_rows_data.append((f"Tessuto ORCA  ({_fmt_eur(p.supplemento_orca)}/m × {metri_val:g}m)", _fmt_eur(orca_totale)))
     if p.include_rifinitura_strisciato:
-        rif_tot = float(p.prezzo_rifinitura_strisciato) * metri_val
-        scelte_rows.append([f"B) Rifinitura interna strisciato  ({_fmt_eur(p.prezzo_rifinitura_strisciato)}/m × {metri_val:g}m)", _fmt_eur(rif_tot), "+ iva"])
+        scelte_rows_data.append((f"B) Rifinitura interna strisciato  ({_fmt_eur(p.prezzo_rifinitura_strisciato)}/m × {metri_val:g}m)", _fmt_eur(rif_totale)))
     if p.include_bottazzo_doppio:
-        scelte_rows.append(["C) Bottazzo doppio h 90 mm", _fmt_eur(p.prezzo_bottazzo_doppio), "+ iva"])
+        scelte_rows_data.append(("C) Bottazzo doppio h 90 mm", _fmt_eur(p.prezzo_bottazzo_doppio)))
     if p.include_pezze_velocita and p.prezzo_pezze_velocita > 0:
-        scelte_rows.append(["D) Apposizione pezze di velocità", _fmt_eur(p.prezzo_pezze_velocita), "+ iva"])
+        scelte_rows_data.append(("D) Apposizione pezze di velocità", _fmt_eur(p.prezzo_pezze_velocita)))
     if p.maniglioni_aggiuntivi and p.maniglioni_aggiuntivi > 0:
-        scelte_rows.append([f"E) Maniglioni aggiuntivi ({p.maniglioni_aggiuntivi} × {_fmt_eur(p.prezzo_maniglione)})", _fmt_eur(p.prezzo_maniglione * p.maniglioni_aggiuntivi), "+ iva"])
+        scelte_rows_data.append((f"E) Maniglioni aggiuntivi ({p.maniglioni_aggiuntivi} × {_fmt_eur(p.prezzo_maniglione)})", _fmt_eur(p.prezzo_maniglione * p.maniglioni_aggiuntivi)))
     if p.scritte_loghi_laser and p.prezzo_scritte_loghi > 0:
-        scelte_rows.append(["Scritte / Loghi con taglio laser", _fmt_eur(p.prezzo_scritte_loghi), "+ iva"])
+        scelte_rows_data.append(("Scritte / Loghi con taglio laser", _fmt_eur(p.prezzo_scritte_loghi)))
     if p.grafiche_particolari and p.prezzo_grafiche_particolari > 0:
-        scelte_rows.append(["Grafiche particolari / repliche originali", _fmt_eur(p.prezzo_grafiche_particolari), "+ iva"])
+        scelte_rows_data.append(("Grafiche particolari / repliche originali", _fmt_eur(p.prezzo_grafiche_particolari)))
     if p.rinforzi_diving and p.prezzo_rinforzi_diving > 0:
-        scelte_rows.append(["Rinforzi per gommoni diving", _fmt_eur(p.prezzo_rinforzi_diving), "+ iva"])
+        scelte_rows_data.append(("Rinforzi per gommoni diving", _fmt_eur(p.prezzo_rinforzi_diving)))
 
-    if scelte_rows:
-        header_scelte = [[Paragraph("<b>OPZIONI SCELTE PER QUESTO PREVENTIVO</b>", styles["Normal"]), "", ""]]
-        header_scelte.append(["Base sostituzione tubolare", _fmt_eur(base), "+ iva"])
-        rows_scelte = header_scelte + scelte_rows
-        ts = Table(rows_scelte, colWidths=[110*mm, 45*mm, 15*mm])
+    if scelte_rows_data:
+        story.append(_section_header("OPZIONI SCELTE PER QUESTO PREVENTIVO", GREEN_HEAD, st_section))
+        scelte_tbl_rows = [
+            [Paragraph("Sostituzione tubolare (base)", st_row),
+             Paragraph(_fmt_eur(base), st_row_bold)],
+        ]
+        for lbl, val in scelte_rows_data:
+            scelte_tbl_rows.append([Paragraph(lbl, st_row), Paragraph(val, st_row_bold)])
+        ts = Table(scelte_tbl_rows, colWidths=[151*mm, 35*mm])
         ts.setStyle(TableStyle([
-            ("FONTSIZE", (0,0), (-1,-1), 9),
-            ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#c8e6c9")),
-            ("SPAN", (0,0), (-1,0)),
-            ("ALIGN", (0,0), (-1,0), "CENTER"),
-            ("BOX", (1,1), (1,-1), 0.4, colors.grey),
-            ("ALIGN", (1,0), (2,-1), "CENTER"),
+            ("BOX", (0,0), (-1,-1), 0.4, BORDER),
+            ("INNERGRID", (0,0), (-1,-1), 0.25, BORDER),
+            ("ROWBACKGROUNDS", (0,0), (-1,-1), [colors.white, GREEN_BG]),
+            ("ALIGN", (1,0), (1,-1), "RIGHT"),
             ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-            ("LEFTPADDING", (0,0), (-1,-1), 3),
-            ("RIGHTPADDING", (0,0), (-1,-1), 3),
-            ("BOX", (0,0), (-1,-1), 0.4, colors.grey),
+            ("LEFTPADDING", (0,0), (-1,-1), 8),
+            ("RIGHTPADDING", (0,0), (-1,-1), 8),
+            ("TOPPADDING", (0,0), (-1,-1), 2),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 2),
         ]))
         story.append(ts)
         story.append(Spacer(1, 6))
 
-    # TOTALE finale (base + extra selezionati)
-    totale_style = ParagraphStyle("tot", parent=styles["Normal"], fontSize=11, alignment=TA_RIGHT)
-    if scelte_rows:
-        story.append(Paragraph(f"<b>TOTALE PREVENTIVO (con opzioni scelte):  {_fmt_eur(p.totale)}  + IVA</b>", totale_style))
-    else:
-        story.append(Paragraph(f"<b>TOTALE PREVENTIVO:  {_fmt_eur(base)}  + IVA</b>", totale_style))
-    story.append(Spacer(1, 8))
+    # ------------------------------------------------------------------
+    # TOTALE finale — box scuro con etichetta + valore
+    # ------------------------------------------------------------------
+    totale_finale = p.totale if scelte_rows_data else base
+    label_tot = "TOTALE PREVENTIVO — Con opzioni scelte" if scelte_rows_data else "TOTALE PREVENTIVO"
+    tot_tbl = Table(
+        [[Paragraph(label_tot, st_totale_label),
+          Paragraph(f"{_fmt_eur(totale_finale)}", st_totale_val)],
+         ["",
+          Paragraph("+ IVA", ParagraphStyle("iva", parent=styles["Normal"], fontSize=9, textColor=colors.white, alignment=TA_RIGHT))]],
+        colWidths=[138*mm, 48*mm],
+    )
+    tot_tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,-1), NAVY),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("TOPPADDING", (0,0), (-1,-1), 5),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+        ("LEFTPADDING", (0,0), (-1,-1), 12),
+        ("RIGHTPADDING", (0,0), (-1,-1), 12),
+        ("LINEBELOW", (0,0), (-1,0), 0, colors.transparent),
+    ]))
+    story.append(tot_tbl)
+    story.append(Spacer(1, 6))
 
-    # Note eventuali
-    if p.note:
-        story.append(Paragraph(f"<b>Note:</b>", styles["Normal"]))
+    # ------------------------------------------------------------------
+    # NOTE del preventivo (opzionali)
+    # ------------------------------------------------------------------
+    if p.note and p.note.strip():
+        story.append(Paragraph("<b>Note</b>", ParagraphStyle("nh", parent=styles["Normal"], fontSize=9, textColor=NAVY, leading=11)))
         for line in p.note.split("\n"):
-            story.append(Paragraph(line.replace(" ", "&nbsp;"), styles["Normal"]))
-        story.append(Spacer(1, 6))
+            if line.strip():
+                story.append(Paragraph(line, st_row))
+        story.append(Spacer(1, 4))
 
-    # Note standard (tempi/garanzia)
-    note_std_style = ParagraphStyle("nstd", parent=styles["Normal"], fontSize=9)
-    story.append(Paragraph(f"Tempi di esecuzione {cfg.tempi_esecuzione_giorni} gg circa da consegna battello in cantiere.", note_std_style))
+    # ------------------------------------------------------------------
+    # CONDIZIONI + FIRMA (due colonne)
+    # ------------------------------------------------------------------
+    cond_lines = []
+    cond_lines.append(f"•  Tempi di esecuzione: {cfg.tempi_esecuzione_giorni} gg circa dalla consegna del battello in cantiere")
     for line in (cfg.note_standard or "").split("\n"):
-        if line.strip():
-            story.append(Paragraph(line, note_std_style))
-    story.append(Spacer(1, 12))
+        s = line.strip().lstrip("-").strip()
+        if s:
+            cond_lines.append(f"•  {s}")
+    cond_paras = [Paragraph("<b>CONDIZIONI</b>", ParagraphStyle("ch", parent=styles["Normal"], fontSize=8, textColor=NAVY, leading=10))]
+    for c in cond_lines:
+        cond_paras.append(Paragraph(c, st_footer_terms))
 
-    # Firma
-    firma_style = ParagraphStyle("firma", parent=styles["Normal"], fontSize=9, alignment=TA_CENTER)
-    firma = cantiere.get("firma_nome") or cantiere.get("nome") or ""
-    story.append(Paragraph(f"il titolare      <b>{firma}</b>", firma_style))
+    firma_nome = cantiere.get("firma_nome") or nome_az or ""
+    firma_cell = [
+        Paragraph("Il titolare", ParagraphStyle("fl", parent=styles["Normal"], fontSize=8, textColor=TEXT_MUTED, alignment=TA_CENTER)),
+        Spacer(1, 18),
+        Paragraph(f"<b>{firma_nome}</b>", ParagraphStyle("fn", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10, textColor=NAVY, alignment=TA_CENTER)),
+        HRFlowable(width="80%", thickness=0.5, color=BORDER, spaceBefore=2, spaceAfter=0, hAlign="CENTER"),
+    ]
+
+    footer = Table([[cond_paras, firma_cell]], colWidths=[124*mm, 62*mm])
+    footer.setStyle(TableStyle([
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ("LEFTPADDING", (0,0), (-1,-1), 0),
+        ("RIGHTPADDING", (0,0), (-1,-1), 0),
+        ("LINEABOVE", (0,0), (-1,0), 0.6, BORDER),
+        ("TOPPADDING", (0,0), (-1,-1), 4),
+    ]))
+    story.append(footer)
 
     docp.build(story)
     buf.seek(0)
     return buf.getvalue()
+
+
+def _section_header(text: str, bg_color, style):
+    """Header di sezione: barra colorata con testo in bianco."""
+    from reportlab.platypus import Table, TableStyle, Paragraph
+    from reportlab.lib.units import mm
+    t = Table([[Paragraph(text, style)]], colWidths=[186*mm])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,-1), bg_color),
+        ("TOPPADDING", (0,0), (-1,-1), 3),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+        ("LEFTPADDING", (0,0), (-1,-1), 8),
+        ("RIGHTPADDING", (0,0), (-1,-1), 8),
+    ]))
+    return t
