@@ -548,16 +548,53 @@ function ArticoloForm({ open, onOpenChange, value, fornitori, onSaved }) {
           <FormField label="Categoria">
             <Input value={form.categoria} onChange={(e) => set("categoria", e.target.value)} placeholder="es. Ferramenta" data-testid="input-categoria" />
           </FormField>
-          <FormField label="Unità di misura">
-            <Input value={form.unita_misura} onChange={(e) => set("unita_misura", e.target.value)} placeholder="pz, m, kg…" data-testid="input-um" />
+          <FormField label="Unità di misura *" full>
+            <div className="flex flex-wrap gap-1.5" data-testid="um-selector">
+              {[
+                { v: "pz", l: "Pezzi (pz)" },
+                { v: "lt", l: "Litri (lt)" },
+                { v: "kg", l: "Chilogrammi (kg)" },
+                { v: "mt", l: "Metri (mt)" },
+                { v: "mq", l: "Metri quadri (mq)" },
+                { v: "rotolo", l: "Rotolo" },
+                { v: "cf", l: "Confezione (cf)" },
+                { v: "cad", l: "Cadauno (cad)" },
+                { v: "set", l: "Set" },
+                { v: "paio", l: "Paio" },
+              ].map((o) => (
+                <button
+                  key={o.v}
+                  type="button"
+                  onClick={() => set("unita_misura", o.v)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                    form.unita_misura === o.v
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background hover:bg-muted border-border"
+                  }`}
+                  data-testid={`um-btn-${o.v}`}
+                >
+                  {o.l}
+                </button>
+              ))}
+              <Input
+                value={form.unita_misura || ""}
+                onChange={(e) => set("unita_misura", e.target.value)}
+                placeholder="Altro…"
+                className="h-8 w-24 text-xs"
+                data-testid="input-um"
+              />
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1.5">
+              Seleziona a cosa si riferisce il prezzo. Verrà mostrato ovunque accanto ai valori (es. €/{form.unita_misura || "pz"}).
+            </div>
           </FormField>
-          <FormField label="Prezzo acquisto €">
+          <FormField label={`Prezzo acquisto € / ${form.unita_misura || "pz"}`}>
             <Input type="number" step="0.01" value={form.prezzo_acquisto} onChange={(e) => set("prezzo_acquisto", e.target.value)} data-testid="input-prezzo-acquisto" />
           </FormField>
-          <FormField label="Prezzo vendita €">
+          <FormField label={`Prezzo vendita € / ${form.unita_misura || "pz"}`}>
             <Input type="number" step="0.01" value={form.prezzo_listino} onChange={(e) => set("prezzo_listino", e.target.value)} data-testid="input-prezzo-listino" />
           </FormField>
-          <FormField label="Prezzo vendita IVA inc. (22%) €" full>
+          <FormField label={`Prezzo vendita IVA inc. (22%) € / ${form.unita_misura || "pz"}`} full>
             <Input
               type="text"
               readOnly
