@@ -778,13 +778,8 @@ async def listino_pdf(
     headers = ["Codice", "Fornitore", "Descrizione", "U.M.", "Prezzo € (IVA inc.)"]
     data = [headers]
     for d in docs:
-        # Descrizione: usa descrizione se presente altrimenti nome, oppure combina
-        nome = d.get("nome", "") or ""
-        descr = d.get("descrizione", "") or ""
-        if descr and nome and descr.strip().lower() != nome.strip().lower():
-            testo = f"{nome} — {descr}"
-        else:
-            testo = descr or nome
+        # Una sola descrizione: preferisci il campo descrizione, altrimenti usa il nome
+        testo = (d.get("descrizione") or d.get("nome") or "").strip()
         data.append([
             d.get("codice", "") or "—",
             forn_map.get(d.get("fornitore_id"), "") or "—",
