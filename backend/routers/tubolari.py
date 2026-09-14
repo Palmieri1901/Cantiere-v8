@@ -321,12 +321,14 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     # SECONDA PARTE — Listino delle variabili (sempre tutti i prezzi listino)
     # ========================================================================
 
-    # MATERIALI: mostra sempre il listino ORCA
+    # MATERIALI: mostra sempre il listino ORCA con calcolo totale (€/m × metri)
+    orca_totale = float(p.supplemento_orca) * metri_val
+    orca_display = f"{_fmt_eur(p.supplemento_orca)}/m × {metri_val:g}m = {_fmt_eur(orca_totale)}"
     rows_m = [
         [Paragraph("<b>MATERIALI IMPIEGATI:</b>", styles["Normal"]), "", ""],
         ["neoprene hypalon 1° scelta tessuto NOVURANIA", "incluso", ""],
         ["per tessuti ORCA (al metro lineare)",
-         f"{_fmt_eur(p.supplemento_orca)}/m",
+         orca_display,
          "+ iva"],
     ]
     tm = Table(rows_m, colWidths=[110*mm, 45*mm, 15*mm])
@@ -346,10 +348,12 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     story.append(Spacer(1, 6))
 
     # Lavorazioni extra: SEMPRE mostrate come listino con prezzo unitario
+    rif_totale = float(p.prezzo_rifinitura_strisciato) * metri_val
+    rif_display = f"{_fmt_eur(p.prezzo_rifinitura_strisciato)}/m × {metri_val:g}m = {_fmt_eur(rif_totale)}"
     rows_e = [
         [Paragraph("<b>Lavorazioni extra da aggiungere al preventivo in caso di richiesta</b>", styles["Normal"]), "", ""],
         ["B) Rifinitura interna strisciato (al metro lineare)",
-         f"{_fmt_eur(p.prezzo_rifinitura_strisciato)}/m", "+ iva"],
+         rif_display, "+ iva"],
         ["C) Bottazzo doppio h 90 mm",
          _fmt_eur(p.prezzo_bottazzo_doppio), "+ iva"],
         ["D) Apposizione pezze di velocità su coni dx-sx (se necessarie)",
