@@ -773,11 +773,11 @@ async def listino_pdf(
     story.append(Paragraph(datetime.now().strftime("Aggiornato al %d/%m/%Y"), styles["Normal"]))
     story.append(Spacer(1, 8))
 
-    # Mappa fornitori per nome
-    fornitori_list = await db.fornitori.find({}, {"_id": 0, "id": 1, "nome": 1}).to_list(1000)
-    forn_map = {f["id"]: f.get("nome", "") for f in fornitori_list}
+    # Mappa fornitori per sigla (fallback su nome se sigla non impostata)
+    fornitori_list = await db.fornitori.find({}, {"_id": 0, "id": 1, "nome": 1, "abbreviazione": 1}).to_list(1000)
+    forn_map = {f["id"]: (f.get("abbreviazione") or f.get("nome", "")) for f in fornitori_list}
 
-    headers = ["Codice", "Fornitore", "Descrizione", "U.M.", "Prezzo € (IVA inc.)"]
+    headers = ["Codice", "Forn.", "Descrizione", "U.M.", "Prezzo € (IVA inc.)"]
     data = [headers]
     for d in docs:
         # Una sola descrizione: preferisci il campo descrizione, altrimenti usa il nome
@@ -789,7 +789,7 @@ async def listino_pdf(
             d.get("unita_misura", "pz") or "pz",
             f"{float(d.get('prezzo_listino', 0)) * 1.22:.2f}",
         ])
-    table = Table(data, colWidths=[25*mm, 35*mm, 85*mm, 15*mm, 25*mm], repeatRows=1)
+    table = Table(data, colWidths=[22*mm, 14*mm, 105*mm, 12*mm, 27*mm], repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
