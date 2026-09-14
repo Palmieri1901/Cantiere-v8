@@ -285,7 +285,9 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     story.append(Paragraph(barca_txt, styles["Normal"]))
     story.append(Spacer(1, 6))
 
-    # Tabella A) sostituzione base
+    # ========================================================================
+    # PRIMA PARTE — A) Sostituzione tubolare: costi e inclusioni
+    # ========================================================================
     base = float(p.prezzo_al_metro) * float(p.metri or 0)
     rows_a = [
         ["A)  Sostituzione tubolare con :", "", ""],
@@ -295,9 +297,7 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         ["rifinitura interna con profilo a unghia (non strisciato interno)", "incluso", ""],
         ["colore di finitura a scelta", "inclusa", ""],
         ["grafica GEB standard", "inclusa", ""],
-        ["Scritte / Loghi con taglio laser",
-         _fmt_eur(p.prezzo_scritte_loghi) if p.scritte_loghi_laser and p.prezzo_scritte_loghi > 0 else "da valutare",
-         "+ iva" if p.scritte_loghi_laser and p.prezzo_scritte_loghi > 0 else ""],
+        ["Scritte / Loghi con taglio laser", "da valutare", ""],
         ["", "", ""],
         ["", f"totale  {_fmt_eur(base)}", "+ iva"],
         ["per colori del tubo differenti o graffiati (carbon, perlage, ecc.)", "Da valutare variazione prezzi", ""],
@@ -315,17 +315,18 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         ("RIGHTPADDING", (0,0), (-1,-1), 3),
     ]))
     story.append(ta)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 8))
 
-    # Tabella MATERIALI IMPIEGATI
-    orca_tot = float(p.supplemento_orca) * metri_val
-    orca_val = f"{_fmt_eur(p.supplemento_orca)}/m × {metri_val:g}m = {_fmt_eur(orca_tot)}"
+    # ========================================================================
+    # SECONDA PARTE — Listino delle variabili (sempre tutti i prezzi listino)
+    # ========================================================================
+
+    # MATERIALI: mostra sempre il listino ORCA
     rows_m = [
         [Paragraph("<b>MATERIALI IMPIEGATI:</b>", styles["Normal"]), "", ""],
-        ["neoprene hypalon 1° scelta tessuto NOVURANIA",
-         "incluso" if p.tessuto == "hypalon" else "—", ""],
+        ["neoprene hypalon 1° scelta tessuto NOVURANIA", "incluso", ""],
         ["per tessuti ORCA (al metro lineare)",
-         orca_val if p.tessuto == "orca" else f"{_fmt_eur(p.supplemento_orca)}/m",
+         f"{_fmt_eur(p.supplemento_orca)}/m",
          "+ iva"],
     ]
     tm = Table(rows_m, colWidths=[110*mm, 45*mm, 15*mm])
@@ -344,36 +345,21 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     story.append(tm)
     story.append(Spacer(1, 6))
 
-    # Tabella Lavorazioni extra
-    def _extra_val(flag, price, etichetta="da valutare"):
-        if flag and price > 0:
-            return _fmt_eur(price)
-        if flag:
-            return "da valutare"
-        return "—"
-
-    # Rifinitura interna strisciato al metro lineare
-    if p.include_rifinitura_strisciato and p.prezzo_rifinitura_strisciato > 0:
-        rif_tot = float(p.prezzo_rifinitura_strisciato) * metri_val
-        rif_val = f"{_fmt_eur(p.prezzo_rifinitura_strisciato)}/m × {metri_val:g}m = {_fmt_eur(rif_tot)}"
-    else:
-        rif_val = "—"
-
+    # Lavorazioni extra: SEMPRE mostrate come listino con prezzo unitario
     rows_e = [
         [Paragraph("<b>Lavorazioni extra da aggiungere al preventivo in caso di richiesta</b>", styles["Normal"]), "", ""],
         ["B) Rifinitura interna strisciato (al metro lineare)",
-         rif_val, "+ iva"],
+         f"{_fmt_eur(p.prezzo_rifinitura_strisciato)}/m", "+ iva"],
         ["C) Bottazzo doppio h 90 mm",
-         _extra_val(p.include_bottazzo_doppio, p.prezzo_bottazzo_doppio), "+ iva"],
+         _fmt_eur(p.prezzo_bottazzo_doppio), "+ iva"],
         ["D) Apposizione pezze di velocità su coni dx-sx (se necessarie)",
-         _extra_val(p.include_pezze_velocita, p.prezzo_pezze_velocita), "+ iva"],
-        [f"E) Maniglioni aggiuntivi ({p.maniglioni_aggiuntivi} pz)" if p.maniglioni_aggiuntivi > 0 else "E) Maniglioni aggiuntivi   cad",
-         (_fmt_eur(p.prezzo_maniglione * p.maniglioni_aggiuntivi) if p.maniglioni_aggiuntivi > 0 else _fmt_eur(p.prezzo_maniglione)),
-         "+ iva"],
+         "da valutare", "+ iva"],
+        ["E) Maniglioni aggiuntivi   cad",
+         _fmt_eur(p.prezzo_maniglione), "+ iva"],
         ["Per grafiche particolari o repliche originali",
-         _extra_val(p.grafiche_particolari, p.prezzo_grafiche_particolari), ""],
+         "da valutare variazione prezzi", ""],
         ["Rinforzi per gommoni diving",
-         _extra_val(p.rinforzi_diving, p.prezzo_rinforzi_diving), ""],
+         "da valutare variazione prezzi", ""],
     ]
     te = Table(rows_e, colWidths=[110*mm, 45*mm, 15*mm])
     te.setStyle(TableStyle([
@@ -389,11 +375,57 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         ("BOX", (0,0), (-1,-1), 0.4, colors.grey),
     ]))
     story.append(te)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 10))
 
-    # TOTALE evidenziato
+    # ========================================================================
+    # RIEPILOGO SCELTE del cliente (solo se ha selezionato extra)
+    # ========================================================================
+    scelte_rows = []
+    if p.tessuto == "orca":
+        orca_tot = float(p.supplemento_orca) * metri_val
+        scelte_rows.append([f"Tessuto ORCA  ({_fmt_eur(p.supplemento_orca)}/m × {metri_val:g}m)", _fmt_eur(orca_tot), "+ iva"])
+    if p.include_rifinitura_strisciato:
+        rif_tot = float(p.prezzo_rifinitura_strisciato) * metri_val
+        scelte_rows.append([f"B) Rifinitura interna strisciato  ({_fmt_eur(p.prezzo_rifinitura_strisciato)}/m × {metri_val:g}m)", _fmt_eur(rif_tot), "+ iva"])
+    if p.include_bottazzo_doppio:
+        scelte_rows.append(["C) Bottazzo doppio h 90 mm", _fmt_eur(p.prezzo_bottazzo_doppio), "+ iva"])
+    if p.include_pezze_velocita and p.prezzo_pezze_velocita > 0:
+        scelte_rows.append(["D) Apposizione pezze di velocità", _fmt_eur(p.prezzo_pezze_velocita), "+ iva"])
+    if p.maniglioni_aggiuntivi and p.maniglioni_aggiuntivi > 0:
+        scelte_rows.append([f"E) Maniglioni aggiuntivi ({p.maniglioni_aggiuntivi} × {_fmt_eur(p.prezzo_maniglione)})", _fmt_eur(p.prezzo_maniglione * p.maniglioni_aggiuntivi), "+ iva"])
+    if p.scritte_loghi_laser and p.prezzo_scritte_loghi > 0:
+        scelte_rows.append(["Scritte / Loghi con taglio laser", _fmt_eur(p.prezzo_scritte_loghi), "+ iva"])
+    if p.grafiche_particolari and p.prezzo_grafiche_particolari > 0:
+        scelte_rows.append(["Grafiche particolari / repliche originali", _fmt_eur(p.prezzo_grafiche_particolari), "+ iva"])
+    if p.rinforzi_diving and p.prezzo_rinforzi_diving > 0:
+        scelte_rows.append(["Rinforzi per gommoni diving", _fmt_eur(p.prezzo_rinforzi_diving), "+ iva"])
+
+    if scelte_rows:
+        header_scelte = [[Paragraph("<b>OPZIONI SCELTE PER QUESTO PREVENTIVO</b>", styles["Normal"]), "", ""]]
+        header_scelte.append(["Base sostituzione tubolare", _fmt_eur(base), "+ iva"])
+        rows_scelte = header_scelte + scelte_rows
+        ts = Table(rows_scelte, colWidths=[110*mm, 45*mm, 15*mm])
+        ts.setStyle(TableStyle([
+            ("FONTSIZE", (0,0), (-1,-1), 9),
+            ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#c8e6c9")),
+            ("SPAN", (0,0), (-1,0)),
+            ("ALIGN", (0,0), (-1,0), "CENTER"),
+            ("BOX", (1,1), (1,-1), 0.4, colors.grey),
+            ("ALIGN", (1,0), (2,-1), "CENTER"),
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+            ("LEFTPADDING", (0,0), (-1,-1), 3),
+            ("RIGHTPADDING", (0,0), (-1,-1), 3),
+            ("BOX", (0,0), (-1,-1), 0.4, colors.grey),
+        ]))
+        story.append(ts)
+        story.append(Spacer(1, 6))
+
+    # TOTALE finale (base + extra selezionati)
     totale_style = ParagraphStyle("tot", parent=styles["Normal"], fontSize=11, alignment=TA_RIGHT)
-    story.append(Paragraph(f"<b>TOTALE PREVENTIVO:  {_fmt_eur(p.totale)}  + IVA</b>", totale_style))
+    if scelte_rows:
+        story.append(Paragraph(f"<b>TOTALE PREVENTIVO (con opzioni scelte):  {_fmt_eur(p.totale)}  + IVA</b>", totale_style))
+    else:
+        story.append(Paragraph(f"<b>TOTALE PREVENTIVO:  {_fmt_eur(base)}  + IVA</b>", totale_style))
     story.append(Spacer(1, 8))
 
     # Note eventuali
