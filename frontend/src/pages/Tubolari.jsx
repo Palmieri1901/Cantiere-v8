@@ -261,13 +261,19 @@ export default function Tubolari() {
 // ============================================================================
 function PreventivoForm({ open, onOpenChange, value, onSaved }) {
   const [form, setForm] = useState(EMPTY_PREV);
+  const [initial, setInitial] = useState(EMPTY_PREV);
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
 
   useEffect(() => {
-    if (open) setForm({ ...EMPTY_PREV, ...(value || {}) });
+    if (open) {
+      const init = { ...EMPTY_PREV, ...(value || {}) };
+      setForm(init);
+      setInitial(init);
+    }
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
@@ -275,6 +281,26 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
   }, [open, value]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  // Rileva modifiche non salvate confrontando i valori significativi
+  const isDirty = useMemo(() => {
+    const keys = Object.keys(form || {});
+    return keys.some((k) => {
+      if (k === "totale" || k === "updated_at" || k === "created_at") return false;
+      const a = form[k];
+      const b = initial[k];
+      if (typeof a === "number" || typeof b === "number") return Number(a || 0) !== Number(b || 0);
+      return (a ?? "") !== (b ?? "");
+    });
+  }, [form, initial]);
+
+  const attemptClose = () => {
+    if (isDirty && !saving) {
+      setConfirmClose(true);
+    } else {
+      onOpenChange(false);
+    }
+  };
 
   const totale = useMemo(() => {
     const metri = Number(form.metri || 0);
@@ -365,15 +391,16 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={showPreview ? "max-w-[min(1400px,95vw)] max-h-[95vh] overflow-hidden p-0" : "max-w-3xl max-h-[90vh] overflow-y-auto"} data-testid="dialog-prev-tubolari">
+    <Dialog open={open} onOpenChange={(o) => { if (!o) attemptClose(); else onOpenChange(true); }}>
+      <DialogContent className={showPreview ? "max-w-[min(1400px,95vw)] max-h-[95vh] overflow-hidden p-0" : "max-w-3xl max-h-[90vh] overflow-y-auto"} data-testid="dialog-prev-tubolari" onEscapeKeyDown={(e) => { if (isDirty) { e.preventDefault(); attemptClose(); } }} onPointerDownOutside={(e) => { if (isDirty) e.preventDefault(); }}>
         <div className={showPreview ? "grid grid-cols-1 lg:grid-cols-2 gap-0 max-h-[95vh]" : ""}>
           <div className={showPreview ? "overflow-y-auto p-6 border-r border-border" : ""}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 justify-between">
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-2 flex-wrap">
               <Ship className="w-5 h-5 text-primary" />
               {form.id ? `Modifica preventivo ${form.numero || ""}` : "Nuovo preventivo tubolari"}
+              {isDirty && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-medium" data-testid="badge-unsaved">● Modifiche non salvate</span>}
             </span>
             <Button
               variant={showPreview ? "default" : "outline"}
@@ -386,7 +413,10 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
               {showPreview ? "Nascondi anteprima" : "Mostra anteprima"}
             </Button>
           </DialogTitle>
-          <DialogDescription>Compila i dati; il totale e l'anteprima PDF si aggiornano in tempo reale.</DialogDescription>
+          <DialogDescription>
+            Compila i dati; totale e anteprima PDF si aggiornano in tempo reale.{" "}
+            <b>Nulla viene salvato finché non premi "Salva preventivo"</b>{form.id ? "" : "; il numero progressivo viene assegnato al salvataggio."}
+          </DialogDescription>
         </DialogHeader>
 
         {/* Cliente */}
@@ -478,9 +508,9 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Annulla</Button>
-          <Button onClick={save} disabled={saving} className="bg-primary hover:bg-primary/90" data-testid="prev-save">
-            <Save className="w-4 h-4 mr-1.5" /> {saving ? "Salvataggio…" : "Salva preventivo"}
+          <Button variant="outline" onClick={attemptClose} data-testid="prev-cancel">Annulla</Button>
+          <Button onClick={save} disabled={saving || !isDirty} className="bg-primary hover:bg-primary/90" data-testid="prev-save">
+            <Save className="w-4 h-4 mr-1.5" /> {saving ? "Salvataggio…" : (isDirty ? "Salva preventivo" : "Nessuna modifica")}
           </Button>
         </DialogFooter>
           </div>
@@ -517,6 +547,30 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
           )}
         </div>
       </DialogContent>
+
+      <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" /> Modifiche non salvate
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Hai apportato modifiche a questo preventivo ma non hai ancora premuto <b>"Salva preventivo"</b>.
+              Se chiudi ora, le modifiche andranno perse.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="btn-continue-editing">Continua modifica</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setConfirmClose(false); onOpenChange(false); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="btn-discard-changes"
+            >
+              Scarta modifiche
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
