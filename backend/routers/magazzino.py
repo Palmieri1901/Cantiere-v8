@@ -942,7 +942,7 @@ async def inventario_pdf():
     story.append(Paragraph(datetime.now().strftime("Aggiornato al %d/%m/%Y"), styles["Normal"]))
     story.append(Spacer(1, 8))
 
-    headers = ["Codice", "Fornitore", "Nome", "U.M.", "Q.tà", "Prezzo acq. €", "Valore giac. €"]
+    headers = ["Codice", "Forn.", "Nome", "U.M.", "Q.tà", "P.acq. €", "Valore €"]
     data = [headers]
     tot_valore = 0.0
     for a in articoli:
@@ -953,7 +953,7 @@ async def inventario_pdf():
         data.append([
             a.get("codice", "") or "—",
             forn_map.get(a.get("fornitore_id"), "") or "—",
-            (a.get("nome", "") or "")[:60],
+            (a.get("nome", "") or "")[:80],
             a.get("unita_misura", "pz") or "pz",
             f"{q:g}",
             f"{p:.2f}",
@@ -962,7 +962,8 @@ async def inventario_pdf():
     # Riga totale
     data.append(["TOTALE", "", "", "", "", "", f"{tot_valore:.2f}"])
 
-    table = Table(data, colWidths=[22*mm, 32*mm, 58*mm, 12*mm, 15*mm, 22*mm, 25*mm], repeatRows=1)
+    # Larghezze colonne minime, max spazio a "Nome". Somma = 186mm (A4 - 24mm margini)
+    table = Table(data, colWidths=[20*mm, 12*mm, 95*mm, 10*mm, 12*mm, 17*mm, 20*mm], repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
