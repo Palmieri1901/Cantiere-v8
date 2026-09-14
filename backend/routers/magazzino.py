@@ -385,14 +385,17 @@ async def scan_ddt(payload: ScanDDTRequest):
         "  2) SPESE ACCESSORIE (costi di trasporto, bancarie, spedizione, imballo, assicurazione, "
         "     carburante, sovrapprezzi non merceologici) → vanno in 'spese_accessorie'\n\n"
         "SIGNIFICATO COLONNE per gli articoli:\n"
-        "- 'Prezzo unitario' / 'Prezzo listino' / 'PU' = prezzo unitario IVA COMPRESA (22%)\n"
+        "- 'U.M.' / 'UM' / 'Unità' = unità di misura (es. pz, lt, kg, mt, mq, rotolo, cf, cad, set). "
+        "  Normalizza SEMPRE in minuscolo e usa una di queste sigle: pz, lt, kg, mt, mq, rotolo, cf, cad, set, paio. "
+        "  Se non riesci a leggerla usa 'pz'.\n"
+        "- 'Prezzo unitario' / 'Prezzo listino' / 'PU' = prezzo unitario IVA COMPRESA (22%) riferito alla U.M.\n"
         "- 'Sconto %' / 'Sc%' = sconto in percentuale\n"
         "- 'Importo' / 'Totale' / 'Netto' = importo unitario NETTO scontato IVA ESCLUSA (prezzo di acquisto)\n"
         "- Se 'Importo' è il totale riga, dividilo per la quantità.\n\n"
         "Rispondi SOLO con un oggetto JSON:\n"
         '{"fornitore": "", "numero_ddt": "", "data": "", "iva_percent": 22,\n'
         ' "articoli": [\n'
-        '   {"codice": "", "nome": "", "descrizione": "", "quantita": 0,\n'
+        '   {"codice": "", "nome": "", "descrizione": "", "unita_misura": "pz", "quantita": 0,\n'
         '    "prezzo_listino_ivato": 0, "sconto_percent": 0, "importo_netto": 0}\n'
         " ],\n"
         ' "spese_accessorie": [\n'
@@ -444,10 +447,18 @@ async def scan_ddt(payload: ScanDDTRequest):
                     sconto = round(calc, 2)
 
         # Retrocompatibilità: `prezzo_unitario` continua ad essere quello di acquisto (netto)
+        um = str(a.get("unita_misura", "") or "pz").strip().lower() or "pz"
+        # Normalizza sigle equivalenti
+        um_map = {"pezzi": "pz", "n": "pz", "num": "pz", "nr": "pz", "litri": "lt", "l": "lt",
+                  "chilogrammi": "kg", "chili": "kg", "metri": "mt", "m": "mt",
+                  "metri quadri": "mq", "mq.": "mq", "confezione": "cf", "conf": "cf",
+                  "cadauno": "cad", "cad.": "cad"}
+        um = um_map.get(um, um)
         articoli.append({
             "codice": str(a.get("codice", "") or ""),
             "nome": str(a.get("nome", "") or ""),
             "descrizione": str(a.get("descrizione", "") or ""),
+            "unita_misura": um,
             "quantita": float(a.get("quantita", 0) or 0),
             "prezzo_listino_ivato": listino_iva,
             "sconto_percent": sconto,
@@ -575,6 +586,10 @@ async def importa_articoli(payload: ImportArticoliRequest):
                 "fornitore_id": payload.fornitore_id or existing.get("fornitore_id"),
                 "updated_at": datetime.now(timezone.utc),
             }
+            # Se il DDT porta una U.M. valida e l'articolo non ne ha ancora una impostata, aggiornala
+            um_ddt = (a.get("unita_misura") or "").strip().lower()
+            if um_ddt and not (existing.get("unita_misura") or "").strip():
+                update_set["unita_misura"] = um_ddt
             if prezzo > 0 and payload.aggiorna_prezzi:
                 old_pa = float(existing.get("prezzo_acquisto") or 0)
                 old_pv = float(existing.get("prezzo_listino") or 0)
@@ -613,6 +628,7 @@ async def importa_articoli(payload: ImportArticoliRequest):
                 codice=codice, nome=nome or codice,
                 descrizione=a.get("descrizione", ""),
                 categoria=categoria,
+                unita_misura=(a.get("unita_misura") or "pz").strip().lower() or "pz",
                 fornitore_id=payload.fornitore_id,
                 prezzo_acquisto=prezzo, prezzo_listino=prezzo_listino,
                 quantita=qt,

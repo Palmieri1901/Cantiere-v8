@@ -931,6 +931,7 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
       setRows((data.articoli || []).map((a, i) => ({
         ...a,
         // Backfill mancanti in fase iniziale
+        unita_misura: a.unita_misura || "pz",
         prezzo_listino_ivato: a.prezzo_listino_ivato ?? 0,
         sconto_percent: a.sconto_percent ?? 0,
         importo_netto: a.importo_netto ?? a.prezzo_unitario ?? 0,
@@ -1123,6 +1124,7 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
                     <TableHead className="w-10"></TableHead>
                     <TableHead className="min-w-[80px]">Codice</TableHead>
                     <TableHead className="min-w-[180px]">Nome</TableHead>
+                    <TableHead className="text-center w-20">U.M.</TableHead>
                     <TableHead className="text-right w-20">Q.tà</TableHead>
                     <TableHead className="text-right w-28" title="Prezzo unitario IVA compresa">Listino IVA €</TableHead>
                     <TableHead className="text-right w-20" title="Sconto in percentuale">Sconto %</TableHead>
@@ -1137,6 +1139,19 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
                       </TableCell>
                       <TableCell><Input value={r.codice} onChange={(e) => updateRow(r._i, "codice", e.target.value)} className="h-8" /></TableCell>
                       <TableCell><Input value={r.nome} onChange={(e) => updateRow(r._i, "nome", e.target.value)} className="h-8" /></TableCell>
+                      <TableCell>
+                        <Select value={r.unita_misura || "pz"} onValueChange={(v) => updateRow(r._i, "unita_misura", v)}>
+                          <SelectTrigger className="h-8 text-xs px-2" data-testid={`ddt-um-${r._i}`}><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {["pz","lt","kg","mt","mq","rotolo","cf","cad","set","paio"].map((u) => (
+                              <SelectItem key={u} value={u}>{u}</SelectItem>
+                            ))}
+                            {r.unita_misura && !["pz","lt","kg","mt","mq","rotolo","cf","cad","set","paio"].includes(r.unita_misura) && (
+                              <SelectItem value={r.unita_misura}>{r.unita_misura}</SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
                       <TableCell><Input type="number" step="0.01" value={r.quantita} onChange={(e) => updateRow(r._i, "quantita", Number(e.target.value))} className="h-8 text-right" /></TableCell>
                       <TableCell>
                         <Input
