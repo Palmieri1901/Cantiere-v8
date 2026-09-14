@@ -111,12 +111,96 @@ async def update_lavoro(lavoro_id: str, payload: LavoroCreate):
         raise HTTPException(404, "Lavoro non trovato")
     if payload.stato not in ("pianificato", "in_corso", "completato"):
         raise HTTPException(400, "Stato non valido")
-    # Gli articoli di magazzino già scaricati restano invariati: si gestiscono
-    # solo dalla creazione lavoro per evitare doppi scarichi. Ignoriamo il campo in PUT.
+
     payload_data = payload.model_dump()
-    payload_data.pop("articoli_magazzino", None)
+    articoli_new_input = payload_data.pop("articoli_magazzino", None)
+    articoli_old = existing.get("articoli_magazzino") or []
+
+    # Snapshot definitivo per il lavoro (di default resta quello esistente)
+    snapshot_finale = articoli_old
+    costo_delta_magazzino = 0.0
+
+    # Se il client ha inviato la lista aggiornata, calcolo il delta con quella salvata
+    if articoli_new_input is not None:
+        cliente = await db.clienti.find_one({"id": existing.get("cliente_id")}, {"_id": 0}) or {}
+        cliente_nome = f"{cliente.get('cognome','')} {cliente.get('nome','')}".strip() or "Cliente"
+        data_str = payload.data or existing.get("data") or datetime.now().strftime("%Y-%m-%d")
+
+        def _sum_by_aid(items):
+            m = {}
+            for it in items or []:
+                aid = it.get("articolo_id")
+                if not aid:
+                    continue
+                m[aid] = m.get(aid, 0.0) + float(it.get("quantita") or 0)
+            return m
+
+        old_map = _sum_by_aid(articoli_old)
+        new_map = _sum_by_aid(articoli_new_input)
+        all_ids = set(old_map.keys()) | set(new_map.keys())
+
+        snapshot_finale = []
+        # Ricostruzione snapshot: prendo prezzo dal payload se presente altrimenti dal vecchio
+        prezzo_map = {}
+        for it in (articoli_new_input or []):
+            aid = it.get("articolo_id")
+            if aid and it.get("prezzo_unitario") is not None:
+                prezzo_map[aid] = float(it.get("prezzo_unitario") or 0)
+        for it in articoli_old:
+            aid = it.get("articolo_id")
+            if aid and aid not in prezzo_map:
+                prezzo_map[aid] = float(it.get("prezzo_unitario") or 0)
+
+        for aid in all_ids:
+            old_q = float(old_map.get(aid, 0) or 0)
+            new_q = float(new_map.get(aid, 0) or 0)
+            delta = new_q - old_q  # >0 = scarico ulteriore, <0 = restituzione
+            if abs(delta) < 1e-9 and new_q == 0:
+                # Articolo rimosso da entrambe le liste vuote → skip
+                continue
+
+            art = await db.articoli.find_one({"id": aid}, {"_id": 0})
+            if not art and delta > 0:
+                raise HTTPException(400, f"Articolo {aid} non trovato in magazzino")
+
+            if delta != 0 and art:
+                nuova_giacenza = float(art.get("quantita", 0)) - delta
+                await db.articoli.update_one(
+                    {"id": aid},
+                    {"$set": {"quantita": nuova_giacenza, "updated_at": datetime.utcnow()}},
+                )
+                tipo_mv = "scarico" if delta > 0 else "carico"
+                mv = MovimentoMagazzino(
+                    articolo_id=aid, tipo=tipo_mv,
+                    quantita=(-delta if delta > 0 else abs(delta)),
+                    quantita_dopo=nuova_giacenza,
+                    motivo=f"Aggiornamento lavoro · Cliente {cliente_nome}",
+                    data=data_str,
+                    cliente_id=cliente.get("id"),
+                    cliente_nome=cliente_nome,
+                    lavoro_id=lavoro_id,
+                )
+                await db.movimenti_magazzino.insert_one(mv.model_dump())
+
+            if new_q > 0:
+                prezzo_unit = float(prezzo_map.get(aid) or (art or {}).get("prezzo_listino") or 0)
+                snapshot_finale.append({
+                    "articolo_id": aid,
+                    "codice": (art or {}).get("codice", "") or "",
+                    "nome": (art or {}).get("nome", "") or "",
+                    "quantita": new_q,
+                    "prezzo_unitario": prezzo_unit,
+                    "totale": new_q * prezzo_unit,
+                })
+                costo_delta_magazzino += new_q * prezzo_unit
+
+        # Ricalcola costo togliendo il vecchio contributo magazzino e aggiungendo il nuovo
+        vecchio_contributo = sum(float(x.get("totale") or 0) for x in articoli_old)
+        payload_data["costo"] = float(payload_data.get("costo") or existing.get("costo") or 0) - vecchio_contributo + costo_delta_magazzino
+
     merged = {**existing, **{k: v for k, v in payload_data.items() if v is not None}}
     merged["id"] = lavoro_id
+    merged["articoli_magazzino"] = snapshot_finale
     lavoro = Lavoro(**merged)
     await db.lavori.update_one({"id": lavoro_id}, {"$set": serialize(lavoro)})
     return lavoro

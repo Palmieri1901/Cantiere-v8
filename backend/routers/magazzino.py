@@ -404,10 +404,13 @@ async def scan_ddt(payload: ScanDDTRequest):
         "- 'Carburante' → tubi carburante, filtri gasolio/benzina, serbatoi, taniche, imbuti\n"
         "- 'Consumabili' → carta abrasiva, guanti, stracci, nastri, detergenti, sgrassatori\n"
         "- 'Altro' → solo se davvero non riconducibile ai gruppi sopra\n\n"
+        "Per la categoria fornisci ANCHE una **confidenza** ('alta' se sei molto sicuro dal nome/descrizione, "
+        "'media' se plausibile ma ambigua, 'bassa' se hai dovuto tirare a indovinare o è generica).\n\n"
         "Rispondi SOLO con un oggetto JSON:\n"
         '{"fornitore": "", "numero_ddt": "", "data": "", "iva_percent": 22,\n'
         ' "articoli": [\n'
-        '   {"codice": "", "nome": "", "descrizione": "", "categoria": "Motore", "unita_misura": "pz", "quantita": 0,\n'
+        '   {"codice": "", "nome": "", "descrizione": "", "categoria": "Motore", "categoria_confidenza": "alta",\n'
+        '    "unita_misura": "pz", "quantita": 0,\n'
         '    "prezzo_listino_ivato": 0, "sconto_percent": 0, "importo_netto": 0}\n'
         " ],\n"
         ' "spese_accessorie": [\n'
@@ -471,6 +474,7 @@ async def scan_ddt(payload: ScanDDTRequest):
             "nome": str(a.get("nome", "") or ""),
             "descrizione": str(a.get("descrizione", "") or ""),
             "categoria": str(a.get("categoria", "") or "").strip(),
+            "categoria_confidenza": str(a.get("categoria_confidenza", "media") or "media").lower().strip(),
             "unita_misura": um,
             "quantita": float(a.get("quantita", 0) or 0),
             "prezzo_listino_ivato": listino_iva,

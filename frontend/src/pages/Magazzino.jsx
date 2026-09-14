@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { api, API, fmtEuro } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -101,6 +101,8 @@ function ArticoliTab() {
   const [ricarichiOpen, setRicarichiOpen] = useState(false);
   const [scaricoInput, setScaricoInput] = useState({}); // { [id]: "3" }
   const [scaricoLoading, setScaricoLoading] = useState({}); // { [id]: true }
+  const [raggruppa, setRaggruppa] = useState(false);
+  const [gruppoAperto, setGruppoAperto] = useState({}); // { [categoria]: true/false }
 
   const load = async () => {
     setLoading(true);
@@ -138,6 +140,39 @@ function ArticoliTab() {
   const fornMap = useMemo(() => Object.fromEntries(fornitori.map((f) => [f.id, f.nome])), [fornitori]);
   const nSottoScorta = articoli.filter((a) => a.quantita <= a.scorta_minima).length;
   const valoreTot = articoli.reduce((s, a) => s + (Number(a.quantita) * Number(a.prezzo_acquisto || 0)), 0);
+
+  // Raggruppamento per categoria
+  const gruppi = useMemo(() => {
+    if (!raggruppa) return null;
+    const map = new Map();
+    for (const a of filtered) {
+      const cat = (a.categoria || "").trim() || "Senza categoria";
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat).push(a);
+    }
+    // Ordina alfabeticamente, "Senza categoria" in fondo
+    return Array.from(map.entries())
+      .sort(([a], [b]) => {
+        if (a === "Senza categoria") return 1;
+        if (b === "Senza categoria") return -1;
+        return a.localeCompare(b, "it");
+      })
+      .map(([categoria, items]) => {
+        const nArt = items.length;
+        const valore = items.reduce((s, x) => s + Number(x.quantita || 0) * Number(x.prezzo_acquisto || 0), 0);
+        const ricariciCat = items
+          .map((x) => {
+            const pa = Number(x.prezzo_acquisto || 0);
+            const pv = Number(x.prezzo_listino || 0);
+            return pa > 0 && pv > 0 ? ((pv - pa) / pa) * 100 : null;
+          })
+          .filter((v) => v !== null);
+        const ricMedio = ricariciCat.length ? ricariciCat.reduce((s, v) => s + v, 0) / ricariciCat.length : null;
+        const qtaTot = items.reduce((s, x) => s + Number(x.quantita || 0), 0);
+        return { categoria, items, nArt, valore, ricMedio, qtaTot };
+      });
+  }, [filtered, raggruppa]);
+
   const ricariciValidi = articoli
     .map((a) => {
       const pa = Number(a.prezzo_acquisto || 0);
@@ -251,6 +286,16 @@ function ArticoliTab() {
               {categorie.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button
+            variant={raggruppa ? "default" : "outline"}
+            size="sm"
+            onClick={() => setRaggruppa((v) => !v)}
+            className={raggruppa ? "bg-primary hover:bg-primary/90" : ""}
+            data-testid="btn-raggruppa"
+            title="Raggruppa articoli per categoria con totali"
+          >
+            <Filter className="w-4 h-4 mr-1.5" /> {raggruppa ? "Raggruppato" : "Raggruppa"}
+          </Button>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 mb-4 border-t border-border/60 pt-4">
@@ -289,6 +334,72 @@ function ArticoliTab() {
         </div>
 
         <div className="rounded-md border border-border overflow-hidden">
+          {(() => {
+            const renderRow = (a) => {
+              const pa = Number(a.prezzo_acquisto || 0);
+              const pv = Number(a.prezzo_listino || 0);
+              const rk = pa > 0 && pv > 0 ? ((pv - pa) / pa) * 100 : null;
+              return (
+                <TableRow key={a.id} data-testid={`row-articolo-${a.id}`}>
+                  <TableCell className="font-mono text-xs">{a.codice || "—"}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      {a.immagine_base64 && <img src={a.immagine_base64} alt="" className="w-8 h-8 rounded object-cover" />}
+                      <div>
+                        <div>{a.nome}</div>
+                        {a.descrizione && <div className="text-xs text-muted-foreground line-clamp-1 max-w-[280px]">{a.descrizione}</div>}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>{a.categoria && <Badge variant="secondary">{a.categoria}</Badge>}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{fornMap[a.fornitore_id] || "—"}</TableCell>
+                  <TableCell className="text-right font-mono-num text-muted-foreground">{fmtEuro(pa)}</TableCell>
+                  <TableCell className="text-right font-mono-num font-semibold">{fmtEuro(pv)}</TableCell>
+                  <TableCell className="text-right font-mono-num text-primary" data-testid={`cell-pv-iva-${a.id}`}>{fmtEuro(pv * 1.22)}</TableCell>
+                  <TableCell className="text-right font-mono-num text-xs">
+                    {rk !== null ? (
+                      <span className={rk < 0 ? "text-destructive" : rk >= 20 ? "text-primary" : "text-muted-foreground"}>
+                        {rk >= 0 ? "+" : ""}{rk.toFixed(0)}%
+                      </span>
+                    ) : <span className="text-muted-foreground">—</span>}
+                  </TableCell>
+                  <TableCell className="text-right font-mono-num text-sm" data-testid={`cell-giacenza-${a.id}`}>
+                    <span className={Number(a.quantita) <= 0 ? "text-destructive font-semibold" : Number(a.quantita) <= Number(a.scorta_minima) ? "text-amber-600 font-semibold" : "font-semibold"}>
+                      {Number(a.quantita || 0)}
+                    </span>
+                    <span className="text-muted-foreground text-xs ml-1">{a.unita_misura || "pz"}</span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center gap-1 justify-end">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="q.tà"
+                        value={scaricoInput[a.id] ?? ""}
+                        onChange={(e) => setScaricoInput((s) => ({ ...s, [a.id]: e.target.value }))}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); doScarico(a); } }}
+                        disabled={!!scaricoLoading[a.id]}
+                        className="h-8 w-[70px] text-right font-mono-num text-sm px-2"
+                        data-testid={`input-scarico-${a.id}`}
+                      />
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => doScarico(a)} disabled={!!scaricoLoading[a.id] || !scaricoInput[a.id]} title="Scarica" data-testid={`btn-scarico-${a.id}`}>
+                        <ArrowDownCircle className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" onClick={() => { setEditing(a); setFormOpen(true); }} data-testid={`btn-edit-${a.id}`}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => setConfirmDelete(a)} data-testid={`btn-delete-${a.id}`}>
+                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            };
+            return (
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40">
@@ -310,72 +421,37 @@ function ArticoliTab() {
               {!loading && filtered.length === 0 && (
                 <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8" data-testid="empty-articoli">Nessun articolo</TableCell></TableRow>
               )}
-              {filtered.map((a) => {
-                const pa = Number(a.prezzo_acquisto || 0);
-                const pv = Number(a.prezzo_listino || 0);
-                const rk = pa > 0 && pv > 0 ? ((pv - pa) / pa) * 100 : null;
+              {!loading && !raggruppa && filtered.map((a) => renderRow(a))}
+              {!loading && raggruppa && gruppi && gruppi.map((g) => {
+                const aperto = gruppoAperto[g.categoria] !== false; // default aperto
                 return (
-                  <TableRow key={a.id} data-testid={`row-articolo-${a.id}`}>
-                    <TableCell className="font-mono text-xs">{a.codice || "—"}</TableCell>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        {a.immagine_base64 && <img src={a.immagine_base64} alt="" className="w-8 h-8 rounded object-cover" />}
-                        <div>
-                          <div>{a.nome}</div>
-                          {a.descrizione && <div className="text-xs text-muted-foreground line-clamp-1 max-w-[280px]">{a.descrizione}</div>}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{a.categoria && <Badge variant="secondary">{a.categoria}</Badge>}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{fornMap[a.fornitore_id] || "—"}</TableCell>
-                    <TableCell className="text-right font-mono-num text-muted-foreground">{fmtEuro(pa)}</TableCell>
-                    <TableCell className="text-right font-mono-num font-semibold">{fmtEuro(pv)}</TableCell>
-                    <TableCell className="text-right font-mono-num text-primary" data-testid={`cell-pv-iva-${a.id}`}>{fmtEuro(pv * 1.22)}</TableCell>
-                    <TableCell className="text-right font-mono-num text-xs">
-                      {rk !== null ? (
-                        <span className={rk < 0 ? "text-destructive" : rk >= 20 ? "text-primary" : "text-muted-foreground"}>
-                          {rk >= 0 ? "+" : ""}{rk.toFixed(0)}%
+                  <React.Fragment key={g.categoria}>
+                    <TableRow className="bg-primary/5 hover:bg-primary/10 cursor-pointer border-y-2 border-primary/20" onClick={() => setGruppoAperto((s) => ({ ...s, [g.categoria]: !aperto }))} data-testid={`gruppo-header-${g.categoria}`}>
+                      <TableCell colSpan={4} className="font-semibold">
+                        <span className="inline-flex items-center gap-2">
+                          <span className={`inline-block transition-transform ${aperto ? "rotate-90" : ""}`}>▶</span>
+                          <Badge className="bg-primary text-primary-foreground">{g.categoria}</Badge>
+                          <span className="text-xs text-muted-foreground font-normal">{g.nArt} articoli · {g.qtaTot.toLocaleString("it-IT")} pz totali</span>
                         </span>
-                      ) : <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                    <TableCell className="text-right font-mono-num text-sm" data-testid={`cell-giacenza-${a.id}`}>
-                      <span className={Number(a.quantita) <= 0 ? "text-destructive font-semibold" : Number(a.quantita) <= Number(a.scorta_minima) ? "text-amber-600 font-semibold" : "font-semibold"}>
-                        {Number(a.quantita || 0)}
-                      </span>
-                      <span className="text-muted-foreground text-xs ml-1">{a.unita_misura || "pz"}</span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center gap-1 justify-end">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="q.tà"
-                          value={scaricoInput[a.id] ?? ""}
-                          onChange={(e) => setScaricoInput((s) => ({ ...s, [a.id]: e.target.value }))}
-                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); doScarico(a); } }}
-                          disabled={!!scaricoLoading[a.id]}
-                          className="h-8 w-[70px] text-right font-mono-num text-sm px-2"
-                          data-testid={`input-scarico-${a.id}`}
-                        />
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => doScarico(a)} disabled={!!scaricoLoading[a.id] || !scaricoInput[a.id]} title="Scarica" data-testid={`btn-scarico-${a.id}`}>
-                          <ArrowDownCircle className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => { setEditing(a); setFormOpen(true); }} data-testid={`btn-edit-${a.id}`}>
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setConfirmDelete(a)} data-testid={`btn-delete-${a.id}`}>
-                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                      </TableCell>
+                      <TableCell colSpan={3} className="text-right text-xs text-muted-foreground">
+                        Valore giacenza gruppo: <b className="text-foreground font-mono-num">{fmtEuro(g.valore)}</b>
+                      </TableCell>
+                      <TableCell className="text-right font-mono-num text-xs">
+                        {g.ricMedio !== null ? (
+                          <span className="text-primary font-semibold">+{g.ricMedio.toFixed(0)}%</span>
+                        ) : <span className="text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell colSpan={3}></TableCell>
+                    </TableRow>
+                    {aperto && g.items.map((a) => renderRow(a))}
+                  </React.Fragment>
                 );
               })}
             </TableBody>
           </Table>
+            );
+          })()}
         </div>
       </Card>
 
@@ -933,6 +1009,7 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
         // Backfill mancanti in fase iniziale
         unita_misura: a.unita_misura || "pz",
         categoria: a.categoria || "",
+        categoria_confidenza: a.categoria_confidenza || "media",
         prezzo_listino_ivato: a.prezzo_listino_ivato ?? 0,
         sconto_percent: a.sconto_percent ?? 0,
         importo_netto: a.importo_netto ?? a.prezzo_unitario ?? 0,
@@ -1147,14 +1224,27 @@ function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
                       <TableCell><Input value={r.codice} onChange={(e) => updateRow(r._i, "codice", e.target.value)} className="h-8" /></TableCell>
                       <TableCell><Input value={r.nome} onChange={(e) => updateRow(r._i, "nome", e.target.value)} className="h-8" /></TableCell>
                       <TableCell>
-                        <Input
-                          value={r.categoria || ""}
-                          onChange={(e) => updateRow(r._i, "categoria", e.target.value)}
-                          list="ddt-categorie-suggerite"
-                          placeholder="AI…"
-                          className={`h-8 ${r.categoria ? "border-primary/40 text-primary font-medium" : ""}`}
-                          data-testid={`ddt-cat-${r._i}`}
-                        />
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={r.categoria || ""}
+                            onChange={(e) => updateRow(r._i, "categoria", e.target.value)}
+                            list="ddt-categorie-suggerite"
+                            placeholder="AI…"
+                            className={`h-8 ${r.categoria ? "border-primary/40 text-primary font-medium" : ""}`}
+                            data-testid={`ddt-cat-${r._i}`}
+                          />
+                          {r.categoria && r.categoria_confidenza && r.categoria_confidenza !== "alta" && (
+                            <span
+                              title={r.categoria_confidenza === "bassa"
+                                ? "AI poco sicura — controlla e conferma"
+                                : "AI incerta — verifica la categoria"}
+                              className={r.categoria_confidenza === "bassa" ? "text-destructive" : "text-amber-500"}
+                              data-testid={`ddt-cat-warn-${r._i}`}
+                            >
+                              <AlertTriangle className="w-4 h-4" />
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Select value={r.unita_misura || "pz"} onValueChange={(v) => updateRow(r._i, "unita_misura", v)}>
