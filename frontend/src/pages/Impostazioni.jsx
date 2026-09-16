@@ -385,7 +385,7 @@ export default function Impostazioni() {
               autoComplete="off"
               value={pinNew}
               onChange={(e) => setPinNew(e.target.value)}
-              placeholder="es. 1985"
+              placeholder="es. 347260"
               className="mt-1.5 font-mono tracking-widest text-lg"
               data-testid="input-pin-new"
             />

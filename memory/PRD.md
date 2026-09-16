@@ -9,7 +9,7 @@ Sono circa 200 posti barca"
 
 ## User Choices
 - Autenticazione: **Password unica condivisa** (utente singolo, nessuna email richiesta in UI). Backend usa `ADMIN_EMAIL` internamente.
-- Recupero password: **PIN di recupero master** (default `1985`, cambiabile da Impostazioni). Reset diretto senza email.
+- Recupero password: **PIN di recupero master** (default `347260`, cambiabile da Impostazioni). Reset diretto senza email.
 - Costi: **Tariffe base configurabili + override manuale per cliente**
 - Extra: **Export Excel/CSV** + integrazioni future
 - Lingua: **Italiano**

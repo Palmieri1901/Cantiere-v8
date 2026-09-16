@@ -83,7 +83,7 @@ export default function RecuperoPin() {
                   inputMode="numeric"
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
-                  placeholder="es. 1985"
+                  placeholder="es. 347260"
                   required
                   autoFocus
                   autoComplete="off"
