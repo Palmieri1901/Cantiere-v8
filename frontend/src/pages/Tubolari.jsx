@@ -264,9 +264,10 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
   const [form, setForm] = useState(EMPTY_PREV);
   const [initial, setInitial] = useState(EMPTY_PREV);
   const [saving, setSaving] = useState(false);
-  const [showPreview, setShowPreview] = useState(true);
+  const [showPreview, setShowPreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewStale, setPreviewStale] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
 
   useEffect(() => {
@@ -274,6 +275,10 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
       const init = { ...EMPTY_PREV, ...(value || {}) };
       setForm(init);
       setInitial(init);
+      // Reset preview quando si riapre il dialog su un altro preventivo
+      setPreviewUrl((old) => { if (old) URL.revokeObjectURL(old); return null; });
+      setPreviewStale(false);
+      setShowPreview(false);
     }
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -319,52 +324,31 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
 
   const base = Number(form.prezzo_al_metro || 0) * Number(form.metri || 0);
 
-  // Anteprima PDF live (debounced)
-  useEffect(() => {
-    if (!open || !showPreview) return;
-    // Non genera preview se manca il minimo indispensabile
-    if (!form.marca_gommone || !Number(form.metri)) return;
-
-    let cancelled = false;
+  // Generazione anteprima PDF SOLO SU RICHIESTA (nessun auto-save/auto-preview)
+  const generaAnteprima = async () => {
+    if (!form.marca_gommone || !Number(form.metri)) {
+      toast.error("Inserisci almeno marca gommone e metri");
+      return;
+    }
     setPreviewLoading(true);
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      try {
-        const payload = {
-          ...form,
-          metri: Number(form.metri),
-          maniglioni_aggiuntivi: parseInt(form.maniglioni_aggiuntivi || 0, 10),
-        };
-        const res = await api.post("/tubolari/preview-pdf", payload, {
-          responseType: "blob",
-          signal: controller.signal,
-        });
-        if (cancelled) return;
-        const blob = new Blob([res.data], { type: "application/pdf" });
-        const url = URL.createObjectURL(blob);
-        setPreviewUrl((old) => { if (old) URL.revokeObjectURL(old); return url; });
-      } catch (e) {
-        // Ignora aborts
-      } finally {
-        if (!cancelled) setPreviewLoading(false);
-      }
-    }, 600);
-    return () => {
-      cancelled = true;
-      controller.abort();
-      clearTimeout(timer);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, showPreview, form.cliente_nome, form.marca_gommone, form.modello_gommone, form.metri, form.tessuto,
-      form.prezzo_al_metro, form.supplemento_orca,
-      form.include_rifinitura_strisciato, form.prezzo_rifinitura_strisciato,
-      form.include_bottazzo_doppio, form.prezzo_bottazzo_doppio,
-      form.include_pezze_velocita, form.prezzo_pezze_velocita,
-      form.maniglioni_aggiuntivi, form.prezzo_maniglione,
-      form.scritte_loghi_laser, form.prezzo_scritte_loghi,
-      form.grafiche_particolari, form.prezzo_grafiche_particolari,
-      form.rinforzi_diving, form.prezzo_rinforzi_diving,
-      form.note, form.data]);
+    try {
+      const payload = {
+        ...form,
+        metri: Number(form.metri),
+        maniglioni_aggiuntivi: parseInt(form.maniglioni_aggiuntivi || 0, 10),
+      };
+      const res = await api.post("/tubolari/preview-pdf", payload, { responseType: "blob" });
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl((old) => { if (old) URL.revokeObjectURL(old); return url; });
+      setPreviewStale(false);
+      setShowPreview(true);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Errore generazione anteprima");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
   const save = async () => {
     if (!form.cliente_nome?.trim()) { toast.error("Nome cliente obbligatorio"); return; }
@@ -403,20 +387,33 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
               {form.id ? `Modifica preventivo ${form.numero || ""}` : "Nuovo preventivo tubolari"}
               {isDirty && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-medium" data-testid="badge-unsaved">● Modifiche non salvate</span>}
             </span>
-            <Button
-              variant={showPreview ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowPreview((v) => !v)}
-              className="mr-8"
-              data-testid="btn-toggle-preview"
-            >
-              <FileText className="w-3.5 h-3.5 mr-1.5" />
-              {showPreview ? "Nascondi anteprima" : "Mostra anteprima"}
-            </Button>
+            <div className="flex items-center gap-2 mr-8">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={generaAnteprima}
+                disabled={previewLoading}
+                data-testid="btn-genera-anteprima"
+              >
+                <FileText className="w-3.5 h-3.5 mr-1.5" />
+                {previewLoading ? "Generazione…" : (previewUrl ? "Rigenera anteprima" : "Genera anteprima PDF")}
+              </Button>
+              {previewUrl && (
+                <Button
+                  variant={showPreview ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowPreview((v) => !v)}
+                  data-testid="btn-toggle-preview"
+                >
+                  {showPreview ? "Nascondi" : "Mostra"}
+                </Button>
+              )}
+            </div>
           </DialogTitle>
           <DialogDescription>
-            Compila i dati; totale e anteprima PDF si aggiornano in tempo reale.{" "}
-            <b>Nulla viene salvato finché non premi "Salva preventivo"</b>{form.id ? "" : "; il numero progressivo viene assegnato al salvataggio."}
+            Compila i dati: il totale si aggiorna in tempo reale.{" "}
+            <b>Nulla viene salvato o esportato finché non premi "Salva preventivo" o "Genera anteprima PDF"</b>
+            {form.id ? "" : "; il numero progressivo viene assegnato al salvataggio."}
           </DialogDescription>
         </DialogHeader>
 
@@ -522,13 +519,15 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
                   <FileText className="w-3.5 h-3.5" />
                   Anteprima PDF
                   {previewLoading && <span className="text-[10px] font-normal normal-case text-primary animate-pulse">generazione…</span>}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {form.marca_gommone && Number(form.metri) ? "Live" : "Inserisci marca e metri"}
+                  {previewStale && !previewLoading && (
+                    <span className="text-[10px] font-normal normal-case text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded" data-testid="badge-preview-stale">
+                      obsoleta — rigenera
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="flex-1 overflow-hidden">
-                {previewUrl && form.marca_gommone && Number(form.metri) ? (
+                {previewUrl ? (
                   <iframe
                     key={previewUrl}
                     src={previewUrl}
@@ -538,9 +537,7 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
                   />
                 ) : (
                   <div className="h-full flex items-center justify-center text-muted-foreground text-sm p-6 text-center">
-                    {form.marca_gommone && Number(form.metri)
-                      ? "Caricamento anteprima…"
-                      : "Compila almeno marca gommone e metri per generare l'anteprima."}
+                    Premi "Genera anteprima PDF" per vedere il preventivo.
                   </div>
                 )}
               </div>
