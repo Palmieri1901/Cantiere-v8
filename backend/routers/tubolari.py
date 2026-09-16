@@ -236,8 +236,8 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     # ------------------------------------------------------------------
     st_company_name = ParagraphStyle("cname", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=14, textColor=NAVY, leading=16)
     st_company_meta = ParagraphStyle("cmeta", parent=styles["Normal"], fontSize=8.5, textColor=TEXT_MUTED, leading=11)
-    st_doc_title = ParagraphStyle("dtitle", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=18, textColor=NAVY, alignment=TA_LEFT, spaceBefore=0, spaceAfter=0)
-    st_doc_sub = ParagraphStyle("dsub", parent=styles["Normal"], fontSize=9, textColor=TEXT_MUTED, alignment=TA_LEFT)
+    st_doc_title = ParagraphStyle("dtitle", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=18, leading=22, textColor=NAVY, alignment=TA_LEFT, spaceBefore=0, spaceAfter=2)
+    st_doc_sub = ParagraphStyle("dsub", parent=styles["Normal"], fontSize=9, leading=11, textColor=TEXT_MUTED, alignment=TA_LEFT, spaceBefore=0, spaceAfter=0)
     st_meta_label = ParagraphStyle("mlab", parent=styles["Normal"], fontSize=8, textColor=TEXT_MUTED, alignment=TA_LEFT)
     st_meta_val = ParagraphStyle("mval", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10, textColor=NAVY, alignment=TA_LEFT)
     st_section = ParagraphStyle("sec", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10, textColor=colors.white, alignment=TA_LEFT, leading=13)
@@ -295,22 +295,32 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     except Exception:
         data_it = p.data or ""
 
-    right_data = [
-        [Paragraph("PREVENTIVO", st_doc_title)],
-        [Paragraph("Rifacimento tubolari — sostituzione", st_doc_sub)],
-        [Spacer(1, 4)],
-        [Table([
-            [Paragraph("N° preventivo", st_meta_label), Paragraph(p.numero or "—", st_meta_val)],
-            [Paragraph("Data", st_meta_label), Paragraph(data_it, st_meta_val)],
-            [Paragraph("Validità", st_meta_label), Paragraph(f"{cfg.validita_giorni} giorni", st_meta_val)],
-        ], colWidths=[26*mm, 40*mm], style=TableStyle([
-            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+    meta_table = Table([
+        [Paragraph("N° preventivo", st_meta_label), Paragraph(p.numero or "—", st_meta_val)],
+        [Paragraph("Data", st_meta_label), Paragraph(data_it, st_meta_val)],
+        [Paragraph("Validità", st_meta_label), Paragraph(f"{cfg.validita_giorni} giorni", st_meta_val)],
+    ], colWidths=[26*mm, 40*mm], style=TableStyle([
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("LEFTPADDING", (0,0), (-1,-1), 0),
+        ("RIGHTPADDING", (0,0), (-1,-1), 0),
+        ("TOPPADDING", (0,0), (-1,-1), 1.5),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 1.5),
+    ]))
+    # Right column as a proper single-column Table to guarantee vertical stacking
+    right_data = Table(
+        [[Paragraph("PREVENTIVO", st_doc_title)],
+         [Paragraph("Rifacimento tubolari — sostituzione", st_doc_sub)],
+         [Spacer(1, 4)],
+         [meta_table]],
+        colWidths=[68*mm],
+        style=TableStyle([
+            ("VALIGN", (0,0), (-1,-1), "TOP"),
             ("LEFTPADDING", (0,0), (-1,-1), 0),
             ("RIGHTPADDING", (0,0), (-1,-1), 0),
-            ("TOPPADDING", (0,0), (-1,-1), 1.5),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 1.5),
-        ]))],
-    ]
+            ("TOPPADDING", (0,0), (-1,-1), 0),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 0),
+        ]),
+    )
 
     header = Table(
         [[header_left, right_data]],
@@ -391,8 +401,8 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     # Totale base — sotto la tabella A) in una fascia colorata a destra
     tot_a_tbl = Table(
         [[Paragraph(f"Totale sostituzione base ({metri_val:g}m × {_fmt_eur(p.prezzo_al_metro)}/m)", ParagraphStyle("tab", parent=styles["Normal"], fontSize=10, textColor=colors.white, alignment=TA_RIGHT)),
-          Paragraph(f"<b>{_fmt_eur(base)}</b> + IVA", ParagraphStyle("tav", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=12, textColor=colors.white, alignment=TA_RIGHT))]],
-        colWidths=[138*mm, 48*mm],
+          Paragraph(f"<b>{_fmt_eur(base)}</b>&nbsp;&nbsp;+ IVA", ParagraphStyle("tav", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=12, textColor=colors.white, alignment=TA_RIGHT))]],
+        colWidths=[130*mm, 56*mm],
     )
     tot_a_tbl.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,-1), NAVY_LIGHT),
@@ -419,13 +429,13 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         [Paragraph("Neoprene Hypalon 1° scelta tessuto NOVURANIA", st_row),
          Paragraph("incluso", st_row_bold), ""],
         [Paragraph("Tessuto ORCA (al metro lineare)", st_row),
-         Paragraph(f"{_fmt_eur(p.supplemento_orca)}/m", st_row_bold),
-         Paragraph(f"= {_fmt_eur(orca_totale)}", st_row_bold)],
+         Paragraph(_fmt_eur(p.supplemento_orca) + " / m", st_row_bold),
+         Paragraph("= " + _fmt_eur(orca_totale), st_row_bold)],
         # Lavorazioni
         [Paragraph("<b>LAVORAZIONI EXTRA</b>", st_row_bold), "", ""],
         [Paragraph("B) Rifinitura interna strisciato (al metro lineare)", st_row),
-         Paragraph(f"{_fmt_eur(p.prezzo_rifinitura_strisciato)}/m", st_row_bold),
-         Paragraph(f"= {_fmt_eur(rif_totale)}", st_row_bold)],
+         Paragraph(_fmt_eur(p.prezzo_rifinitura_strisciato) + " / m", st_row_bold),
+         Paragraph("= " + _fmt_eur(rif_totale), st_row_bold)],
         [Paragraph("C) Bottazzo doppio h 90 mm", st_row),
          Paragraph(_fmt_eur(p.prezzo_bottazzo_doppio), st_row_bold), ""],
         [Paragraph("D) Apposizione pezze di velocità su coni dx-sx", st_row),
@@ -437,7 +447,7 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         [Paragraph("Rinforzi per gommoni diving", st_row),
          Paragraph("da valutare", st_row_bold), ""],
     ]
-    tl = Table(listino_rows, colWidths=[111*mm, 40*mm, 35*mm])
+    tl = Table(listino_rows, colWidths=[106*mm, 42*mm, 38*mm])
     tl_style = [
         ("BOX", (0,0), (-1,-1), 0.4, BORDER),
         ("INNERGRID", (0,0), (-1,-1), 0.25, BORDER),
@@ -463,9 +473,9 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     # ------------------------------------------------------------------
     scelte_rows_data = []
     if p.tessuto == "orca":
-        scelte_rows_data.append((f"Tessuto ORCA  ({_fmt_eur(p.supplemento_orca)}/m × {metri_val:g}m)", _fmt_eur(orca_totale)))
+        scelte_rows_data.append((f"Tessuto ORCA  ({_fmt_eur(p.supplemento_orca)} / m × {metri_val:g}m)", _fmt_eur(orca_totale)))
     if p.include_rifinitura_strisciato:
-        scelte_rows_data.append((f"B) Rifinitura interna strisciato  ({_fmt_eur(p.prezzo_rifinitura_strisciato)}/m × {metri_val:g}m)", _fmt_eur(rif_totale)))
+        scelte_rows_data.append((f"B) Rifinitura interna strisciato  ({_fmt_eur(p.prezzo_rifinitura_strisciato)} / m × {metri_val:g}m)", _fmt_eur(rif_totale)))
     if p.include_bottazzo_doppio:
         scelte_rows_data.append(("C) Bottazzo doppio h 90 mm", _fmt_eur(p.prezzo_bottazzo_doppio)))
     if p.include_pezze_velocita:
@@ -513,7 +523,7 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
           Paragraph(f"{_fmt_eur(totale_finale)}", st_totale_val)],
          ["",
           Paragraph("+ IVA", ParagraphStyle("iva", parent=styles["Normal"], fontSize=9, textColor=colors.white, alignment=TA_RIGHT))]],
-        colWidths=[138*mm, 48*mm],
+        colWidths=[130*mm, 56*mm],
     )
     tot_tbl.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,-1), NAVY),
