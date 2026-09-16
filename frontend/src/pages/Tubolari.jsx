@@ -39,6 +39,7 @@ const EMPTY_PREV = {
   include_pezze_velocita: false, prezzo_pezze_velocita: 0,
   maniglioni_aggiuntivi: 0, prezzo_maniglione: 50,
   scritte_loghi_laser: false, prezzo_scritte_loghi: 0,
+  colori_tubo_differenti: false, prezzo_colori_tubo_differenti: 0,
   grafiche_particolari: false, prezzo_grafiche_particolari: 0,
   rinforzi_diving: false, prezzo_rinforzi_diving: 0,
   note: "", stato: "bozza",
@@ -80,6 +81,8 @@ export default function Tubolari() {
       prezzo_rifinitura_strisciato: config?.rifinitura_interna_strisciato ?? 382.5,
       prezzo_bottazzo_doppio: config?.bottazzo_doppio_90mm ?? 357,
       prezzo_pezze_velocita: config?.apposizione_pezze_velocita ?? 0,
+      prezzo_scritte_loghi: config?.scritte_loghi_taglio_laser ?? 0,
+      prezzo_colori_tubo_differenti: config?.colori_tubo_differenti ?? 0,
       prezzo_maniglione: config?.maniglione_aggiuntivo_cad ?? 50,
     };
     setEditing(base);
@@ -317,6 +320,7 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
     if (form.include_pezze_velocita) t += Number(form.prezzo_pezze_velocita || 0);
     if (form.maniglioni_aggiuntivi > 0) t += Number(form.maniglioni_aggiuntivi) * Number(form.prezzo_maniglione || 0);
     if (form.scritte_loghi_laser) t += Number(form.prezzo_scritte_loghi || 0);
+    if (form.colori_tubo_differenti) t += Number(form.prezzo_colori_tubo_differenti || 0);
     if (form.grafiche_particolari) t += Number(form.prezzo_grafiche_particolari || 0);
     if (form.rinforzi_diving) t += Number(form.prezzo_rinforzi_diving || 0);
     return t;
@@ -448,18 +452,18 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Prezzo €/metro (Hypalon)"><Input type="number" step="0.01" value={form.prezzo_al_metro} onChange={(e) => set("prezzo_al_metro", Number(e.target.value))} data-testid="prev-pxm" /></Field>
-            <Field label="Supplemento ORCA €/metro"><Input type="number" step="0.01" value={form.supplemento_orca} onChange={(e) => set("supplemento_orca", Number(e.target.value))} disabled={form.tessuto !== "orca"} data-testid="prev-orca" /></Field>
+            <Field label="Prezzo €/Mt (Hypalon)"><Input type="number" step="0.01" value={form.prezzo_al_metro} onChange={(e) => set("prezzo_al_metro", Number(e.target.value))} data-testid="prev-pxm" /></Field>
+            <Field label="Supplemento ORCA €/Mt"><Input type="number" step="0.01" value={form.supplemento_orca} onChange={(e) => set("supplemento_orca", Number(e.target.value))} disabled={form.tessuto !== "orca"} data-testid="prev-orca" /></Field>
           </div>
           <div className="text-xs text-muted-foreground mt-2">
-            <b>Base:</b> {fmtEuro(form.prezzo_al_metro)}/m × {Number(form.metri || 0).toFixed(1)}m = <b>{fmtEuro(base)}</b>
-            {form.tessuto === "orca" && <> + supplemento ORCA {fmtEuro(form.supplemento_orca)}/m × {Number(form.metri || 0).toFixed(1)}m = <b>{fmtEuro(Number(form.supplemento_orca || 0) * Number(form.metri || 0))}</b></>}
+            <b>Base:</b> {fmtEuro(form.prezzo_al_metro)}/Mt × {Number(form.metri || 0).toFixed(1)} Mt = <b>{fmtEuro(base)}</b>
+            {form.tessuto === "orca" && <> + supplemento ORCA {fmtEuro(form.supplemento_orca)}/Mt × {Number(form.metri || 0).toFixed(1)} Mt = <b>{fmtEuro(Number(form.supplemento_orca || 0) * Number(form.metri || 0))}</b></>}
           </div>
         </Section>
 
         {/* Extra */}
         <Section title="Lavorazioni extra">
-          <ExtraRow label="B) Rifinitura interna strisciato (al metro lineare)" flag={form.include_rifinitura_strisciato} setFlag={(v) => set("include_rifinitura_strisciato", v)} price={form.prezzo_rifinitura_strisciato} setPrice={(v) => set("prezzo_rifinitura_strisciato", v)} suffix="€/m" testId="extra-B" totalCalc={Number(form.prezzo_rifinitura_strisciato || 0) * Number(form.metri || 0)} />
+          <ExtraRow label="B) Rifinitura interna strisciato (al metro lineare)" flag={form.include_rifinitura_strisciato} setFlag={(v) => set("include_rifinitura_strisciato", v)} price={form.prezzo_rifinitura_strisciato} setPrice={(v) => set("prezzo_rifinitura_strisciato", v)} suffix="€/Mt" testId="extra-B" totalCalc={Number(form.prezzo_rifinitura_strisciato || 0) * Number(form.metri || 0)} />
           <ExtraRow label="C) Bottazzo doppio h 90 mm" flag={form.include_bottazzo_doppio} setFlag={(v) => set("include_bottazzo_doppio", v)} price={form.prezzo_bottazzo_doppio} setPrice={(v) => set("prezzo_bottazzo_doppio", v)} testId="extra-C" />
           <ExtraRow label="D) Apposizione pezze velocità coni dx-sx" flag={form.include_pezze_velocita} setFlag={(v) => set("include_pezze_velocita", v)} price={form.prezzo_pezze_velocita} setPrice={(v) => set("prezzo_pezze_velocita", v)} placeholder="da valutare" testId="extra-D" />
 
@@ -473,6 +477,7 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
           </div>
 
           <ExtraRow label="Scritte / Loghi con taglio laser" flag={form.scritte_loghi_laser} setFlag={(v) => set("scritte_loghi_laser", v)} price={form.prezzo_scritte_loghi} setPrice={(v) => set("prezzo_scritte_loghi", v)} placeholder="da valutare" testId="extra-scritte" />
+          <ExtraRow label="Colori tubo differenti / graffiati (carbon, perlage…)" flag={form.colori_tubo_differenti} setFlag={(v) => set("colori_tubo_differenti", v)} price={form.prezzo_colori_tubo_differenti} setPrice={(v) => set("prezzo_colori_tubo_differenti", v)} placeholder="da valutare" testId="extra-colori" />
           <ExtraRow label="Grafiche particolari / repliche originali" flag={form.grafiche_particolari} setFlag={(v) => set("grafiche_particolari", v)} price={form.prezzo_grafiche_particolari} setPrice={(v) => set("prezzo_grafiche_particolari", v)} placeholder="da valutare" testId="extra-grafiche" />
           <ExtraRow label="Rinforzi per gommoni diving" flag={form.rinforzi_diving} setFlag={(v) => set("rinforzi_diving", v)} price={form.prezzo_rinforzi_diving} setPrice={(v) => set("prezzo_rinforzi_diving", v)} placeholder="da valutare" testId="extra-diving" />
         </Section>
@@ -637,6 +642,8 @@ function TubolariConfigDialog({ open, onOpenChange, value, onSaved }) {
         rifinitura_interna_strisciato: Number(form.rifinitura_interna_strisciato),
         bottazzo_doppio_90mm: Number(form.bottazzo_doppio_90mm),
         apposizione_pezze_velocita: Number(form.apposizione_pezze_velocita || 0),
+        scritte_loghi_taglio_laser: Number(form.scritte_loghi_taglio_laser || 0),
+        colori_tubo_differenti: Number(form.colori_tubo_differenti || 0),
         maniglione_aggiuntivo_cad: Number(form.maniglione_aggiuntivo_cad),
         validita_giorni: parseInt(form.validita_giorni || 90, 10),
         tempi_esecuzione_giorni: parseInt(form.tempi_esecuzione_giorni || 90, 10),
@@ -677,7 +684,7 @@ function TubolariConfigDialog({ open, onOpenChange, value, onSaved }) {
 
         <Section title="Prezzi extra">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Field label="B) Rifinitura interna strisciato €/metro">
+            <Field label="B) Rifinitura interna strisciato €/Mt">
               <Input type="number" step="0.01" value={form.rifinitura_interna_strisciato ?? ""} onChange={(e) => set("rifinitura_interna_strisciato", e.target.value)} data-testid="cfg-rif" />
             </Field>
             <Field label="C) Bottazzo doppio h 90mm €">
@@ -688,6 +695,12 @@ function TubolariConfigDialog({ open, onOpenChange, value, onSaved }) {
             </Field>
             <Field label="E) Maniglione aggiuntivo €/cad">
               <Input type="number" step="0.01" value={form.maniglione_aggiuntivo_cad ?? ""} onChange={(e) => set("maniglione_aggiuntivo_cad", e.target.value)} data-testid="cfg-man" />
+            </Field>
+            <Field label="Scritte / Loghi taglio laser € (0 = da valutare)">
+              <Input type="number" step="0.01" value={form.scritte_loghi_taglio_laser ?? 0} onChange={(e) => set("scritte_loghi_taglio_laser", e.target.value)} data-testid="cfg-scritte" />
+            </Field>
+            <Field label="Colori tubo differenti / graffiati € (0 = da valutare)">
+              <Input type="number" step="0.01" value={form.colori_tubo_differenti ?? 0} onChange={(e) => set("colori_tubo_differenti", e.target.value)} data-testid="cfg-colori" />
             </Field>
           </div>
         </Section>

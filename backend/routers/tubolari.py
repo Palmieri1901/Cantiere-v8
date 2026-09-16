@@ -62,6 +62,8 @@ def _calc_totale(p: PreventivoTubolare) -> float:
         tot += float(p.maniglioni_aggiuntivi) * float(p.prezzo_maniglione)
     if p.scritte_loghi_laser:
         tot += float(p.prezzo_scritte_loghi or 0)
+    if p.colori_tubo_differenti:
+        tot += float(p.prezzo_colori_tubo_differenti or 0)
     if p.grafiche_particolari:
         tot += float(p.prezzo_grafiche_particolari or 0)
     if p.rinforzi_diving:
@@ -77,6 +79,8 @@ async def _apply_defaults_from_config(payload_dict: dict) -> dict:
         "prezzo_rifinitura_strisciato": cfg.rifinitura_interna_strisciato,
         "prezzo_bottazzo_doppio": cfg.bottazzo_doppio_90mm,
         "prezzo_pezze_velocita": cfg.apposizione_pezze_velocita,
+        "prezzo_scritte_loghi": cfg.scritte_loghi_taglio_laser,
+        "prezzo_colori_tubo_differenti": cfg.colori_tubo_differenti,
         "prezzo_maniglione": cfg.maniglione_aggiuntivo_cad,
     }
     out = {**payload_dict}
@@ -224,7 +228,7 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     docp = SimpleDocTemplate(
         buf, pagesize=A4,
         leftMargin=12*mm, rightMargin=12*mm,
-        topMargin=8*mm, bottomMargin=8*mm,
+        topMargin=6*mm, bottomMargin=6*mm,
     )
     styles = getSampleStyleSheet()
     story = []
@@ -353,7 +357,7 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     mod = p.modello_gommone or ""
     label_barca = f"Gommone <b>{marca}</b>" + (f" {mod}" if mod else "")
     barca_cell.append(Paragraph(label_barca, st_row_bold))
-    barca_cell.append(Paragraph(f"Lunghezza: <b>{metri_val:g} m</b>  ·  Tessuto: <b>{'ORCA' if p.tessuto=='orca' else 'Hypalon 1670'}</b>", st_row))
+    barca_cell.append(Paragraph(f"Lunghezza: <b>{metri_val:g} Mt</b>  ·  Tessuto: <b>{'ORCA' if p.tessuto=='orca' else 'Hypalon 1670'}</b>", st_row))
 
     dest_tbl = Table([[dest_cell, barca_cell]], colWidths=[92*mm, 94*mm])
     dest_tbl.setStyle(TableStyle([
@@ -363,16 +367,20 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         ("VALIGN", (0,0), (-1,-1), "TOP"),
         ("LEFTPADDING", (0,0), (-1,-1), 6),
         ("RIGHTPADDING", (0,0), (-1,-1), 6),
-        ("TOPPADDING", (0,0), (-1,-1), 4),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+        ("TOPPADDING", (0,0), (-1,-1), 3),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
     ]))
     story.append(dest_tbl)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 4))
 
     # ------------------------------------------------------------------
     # SEZIONE A) BASE
     # ------------------------------------------------------------------
     story.append(_section_header("A) SOSTITUZIONE TUBOLARE — VOCI INCLUSE", NAVY, st_section))
+
+    def _stato_prezzo(cfg_val: float) -> str:
+        return _fmt_eur(cfg_val) if cfg_val and cfg_val > 0 else "da valutare"
+
     inclusi = [
         ("Gomma pesante grammatura 1670 grigio / crema", "incluso"),
         ("4 maniglioni", "inclusi"),
@@ -380,8 +388,8 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         ("Rifinitura interna con profilo a unghia", "incluso"),
         ("Colore di finitura a scelta", "incluso"),
         ("Grafica GEB standard", "inclusa"),
-        ("Scritte / Loghi con taglio laser", "da valutare"),
-        ("Colori tubo differenti / graffiati (carbon, perlage…)", "da valutare"),
+        ("Scritte / Loghi con taglio laser", _stato_prezzo(cfg.scritte_loghi_taglio_laser)),
+        ("Colori tubo differenti / graffiati (carbon, perlage…)", _stato_prezzo(cfg.colori_tubo_differenti)),
     ]
     rows_a = [[Paragraph(f"•  {desc}", st_row), Paragraph(stato, st_row_bold)] for desc, stato in inclusi]
     ta = Table(rows_a, colWidths=[141*mm, 45*mm])
@@ -393,27 +401,27 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
         ("LEFTPADDING", (0,0), (-1,-1), 8),
         ("RIGHTPADDING", (0,0), (-1,-1), 8),
-        ("TOPPADDING", (0,0), (-1,-1), 2.5),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 2.5),
+        ("TOPPADDING", (0,0), (-1,-1), 1.5),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 1.5),
     ]))
     story.append(ta)
 
     # Totale base — sotto la tabella A) in una fascia colorata a destra
     tot_a_tbl = Table(
-        [[Paragraph(f"Totale sostituzione base ({metri_val:g}m × {_fmt_eur(p.prezzo_al_metro)}/m)", ParagraphStyle("tab", parent=styles["Normal"], fontSize=10, textColor=colors.white, alignment=TA_RIGHT)),
+        [[Paragraph(f"Totale sostituzione base ({metri_val:g} Mt × {_fmt_eur(p.prezzo_al_metro)} / Mt)", ParagraphStyle("tab", parent=styles["Normal"], fontSize=10, textColor=colors.white, alignment=TA_RIGHT)),
           Paragraph(f"<b>{_fmt_eur(base)}</b>&nbsp;&nbsp;+ IVA", ParagraphStyle("tav", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=12, textColor=colors.white, alignment=TA_RIGHT))]],
         colWidths=[130*mm, 56*mm],
     )
     tot_a_tbl.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,-1), NAVY_LIGHT),
         ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-        ("TOPPADDING", (0,0), (-1,-1), 6),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+        ("TOPPADDING", (0,0), (-1,-1), 4),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
         ("LEFTPADDING", (0,0), (-1,-1), 10),
         ("RIGHTPADDING", (0,0), (-1,-1), 10),
     ]))
     story.append(tot_a_tbl)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 4))
 
     # ------------------------------------------------------------------
     # LISTINO VARIABILI (materiali + lavorazioni extra)
@@ -429,19 +437,23 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         [Paragraph("Neoprene Hypalon 1° scelta tessuto NOVURANIA", st_row),
          Paragraph("incluso", st_row_bold), ""],
         [Paragraph("Tessuto ORCA (al metro lineare)", st_row),
-         Paragraph(_fmt_eur(p.supplemento_orca) + " / m", st_row_bold),
+         Paragraph(_fmt_eur(p.supplemento_orca) + " / Mt", st_row_bold),
          Paragraph("= " + _fmt_eur(orca_totale), st_row_bold)],
         # Lavorazioni
         [Paragraph("<b>LAVORAZIONI EXTRA</b>", st_row_bold), "", ""],
         [Paragraph("B) Rifinitura interna strisciato (al metro lineare)", st_row),
-         Paragraph(_fmt_eur(p.prezzo_rifinitura_strisciato) + " / m", st_row_bold),
+         Paragraph(_fmt_eur(p.prezzo_rifinitura_strisciato) + " / Mt", st_row_bold),
          Paragraph("= " + _fmt_eur(rif_totale), st_row_bold)],
         [Paragraph("C) Bottazzo doppio h 90 mm", st_row),
          Paragraph(_fmt_eur(p.prezzo_bottazzo_doppio), st_row_bold), ""],
         [Paragraph("D) Apposizione pezze di velocità su coni dx-sx", st_row),
-         Paragraph(_fmt_eur(cfg.apposizione_pezze_velocita) if cfg.apposizione_pezze_velocita > 0 else "da valutare", st_row_bold), ""],
+         Paragraph(_stato_prezzo(cfg.apposizione_pezze_velocita), st_row_bold), ""],
         [Paragraph("E) Maniglioni aggiuntivi (cad.)", st_row),
          Paragraph(_fmt_eur(p.prezzo_maniglione), st_row_bold), ""],
+        [Paragraph("Scritte / Loghi con taglio laser", st_row),
+         Paragraph(_stato_prezzo(cfg.scritte_loghi_taglio_laser), st_row_bold), ""],
+        [Paragraph("Colori tubo differenti / graffiati (carbon, perlage…)", st_row),
+         Paragraph(_stato_prezzo(cfg.colori_tubo_differenti), st_row_bold), ""],
         [Paragraph("Grafiche particolari / repliche originali", st_row),
          Paragraph("da valutare", st_row_bold), ""],
         [Paragraph("Rinforzi per gommoni diving", st_row),
@@ -465,17 +477,34 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         ("TEXTCOLOR", (0,3), (-1,3), NAVY),
     ]
     tl.setStyle(TableStyle(tl_style))
+    tl_style = [
+        ("BOX", (0,0), (-1,-1), 0.4, BORDER),
+        ("INNERGRID", (0,0), (-1,-1), 0.25, BORDER),
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#e6ebf1")),
+        ("SPAN", (0,0), (-1,0)),
+        ("BACKGROUND", (0,3), (-1,3), colors.HexColor("#e6ebf1")),
+        ("SPAN", (0,3), (-1,3)),
+        ("ALIGN", (1,0), (-1,-1), "CENTER"),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("LEFTPADDING", (0,0), (-1,-1), 8),
+        ("RIGHTPADDING", (0,0), (-1,-1), 8),
+        ("TOPPADDING", (0,0), (-1,-1), 1.3),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 1.3),
+        ("TEXTCOLOR", (0,0), (-1,0), NAVY),
+        ("TEXTCOLOR", (0,3), (-1,3), NAVY),
+    ]
+    tl.setStyle(TableStyle(tl_style))
     story.append(tl)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 3))
 
     # ------------------------------------------------------------------
     # OPZIONI SCELTE (solo se ce ne sono)
     # ------------------------------------------------------------------
     scelte_rows_data = []
     if p.tessuto == "orca":
-        scelte_rows_data.append((f"Tessuto ORCA  ({_fmt_eur(p.supplemento_orca)} / m × {metri_val:g}m)", _fmt_eur(orca_totale)))
+        scelte_rows_data.append((f"Tessuto ORCA  ({_fmt_eur(p.supplemento_orca)} / Mt × {metri_val:g} Mt)", _fmt_eur(orca_totale)))
     if p.include_rifinitura_strisciato:
-        scelte_rows_data.append((f"B) Rifinitura interna strisciato  ({_fmt_eur(p.prezzo_rifinitura_strisciato)} / m × {metri_val:g}m)", _fmt_eur(rif_totale)))
+        scelte_rows_data.append((f"B) Rifinitura interna strisciato  ({_fmt_eur(p.prezzo_rifinitura_strisciato)} / Mt × {metri_val:g} Mt)", _fmt_eur(rif_totale)))
     if p.include_bottazzo_doppio:
         scelte_rows_data.append(("C) Bottazzo doppio h 90 mm", _fmt_eur(p.prezzo_bottazzo_doppio)))
     if p.include_pezze_velocita:
@@ -483,8 +512,12 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         scelte_rows_data.append(("D) Apposizione pezze di velocità", _fmt_eur(val) if val > 0 else "da valutare"))
     if p.maniglioni_aggiuntivi and p.maniglioni_aggiuntivi > 0:
         scelte_rows_data.append((f"E) Maniglioni aggiuntivi ({p.maniglioni_aggiuntivi} × {_fmt_eur(p.prezzo_maniglione)})", _fmt_eur(p.prezzo_maniglione * p.maniglioni_aggiuntivi)))
-    if p.scritte_loghi_laser and p.prezzo_scritte_loghi > 0:
-        scelte_rows_data.append(("Scritte / Loghi con taglio laser", _fmt_eur(p.prezzo_scritte_loghi)))
+    if p.scritte_loghi_laser:
+        val = float(p.prezzo_scritte_loghi or 0)
+        scelte_rows_data.append(("Scritte / Loghi con taglio laser", _fmt_eur(val) if val > 0 else "da valutare"))
+    if p.colori_tubo_differenti:
+        val = float(p.prezzo_colori_tubo_differenti or 0)
+        scelte_rows_data.append(("Colori tubo differenti / graffiati", _fmt_eur(val) if val > 0 else "da valutare"))
     if p.grafiche_particolari and p.prezzo_grafiche_particolari > 0:
         scelte_rows_data.append(("Grafiche particolari / repliche originali", _fmt_eur(p.prezzo_grafiche_particolari)))
     if p.rinforzi_diving and p.prezzo_rinforzi_diving > 0:
@@ -507,11 +540,11 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
             ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
             ("LEFTPADDING", (0,0), (-1,-1), 8),
             ("RIGHTPADDING", (0,0), (-1,-1), 8),
-            ("TOPPADDING", (0,0), (-1,-1), 2),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 2),
+            ("TOPPADDING", (0,0), (-1,-1), 1.3),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 1.3),
         ]))
         story.append(ts)
-        story.append(Spacer(1, 6))
+        story.append(Spacer(1, 3))
 
     # ------------------------------------------------------------------
     # TOTALE finale — box scuro con etichetta + valore
@@ -528,14 +561,14 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     tot_tbl.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,-1), NAVY),
         ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-        ("TOPPADDING", (0,0), (-1,-1), 5),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+        ("TOPPADDING", (0,0), (-1,-1), 3),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
         ("LEFTPADDING", (0,0), (-1,-1), 12),
         ("RIGHTPADDING", (0,0), (-1,-1), 12),
         ("LINEBELOW", (0,0), (-1,0), 0, colors.transparent),
     ]))
     story.append(tot_tbl)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 3))
 
     # ------------------------------------------------------------------
     # NOTE del preventivo (opzionali)

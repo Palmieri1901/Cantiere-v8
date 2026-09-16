@@ -609,6 +609,8 @@ class TubolariConfig(BaseModel):
     rifinitura_interna_strisciato: float = 382.50
     bottazzo_doppio_90mm: float = 357.0
     apposizione_pezze_velocita: float = 0.0  # 0 = "da valutare" nel PDF
+    scritte_loghi_taglio_laser: float = 0.0  # 0 = "da valutare" nel PDF
+    colori_tubo_differenti: float = 0.0      # 0 = "da valutare" nel PDF
     maniglione_aggiuntivo_cad: float = 50.0
     # Testi standard del preventivo (modificabili)
     validita_giorni: int = 90
@@ -630,6 +632,8 @@ class TubolariConfigUpdate(BaseModel):
     rifinitura_interna_strisciato: Optional[float] = None
     bottazzo_doppio_90mm: Optional[float] = None
     apposizione_pezze_velocita: Optional[float] = None
+    scritte_loghi_taglio_laser: Optional[float] = None
+    colori_tubo_differenti: Optional[float] = None
     maniglione_aggiuntivo_cad: Optional[float] = None
     validita_giorni: Optional[int] = None
     tempi_esecuzione_giorni: Optional[int] = None
@@ -666,6 +670,8 @@ class PreventivoTubolare(BaseModel):
     # Voci "da valutare" / variazioni
     scritte_loghi_laser: bool = False
     prezzo_scritte_loghi: float = 0.0
+    colori_tubo_differenti: bool = False
+    prezzo_colori_tubo_differenti: float = 0.0
     grafiche_particolari: bool = False
     prezzo_grafiche_particolari: float = 0.0
     rinforzi_diving: bool = False
@@ -700,6 +706,8 @@ class PreventivoTubolareCreate(BaseModel):
     prezzo_maniglione: Optional[float] = None
     scritte_loghi_laser: Optional[bool] = False
     prezzo_scritte_loghi: Optional[float] = 0.0
+    colori_tubo_differenti: Optional[bool] = False
+    prezzo_colori_tubo_differenti: Optional[float] = 0.0
     grafiche_particolari: Optional[bool] = False
     prezzo_grafiche_particolari: Optional[float] = 0.0
     rinforzi_diving: Optional[bool] = False
