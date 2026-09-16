@@ -55,7 +55,8 @@ def _calc_totale(p: PreventivoTubolare) -> float:
         # Rifinitura interna strisciato calcolata al metro lineare
         tot += float(p.prezzo_rifinitura_strisciato) * metri
     if p.include_bottazzo_doppio:
-        tot += float(p.prezzo_bottazzo_doppio)
+        # Bottazzo doppio h 90 mm calcolato al metro lineare
+        tot += float(p.prezzo_bottazzo_doppio or 0) * metri
     if p.include_pezze_velocita:
         tot += float(p.prezzo_pezze_velocita or 0)
     if p.maniglioni_aggiuntivi and p.maniglioni_aggiuntivi > 0:
@@ -385,7 +386,7 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         ("Tessuto gommato neoprene hypalon grammatura pesante 866 1670 nei colori (grigio o crema)", "incluso"),
         ("4 maniglioni", "inclusi"),
         ("Bottazzo singolo h 90 mm o doppio h 60 mm", "incluso"),
-        ("Rifinitura interna con profilo a unghia", "incluso"),
+        ("Rifinitura interna con profilo guarnizione a pressione", "incluso"),
         ("Colore di finitura a scelta", "incluso"),
         ("Grafica GEB standard", "inclusa"),
     ]
@@ -428,22 +429,21 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
 
     orca_totale = float(p.supplemento_orca) * metri_val
     rif_totale = float(p.prezzo_rifinitura_strisciato) * metri_val
+    bot_totale = float(p.prezzo_bottazzo_doppio or 0) * metri_val
 
     listino_rows = [
         # Tessuti
         [Paragraph("<b>TESSUTI DISPONIBILI</b>", st_row_bold), "", ""],
         [Paragraph("Tessuto Novurania hypair hypalon 1° scelta", st_row),
          Paragraph("incluso", st_row_bold), ""],
-        [Paragraph("Tessuto ORCA (al metro lineare)", st_row),
-         Paragraph(_fmt_eur(p.supplemento_orca) + " / Mt", st_row_bold),
-         Paragraph("+ " + _fmt_eur(orca_totale), st_row_bold)],
+        [Paragraph(f"Tessuto ORCA (al metro lineare — {metri_val:g} Mt)", st_row),
+         Paragraph(_fmt_eur(orca_totale), st_row_bold), ""],
         # Lavorazioni
         [Paragraph("<b>LAVORAZIONI EXTRA</b>", st_row_bold), "", ""],
-        [Paragraph("A) Rifinitura interna strisciato (al metro lineare)", st_row),
-         Paragraph(_fmt_eur(p.prezzo_rifinitura_strisciato) + " / Mt", st_row_bold),
-         Paragraph("+ " + _fmt_eur(rif_totale), st_row_bold)],
-        [Paragraph("B) Bottazzo doppio h 90 mm", st_row),
-         Paragraph(_fmt_eur(p.prezzo_bottazzo_doppio), st_row_bold), ""],
+        [Paragraph(f"A) Rifinitura interna strisciato (al metro lineare — {metri_val:g} Mt)", st_row),
+         Paragraph(_fmt_eur(rif_totale), st_row_bold), ""],
+        [Paragraph(f"B) Bottazzo doppio h 90 mm (al metro lineare — {metri_val:g} Mt)", st_row),
+         Paragraph(_fmt_eur(bot_totale), st_row_bold), ""],
         [Paragraph("C) Apposizione pezze di velocità su coni dx-sx", st_row),
          Paragraph(_stato_prezzo(cfg.apposizione_pezze_velocita), st_row_bold), ""],
         [Paragraph("D) Maniglioni aggiuntivi (cad.)", st_row),
@@ -504,7 +504,7 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     if p.include_rifinitura_strisciato:
         scelte_rows_data.append((f"A) Rifinitura interna strisciato  ({_fmt_eur(p.prezzo_rifinitura_strisciato)} / Mt × {metri_val:g} Mt)", _fmt_eur(rif_totale)))
     if p.include_bottazzo_doppio:
-        scelte_rows_data.append(("B) Bottazzo doppio h 90 mm", _fmt_eur(p.prezzo_bottazzo_doppio)))
+        scelte_rows_data.append((f"B) Bottazzo doppio h 90 mm  ({_fmt_eur(p.prezzo_bottazzo_doppio)} / Mt × {metri_val:g} Mt)", _fmt_eur(bot_totale)))
     if p.include_pezze_velocita:
         val = float(p.prezzo_pezze_velocita or 0)
         scelte_rows_data.append(("C) Apposizione pezze di velocità", _fmt_eur(val) if val > 0 else "da valutare"))

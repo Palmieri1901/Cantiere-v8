@@ -316,7 +316,7 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
     let t = Number(form.prezzo_al_metro || 0) * metri;
     if (form.tessuto === "orca") t += Number(form.supplemento_orca || 0) * metri;
     if (form.include_rifinitura_strisciato) t += Number(form.prezzo_rifinitura_strisciato || 0) * metri;
-    if (form.include_bottazzo_doppio) t += Number(form.prezzo_bottazzo_doppio || 0);
+    if (form.include_bottazzo_doppio) t += Number(form.prezzo_bottazzo_doppio || 0) * metri;
     if (form.include_pezze_velocita) t += Number(form.prezzo_pezze_velocita || 0);
     if (form.maniglioni_aggiuntivi > 0) t += Number(form.maniglioni_aggiuntivi) * Number(form.prezzo_maniglione || 0);
     if (form.scritte_loghi_laser) t += Number(form.prezzo_scritte_loghi || 0);
@@ -463,8 +463,8 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
 
         {/* Extra */}
         <Section title="Lavorazioni extra">
-          <ExtraRow label="B) Rifinitura interna strisciato (al metro lineare)" flag={form.include_rifinitura_strisciato} setFlag={(v) => set("include_rifinitura_strisciato", v)} price={form.prezzo_rifinitura_strisciato} setPrice={(v) => set("prezzo_rifinitura_strisciato", v)} suffix="€/Mt" testId="extra-B" totalCalc={Number(form.prezzo_rifinitura_strisciato || 0) * Number(form.metri || 0)} />
-          <ExtraRow label="C) Bottazzo doppio h 90 mm" flag={form.include_bottazzo_doppio} setFlag={(v) => set("include_bottazzo_doppio", v)} price={form.prezzo_bottazzo_doppio} setPrice={(v) => set("prezzo_bottazzo_doppio", v)} testId="extra-C" />
+          <ExtraRow label="A) Rifinitura interna strisciato (al metro lineare)" flag={form.include_rifinitura_strisciato} setFlag={(v) => set("include_rifinitura_strisciato", v)} price={form.prezzo_rifinitura_strisciato} setPrice={(v) => set("prezzo_rifinitura_strisciato", v)} suffix="€/Mt" testId="extra-B" totalCalc={Number(form.prezzo_rifinitura_strisciato || 0) * Number(form.metri || 0)} />
+          <ExtraRow label="B) Bottazzo doppio h 90 mm (al metro lineare)" flag={form.include_bottazzo_doppio} setFlag={(v) => set("include_bottazzo_doppio", v)} price={form.prezzo_bottazzo_doppio} setPrice={(v) => set("prezzo_bottazzo_doppio", v)} suffix="€/Mt" testId="extra-C" totalCalc={Number(form.prezzo_bottazzo_doppio || 0) * Number(form.metri || 0)} />
           <ExtraRow label="D) Apposizione pezze velocità coni dx-sx" flag={form.include_pezze_velocita} setFlag={(v) => set("include_pezze_velocita", v)} price={form.prezzo_pezze_velocita} setPrice={(v) => set("prezzo_pezze_velocita", v)} placeholder="da valutare" testId="extra-D" />
 
           <div className="flex items-center gap-3 py-2 border-t border-border/60">
@@ -687,7 +687,7 @@ function TubolariConfigDialog({ open, onOpenChange, value, onSaved }) {
             <Field label="B) Rifinitura interna strisciato €/Mt">
               <Input type="number" step="0.01" value={form.rifinitura_interna_strisciato ?? ""} onChange={(e) => set("rifinitura_interna_strisciato", e.target.value)} data-testid="cfg-rif" />
             </Field>
-            <Field label="C) Bottazzo doppio h 90mm €">
+            <Field label="C) Bottazzo doppio h 90mm €/Mt">
               <Input type="number" step="0.01" value={form.bottazzo_doppio_90mm ?? ""} onChange={(e) => set("bottazzo_doppio_90mm", e.target.value)} data-testid="cfg-bot" />
             </Field>
             <Field label="D) Apposizione pezze velocità € (0 = da valutare)">
