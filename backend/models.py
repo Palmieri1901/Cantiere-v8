@@ -424,7 +424,7 @@ class PinResetRequest(BaseModel):
 
 
 class ChangePinRequest(BaseModel):
-    current_password: str
+    current_pin: str
     new_pin: str
 
 

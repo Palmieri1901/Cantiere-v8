@@ -40,7 +40,7 @@ export default function Impostazioni() {
   const [pwNew2, setPwNew2] = useState("");
   const [pwSaving, setPwSaving] = useState(false);
   // PIN di recupero master
-  const [pinCurrentPw, setPinCurrentPw] = useState("");
+  const [pinCurrent, setPinCurrent] = useState("");
   const [pinNew, setPinNew] = useState("");
   const [pinSaving, setPinSaving] = useState(false);
 
@@ -61,13 +61,13 @@ export default function Impostazioni() {
   };
 
   const changePin = async () => {
-    if (!pinCurrentPw) { toast.error("Inserisci la password attuale"); return; }
+    if (!pinCurrent.trim()) { toast.error("Inserisci il PIN attuale"); return; }
     if (pinNew.trim().length < 4) { toast.error("Il PIN deve avere almeno 4 caratteri"); return; }
     setPinSaving(true);
     try {
-      await api.post("/auth/change-pin", { current_password: pinCurrentPw, new_pin: pinNew.trim() });
+      await api.post("/auth/change-pin", { current_pin: pinCurrent.trim(), new_pin: pinNew.trim() });
       toast.success("PIN di recupero aggiornato — conservalo in un posto sicuro");
-      setPinCurrentPw(""); setPinNew("");
+      setPinCurrent(""); setPinNew("");
     } catch (e) {
       const d = e.response?.data?.detail;
       toast.error(typeof d === "string" ? d : "Impossibile aggiornare il PIN");
@@ -369,12 +369,16 @@ export default function Impostazioni() {
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
           <div>
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Password attuale</Label>
-            <PasswordInput
-              value={pinCurrentPw}
-              onChange={(e) => setPinCurrentPw(e.target.value)}
-              className="mt-1.5"
-              data-testid="input-pin-current-pw"
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">PIN attuale</Label>
+            <Input
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              value={pinCurrent}
+              onChange={(e) => setPinCurrent(e.target.value)}
+              placeholder="PIN corrente"
+              className="mt-1.5 font-mono tracking-widest text-lg"
+              data-testid="input-pin-current"
             />
           </div>
           <div>
@@ -394,7 +398,7 @@ export default function Impostazioni() {
         <div className="mt-4">
           <Button
             onClick={changePin}
-            disabled={pinSaving || !pinCurrentPw || !pinNew}
+            disabled={pinSaving || !pinCurrent || !pinNew}
             className="bg-primary hover:bg-primary/90"
             data-testid="btn-change-pin"
           >
