@@ -228,8 +228,8 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     buf = io.BytesIO()
     docp = SimpleDocTemplate(
         buf, pagesize=A4,
-        leftMargin=12*mm, rightMargin=12*mm,
-        topMargin=6*mm, bottomMargin=6*mm,
+        leftMargin=14*mm, rightMargin=14*mm,
+        topMargin=7*mm, bottomMargin=6*mm,
     )
     styles = getSampleStyleSheet()
     story = []
@@ -245,11 +245,11 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     st_doc_sub = ParagraphStyle("dsub", parent=styles["Normal"], fontSize=9, leading=11, textColor=TEXT_MUTED, alignment=TA_LEFT, spaceBefore=0, spaceAfter=0)
     st_meta_label = ParagraphStyle("mlab", parent=styles["Normal"], fontSize=8, textColor=TEXT_MUTED, alignment=TA_LEFT)
     st_meta_val = ParagraphStyle("mval", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10, textColor=NAVY, alignment=TA_LEFT)
-    st_section = ParagraphStyle("sec", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10, textColor=colors.white, alignment=TA_LEFT, leading=13)
-    st_row = ParagraphStyle("row", parent=styles["Normal"], fontSize=8.5, leading=11)
-    st_row_bold = ParagraphStyle("rowb", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=8.5, leading=11)
+    st_section = ParagraphStyle("sec", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10.5, textColor=colors.white, alignment=TA_LEFT, leading=13)
+    st_row = ParagraphStyle("row", parent=styles["Normal"], fontSize=9, leading=11.5)
+    st_row_bold = ParagraphStyle("rowb", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=9, leading=11.5)
     st_note_small = ParagraphStyle("ns", parent=styles["Normal"], fontSize=8.5, textColor=TEXT_MUTED, leading=11)
-    st_footer_terms = ParagraphStyle("ft", parent=styles["Normal"], fontSize=8, textColor=TEXT_MUTED, leading=10)
+    st_footer_terms = ParagraphStyle("ft", parent=styles["Normal"], fontSize=8, textColor=TEXT_MUTED, leading=10.5)
     st_totale_val = ParagraphStyle("tv", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=16, textColor=colors.white, alignment=TA_RIGHT)
     st_totale_label = ParagraphStyle("tl", parent=styles["Normal"], fontSize=9, textColor=colors.white, alignment=TA_RIGHT)
 
@@ -329,7 +329,7 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
 
     header = Table(
         [[header_left, right_data]],
-        colWidths=[110*mm, 68*mm],
+        colWidths=[108*mm, 74*mm],
     )
     header.setStyle(TableStyle([
         ("VALIGN", (0,0), (-1,-1), "TOP"),
@@ -360,16 +360,16 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     barca_cell.append(Paragraph(label_barca, st_row_bold))
     barca_cell.append(Paragraph(f"Lunghezza: <b>{metri_val:g} Mt</b>  ·  Tessuto: <b>{'ORCA' if p.tessuto=='orca' else 'Hypalon 1670'}</b>", st_row))
 
-    dest_tbl = Table([[dest_cell, barca_cell]], colWidths=[92*mm, 94*mm])
+    dest_tbl = Table([[dest_cell, barca_cell]], colWidths=[90*mm, 92*mm])
     dest_tbl.setStyle(TableStyle([
         ("BOX", (0,0), (0,0), 0.6, BORDER),
         ("BOX", (1,0), (1,0), 0.6, BORDER),
         ("BACKGROUND", (0,0), (-1,-1), LIGHT_GREY),
         ("VALIGN", (0,0), (-1,-1), "TOP"),
-        ("LEFTPADDING", (0,0), (-1,-1), 6),
-        ("RIGHTPADDING", (0,0), (-1,-1), 6),
-        ("TOPPADDING", (0,0), (-1,-1), 3),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+        ("LEFTPADDING", (0,0), (-1,-1), 8),
+        ("RIGHTPADDING", (0,0), (-1,-1), 8),
+        ("TOPPADDING", (0,0), (-1,-1), 4),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
     ]))
     story.append(dest_tbl)
     story.append(Spacer(1, 4))
@@ -398,10 +398,10 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         ("ROWBACKGROUNDS", (0,0), (-1,-1), [colors.white, LIGHT_GREY]),
         ("ALIGN", (1,0), (1,-1), "CENTER"),
         ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-        ("LEFTPADDING", (0,0), (-1,-1), 8),
-        ("RIGHTPADDING", (0,0), (-1,-1), 8),
-        ("TOPPADDING", (0,0), (-1,-1), 1.5),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 1.5),
+        ("LEFTPADDING", (0,0), (-1,-1), 10),
+        ("RIGHTPADDING", (0,0), (-1,-1), 10),
+        ("TOPPADDING", (0,0), (-1,-1), 2),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 2),
     ]))
     story.append(ta)
 
@@ -409,18 +409,18 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     tot_a_tbl = Table(
         [[Paragraph(f"Totale sostituzione base ({metri_val:g} Mt × {_fmt_eur(p.prezzo_al_metro)} / Mt)", ParagraphStyle("tab", parent=styles["Normal"], fontSize=10, textColor=colors.white, alignment=TA_RIGHT)),
           Paragraph(f"<b>{_fmt_eur(base)}</b>&nbsp;&nbsp;+ IVA", ParagraphStyle("tav", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=12, textColor=colors.white, alignment=TA_RIGHT))]],
-        colWidths=[130*mm, 56*mm],
+        colWidths=[126*mm, 56*mm],
     )
     tot_a_tbl.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,-1), NAVY_LIGHT),
         ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
         ("TOPPADDING", (0,0), (-1,-1), 4),
         ("BOTTOMPADDING", (0,0), (-1,-1), 4),
-        ("LEFTPADDING", (0,0), (-1,-1), 10),
-        ("RIGHTPADDING", (0,0), (-1,-1), 10),
+        ("LEFTPADDING", (0,0), (-1,-1), 12),
+        ("RIGHTPADDING", (0,0), (-1,-1), 12),
     ]))
     story.append(tot_a_tbl)
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 5))
 
     # ------------------------------------------------------------------
     # LISTINO VARIABILI (materiali + lavorazioni extra)
@@ -457,7 +457,7 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         [Paragraph("H) Rinforzi per gommoni diving", st_row),
          Paragraph("da valutare", st_row_bold), ""],
     ]
-    tl = Table(listino_rows, colWidths=[106*mm, 42*mm, 38*mm])
+    tl = Table(listino_rows, colWidths=[103*mm, 41*mm, 38*mm])
     tl_style = [
         ("BOX", (0,0), (-1,-1), 0.4, BORDER),
         ("INNERGRID", (0,0), (-1,-1), 0.25, BORDER),
@@ -467,33 +467,16 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         ("SPAN", (0,3), (-1,3)),
         ("ALIGN", (1,0), (-1,-1), "CENTER"),
         ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-        ("LEFTPADDING", (0,0), (-1,-1), 8),
-        ("RIGHTPADDING", (0,0), (-1,-1), 8),
-        ("TOPPADDING", (0,0), (-1,-1), 2.5),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 2.5),
-        ("TEXTCOLOR", (0,0), (-1,0), NAVY),
-        ("TEXTCOLOR", (0,3), (-1,3), NAVY),
-    ]
-    tl.setStyle(TableStyle(tl_style))
-    tl_style = [
-        ("BOX", (0,0), (-1,-1), 0.4, BORDER),
-        ("INNERGRID", (0,0), (-1,-1), 0.25, BORDER),
-        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#e6ebf1")),
-        ("SPAN", (0,0), (-1,0)),
-        ("BACKGROUND", (0,3), (-1,3), colors.HexColor("#e6ebf1")),
-        ("SPAN", (0,3), (-1,3)),
-        ("ALIGN", (1,0), (-1,-1), "CENTER"),
-        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-        ("LEFTPADDING", (0,0), (-1,-1), 8),
-        ("RIGHTPADDING", (0,0), (-1,-1), 8),
-        ("TOPPADDING", (0,0), (-1,-1), 1.3),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 1.3),
+        ("LEFTPADDING", (0,0), (-1,-1), 10),
+        ("RIGHTPADDING", (0,0), (-1,-1), 10),
+        ("TOPPADDING", (0,0), (-1,-1), 1.8),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 1.8),
         ("TEXTCOLOR", (0,0), (-1,0), NAVY),
         ("TEXTCOLOR", (0,3), (-1,3), NAVY),
     ]
     tl.setStyle(TableStyle(tl_style))
     story.append(tl)
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 5))
 
     # ------------------------------------------------------------------
     # OPZIONI SCELTE (solo se ce ne sono)
@@ -536,13 +519,13 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
             ("ROWBACKGROUNDS", (0,0), (-1,-1), [colors.white, GREEN_BG]),
             ("ALIGN", (1,0), (1,-1), "RIGHT"),
             ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-            ("LEFTPADDING", (0,0), (-1,-1), 8),
-            ("RIGHTPADDING", (0,0), (-1,-1), 8),
-            ("TOPPADDING", (0,0), (-1,-1), 1.3),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 1.3),
+            ("LEFTPADDING", (0,0), (-1,-1), 10),
+            ("RIGHTPADDING", (0,0), (-1,-1), 10),
+            ("TOPPADDING", (0,0), (-1,-1), 1.8),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 1.8),
         ]))
         story.append(ts)
-        story.append(Spacer(1, 3))
+        story.append(Spacer(1, 4))
 
     # ------------------------------------------------------------------
     # TOTALE finale — box scuro con etichetta + valore
@@ -554,19 +537,19 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
           Paragraph(f"{_fmt_eur(totale_finale)}", st_totale_val)],
          ["",
           Paragraph("+ IVA", ParagraphStyle("iva", parent=styles["Normal"], fontSize=9, textColor=colors.white, alignment=TA_RIGHT))]],
-        colWidths=[130*mm, 56*mm],
+        colWidths=[126*mm, 56*mm],
     )
     tot_tbl.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,-1), NAVY),
         ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-        ("TOPPADDING", (0,0), (-1,-1), 3),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
-        ("LEFTPADDING", (0,0), (-1,-1), 12),
-        ("RIGHTPADDING", (0,0), (-1,-1), 12),
+        ("TOPPADDING", (0,0), (-1,-1), 4),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+        ("LEFTPADDING", (0,0), (-1,-1), 14),
+        ("RIGHTPADDING", (0,0), (-1,-1), 14),
         ("LINEBELOW", (0,0), (-1,0), 0, colors.transparent),
     ]))
     story.append(tot_tbl)
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 5))
 
     # ------------------------------------------------------------------
     # NOTE del preventivo (opzionali)
@@ -593,13 +576,13 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
 
     firma_nome = cantiere.get("firma_nome") or nome_az or ""
     firma_cell = [
-        Paragraph("Il titolare", ParagraphStyle("fl", parent=styles["Normal"], fontSize=8, textColor=TEXT_MUTED, alignment=TA_CENTER)),
+        Paragraph("Il titolare", ParagraphStyle("fl", parent=styles["Normal"], fontSize=9, textColor=TEXT_MUTED, alignment=TA_CENTER)),
         Spacer(1, 18),
-        Paragraph(f"<b>{firma_nome}</b>", ParagraphStyle("fn", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10, textColor=NAVY, alignment=TA_CENTER)),
+        Paragraph(f"<b>{firma_nome}</b>", ParagraphStyle("fn", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10.5, textColor=NAVY, alignment=TA_CENTER)),
         HRFlowable(width="80%", thickness=0.5, color=BORDER, spaceBefore=2, spaceAfter=0, hAlign="CENTER"),
     ]
 
-    footer = Table([[cond_paras, firma_cell]], colWidths=[124*mm, 62*mm])
+    footer = Table([[cond_paras, firma_cell]], colWidths=[120*mm, 62*mm])
     footer.setStyle(TableStyle([
         ("VALIGN", (0,0), (-1,-1), "TOP"),
         ("LEFTPADDING", (0,0), (-1,-1), 0),
@@ -618,12 +601,12 @@ def _section_header(text: str, bg_color, style):
     """Header di sezione: barra colorata con testo in bianco."""
     from reportlab.platypus import Table, TableStyle, Paragraph
     from reportlab.lib.units import mm
-    t = Table([[Paragraph(text, style)]], colWidths=[186*mm])
+    t = Table([[Paragraph(text, style)]], colWidths=[182*mm])
     t.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,-1), bg_color),
         ("TOPPADDING", (0,0), (-1,-1), 3),
         ("BOTTOMPADDING", (0,0), (-1,-1), 3),
-        ("LEFTPADDING", (0,0), (-1,-1), 8),
-        ("RIGHTPADDING", (0,0), (-1,-1), 8),
+        ("LEFTPADDING", (0,0), (-1,-1), 10),
+        ("RIGHTPADDING", (0,0), (-1,-1), 10),
     ]))
     return t
