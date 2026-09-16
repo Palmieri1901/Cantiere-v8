@@ -432,31 +432,31 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     rif_totale = float(p.prezzo_rifinitura_strisciato) * metri_val
 
     listino_rows = [
-        # Materiali
-        [Paragraph("<b>MATERIALI</b>", st_row_bold), "", ""],
-        [Paragraph("Neoprene Hypalon 1° scelta tessuto NOVURANIA", st_row),
+        # Tessuti
+        [Paragraph("<b>TESSUTI DISPONIBILI</b>", st_row_bold), "", ""],
+        [Paragraph("Tessuto Novurania hypair hypalon 1° scelta", st_row),
          Paragraph("incluso", st_row_bold), ""],
         [Paragraph("Tessuto ORCA (al metro lineare)", st_row),
          Paragraph(_fmt_eur(p.supplemento_orca) + " / Mt", st_row_bold),
-         Paragraph("= " + _fmt_eur(orca_totale), st_row_bold)],
+         Paragraph("+ " + _fmt_eur(orca_totale), st_row_bold)],
         # Lavorazioni
         [Paragraph("<b>LAVORAZIONI EXTRA</b>", st_row_bold), "", ""],
-        [Paragraph("B) Rifinitura interna strisciato (al metro lineare)", st_row),
+        [Paragraph("A) Rifinitura interna strisciato (al metro lineare)", st_row),
          Paragraph(_fmt_eur(p.prezzo_rifinitura_strisciato) + " / Mt", st_row_bold),
-         Paragraph("= " + _fmt_eur(rif_totale), st_row_bold)],
-        [Paragraph("C) Bottazzo doppio h 90 mm", st_row),
+         Paragraph("+ " + _fmt_eur(rif_totale), st_row_bold)],
+        [Paragraph("B) Bottazzo doppio h 90 mm", st_row),
          Paragraph(_fmt_eur(p.prezzo_bottazzo_doppio), st_row_bold), ""],
-        [Paragraph("D) Apposizione pezze di velocità su coni dx-sx", st_row),
+        [Paragraph("C) Apposizione pezze di velocità su coni dx-sx", st_row),
          Paragraph(_stato_prezzo(cfg.apposizione_pezze_velocita), st_row_bold), ""],
-        [Paragraph("E) Maniglioni aggiuntivi (cad.)", st_row),
+        [Paragraph("D) Maniglioni aggiuntivi (cad.)", st_row),
          Paragraph(_fmt_eur(p.prezzo_maniglione), st_row_bold), ""],
-        [Paragraph("Scritte / Loghi con taglio laser", st_row),
+        [Paragraph("E) Scritte / Loghi con taglio laser", st_row),
          Paragraph(_stato_prezzo(cfg.scritte_loghi_taglio_laser), st_row_bold), ""],
-        [Paragraph("Colori tubo differenti / graffiati (carbon, perlage…)", st_row),
+        [Paragraph("F) Colori tubo differenti / graffiati (carbon, perlage…)", st_row),
          Paragraph(_stato_prezzo(cfg.colori_tubo_differenti), st_row_bold), ""],
-        [Paragraph("Grafiche particolari / repliche originali", st_row),
+        [Paragraph("G) Grafiche particolari / repliche originali", st_row),
          Paragraph("da valutare", st_row_bold), ""],
-        [Paragraph("Rinforzi per gommoni diving", st_row),
+        [Paragraph("H) Rinforzi per gommoni diving", st_row),
          Paragraph("da valutare", st_row_bold), ""],
     ]
     tl = Table(listino_rows, colWidths=[106*mm, 42*mm, 38*mm])
@@ -504,24 +504,24 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     if p.tessuto == "orca":
         scelte_rows_data.append((f"Tessuto ORCA  ({_fmt_eur(p.supplemento_orca)} / Mt × {metri_val:g} Mt)", _fmt_eur(orca_totale)))
     if p.include_rifinitura_strisciato:
-        scelte_rows_data.append((f"B) Rifinitura interna strisciato  ({_fmt_eur(p.prezzo_rifinitura_strisciato)} / Mt × {metri_val:g} Mt)", _fmt_eur(rif_totale)))
+        scelte_rows_data.append((f"A) Rifinitura interna strisciato  ({_fmt_eur(p.prezzo_rifinitura_strisciato)} / Mt × {metri_val:g} Mt)", _fmt_eur(rif_totale)))
     if p.include_bottazzo_doppio:
-        scelte_rows_data.append(("C) Bottazzo doppio h 90 mm", _fmt_eur(p.prezzo_bottazzo_doppio)))
+        scelte_rows_data.append(("B) Bottazzo doppio h 90 mm", _fmt_eur(p.prezzo_bottazzo_doppio)))
     if p.include_pezze_velocita:
         val = float(p.prezzo_pezze_velocita or 0)
-        scelte_rows_data.append(("D) Apposizione pezze di velocità", _fmt_eur(val) if val > 0 else "da valutare"))
+        scelte_rows_data.append(("C) Apposizione pezze di velocità", _fmt_eur(val) if val > 0 else "da valutare"))
     if p.maniglioni_aggiuntivi and p.maniglioni_aggiuntivi > 0:
-        scelte_rows_data.append((f"E) Maniglioni aggiuntivi ({p.maniglioni_aggiuntivi} × {_fmt_eur(p.prezzo_maniglione)})", _fmt_eur(p.prezzo_maniglione * p.maniglioni_aggiuntivi)))
+        scelte_rows_data.append((f"D) Maniglioni aggiuntivi ({p.maniglioni_aggiuntivi} × {_fmt_eur(p.prezzo_maniglione)})", _fmt_eur(p.prezzo_maniglione * p.maniglioni_aggiuntivi)))
     if p.scritte_loghi_laser:
         val = float(p.prezzo_scritte_loghi or 0)
-        scelte_rows_data.append(("Scritte / Loghi con taglio laser", _fmt_eur(val) if val > 0 else "da valutare"))
+        scelte_rows_data.append(("E) Scritte / Loghi con taglio laser", _fmt_eur(val) if val > 0 else "da valutare"))
     if p.colori_tubo_differenti:
         val = float(p.prezzo_colori_tubo_differenti or 0)
-        scelte_rows_data.append(("Colori tubo differenti / graffiati", _fmt_eur(val) if val > 0 else "da valutare"))
+        scelte_rows_data.append(("F) Colori tubo differenti / graffiati", _fmt_eur(val) if val > 0 else "da valutare"))
     if p.grafiche_particolari and p.prezzo_grafiche_particolari > 0:
-        scelte_rows_data.append(("Grafiche particolari / repliche originali", _fmt_eur(p.prezzo_grafiche_particolari)))
+        scelte_rows_data.append(("G) Grafiche particolari / repliche originali", _fmt_eur(p.prezzo_grafiche_particolari)))
     if p.rinforzi_diving and p.prezzo_rinforzi_diving > 0:
-        scelte_rows_data.append(("Rinforzi per gommoni diving", _fmt_eur(p.prezzo_rinforzi_diving)))
+        scelte_rows_data.append(("H) Rinforzi per gommoni diving", _fmt_eur(p.prezzo_rinforzi_diving)))
 
     if scelte_rows_data:
         story.append(_section_header("OPZIONI SCELTE PER QUESTO PREVENTIVO", GREEN_HEAD, st_section))
