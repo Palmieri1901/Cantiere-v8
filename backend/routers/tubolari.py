@@ -377,13 +377,13 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     # ------------------------------------------------------------------
     # SEZIONE A) BASE
     # ------------------------------------------------------------------
-    story.append(_section_header("A) SOSTITUZIONE TUBOLARE — VOCI INCLUSE", NAVY, st_section))
+    story.append(_section_header("SOSTITUZIONE TUBOLARE — VOCI INCLUSE", NAVY, st_section))
 
     def _stato_prezzo(cfg_val: float) -> str:
         return _fmt_eur(cfg_val) if cfg_val and cfg_val > 0 else "da valutare"
 
     inclusi = [
-        ("Tessuto gommato neoprene hypalon grammatura pesante 866 1670 nei colori (grigio o crema)", "incluso"),
+        ("Tessuto gommato neoprene hypalon grammatura pesante 866 1670 dtx nei colori:<br/>Grigio tonalità chiaro/scuro o Crema", "incluso"),
         ("4 maniglioni", "inclusi"),
         ("Bottazzo singolo h 90 mm o doppio h 60 mm", "incluso"),
         ("Rifinitura interna con profilo guarnizione a pressione", "incluso"),
