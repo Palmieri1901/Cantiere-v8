@@ -76,6 +76,7 @@ async def _apply_defaults_from_config(payload_dict: dict) -> dict:
         "supplemento_orca": cfg.supplemento_orca,
         "prezzo_rifinitura_strisciato": cfg.rifinitura_interna_strisciato,
         "prezzo_bottazzo_doppio": cfg.bottazzo_doppio_90mm,
+        "prezzo_pezze_velocita": cfg.apposizione_pezze_velocita,
         "prezzo_maniglione": cfg.maniglione_aggiuntivo_cad,
     }
     out = {**payload_dict}
@@ -428,7 +429,7 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         [Paragraph("C) Bottazzo doppio h 90 mm", st_row),
          Paragraph(_fmt_eur(p.prezzo_bottazzo_doppio), st_row_bold), ""],
         [Paragraph("D) Apposizione pezze di velocità su coni dx-sx", st_row),
-         Paragraph("da valutare", st_row_bold), ""],
+         Paragraph(_fmt_eur(cfg.apposizione_pezze_velocita) if cfg.apposizione_pezze_velocita > 0 else "da valutare", st_row_bold), ""],
         [Paragraph("E) Maniglioni aggiuntivi (cad.)", st_row),
          Paragraph(_fmt_eur(p.prezzo_maniglione), st_row_bold), ""],
         [Paragraph("Grafiche particolari / repliche originali", st_row),
@@ -467,8 +468,9 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         scelte_rows_data.append((f"B) Rifinitura interna strisciato  ({_fmt_eur(p.prezzo_rifinitura_strisciato)}/m × {metri_val:g}m)", _fmt_eur(rif_totale)))
     if p.include_bottazzo_doppio:
         scelte_rows_data.append(("C) Bottazzo doppio h 90 mm", _fmt_eur(p.prezzo_bottazzo_doppio)))
-    if p.include_pezze_velocita and p.prezzo_pezze_velocita > 0:
-        scelte_rows_data.append(("D) Apposizione pezze di velocità", _fmt_eur(p.prezzo_pezze_velocita)))
+    if p.include_pezze_velocita:
+        val = float(p.prezzo_pezze_velocita or 0)
+        scelte_rows_data.append(("D) Apposizione pezze di velocità", _fmt_eur(val) if val > 0 else "da valutare"))
     if p.maniglioni_aggiuntivi and p.maniglioni_aggiuntivi > 0:
         scelte_rows_data.append((f"E) Maniglioni aggiuntivi ({p.maniglioni_aggiuntivi} × {_fmt_eur(p.prezzo_maniglione)})", _fmt_eur(p.prezzo_maniglione * p.maniglioni_aggiuntivi)))
     if p.scritte_loghi_laser and p.prezzo_scritte_loghi > 0:

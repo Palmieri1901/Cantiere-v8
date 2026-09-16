@@ -79,6 +79,7 @@ export default function Tubolari() {
       supplemento_orca: config?.supplemento_orca ?? 357,
       prezzo_rifinitura_strisciato: config?.rifinitura_interna_strisciato ?? 382.5,
       prezzo_bottazzo_doppio: config?.bottazzo_doppio_90mm ?? 357,
+      prezzo_pezze_velocita: config?.apposizione_pezze_velocita ?? 0,
       prezzo_maniglione: config?.maniglione_aggiuntivo_cad ?? 50,
     };
     setEditing(base);
@@ -638,6 +639,7 @@ function TubolariConfigDialog({ open, onOpenChange, value, onSaved }) {
         supplemento_orca: Number(form.supplemento_orca),
         rifinitura_interna_strisciato: Number(form.rifinitura_interna_strisciato),
         bottazzo_doppio_90mm: Number(form.bottazzo_doppio_90mm),
+        apposizione_pezze_velocita: Number(form.apposizione_pezze_velocita || 0),
         maniglione_aggiuntivo_cad: Number(form.maniglione_aggiuntivo_cad),
         validita_giorni: parseInt(form.validita_giorni || 90, 10),
         tempi_esecuzione_giorni: parseInt(form.tempi_esecuzione_giorni || 90, 10),
@@ -677,12 +679,15 @@ function TubolariConfigDialog({ open, onOpenChange, value, onSaved }) {
         </Section>
 
         <Section title="Prezzi extra">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label="B) Rifinitura interna strisciato €/metro">
               <Input type="number" step="0.01" value={form.rifinitura_interna_strisciato ?? ""} onChange={(e) => set("rifinitura_interna_strisciato", e.target.value)} data-testid="cfg-rif" />
             </Field>
             <Field label="C) Bottazzo doppio h 90mm €">
               <Input type="number" step="0.01" value={form.bottazzo_doppio_90mm ?? ""} onChange={(e) => set("bottazzo_doppio_90mm", e.target.value)} data-testid="cfg-bot" />
+            </Field>
+            <Field label="D) Apposizione pezze velocità € (0 = da valutare)">
+              <Input type="number" step="0.01" value={form.apposizione_pezze_velocita ?? 0} onChange={(e) => set("apposizione_pezze_velocita", e.target.value)} data-testid="cfg-pezze" />
             </Field>
             <Field label="E) Maniglione aggiuntivo €/cad">
               <Input type="number" step="0.01" value={form.maniglione_aggiuntivo_cad ?? ""} onChange={(e) => set("maniglione_aggiuntivo_cad", e.target.value)} data-testid="cfg-man" />

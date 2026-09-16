@@ -608,6 +608,7 @@ class TubolariConfig(BaseModel):
     # Lavorazioni extra
     rifinitura_interna_strisciato: float = 382.50
     bottazzo_doppio_90mm: float = 357.0
+    apposizione_pezze_velocita: float = 0.0  # 0 = "da valutare" nel PDF
     maniglione_aggiuntivo_cad: float = 50.0
     # Testi standard del preventivo (modificabili)
     validita_giorni: int = 90
@@ -628,6 +629,7 @@ class TubolariConfigUpdate(BaseModel):
     supplemento_orca: Optional[float] = None
     rifinitura_interna_strisciato: Optional[float] = None
     bottazzo_doppio_90mm: Optional[float] = None
+    apposizione_pezze_velocita: Optional[float] = None
     maniglione_aggiuntivo_cad: Optional[float] = None
     validita_giorni: Optional[int] = None
     tempi_esecuzione_giorni: Optional[int] = None
