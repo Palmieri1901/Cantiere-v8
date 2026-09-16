@@ -382,7 +382,7 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         return _fmt_eur(cfg_val) if cfg_val and cfg_val > 0 else "da valutare"
 
     inclusi = [
-        ("Gomma pesante grammatura 1670 grigio / crema", "incluso"),
+        ("Tessuto gommato neoprene hypalon grammatura pesante 866 1670 nei colori (grigio o crema)", "incluso"),
         ("4 maniglioni", "inclusi"),
         ("Bottazzo singolo h 90 mm o doppio h 60 mm", "incluso"),
         ("Rifinitura interna con profilo a unghia", "incluso"),
@@ -426,7 +426,7 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
     # ------------------------------------------------------------------
     # LISTINO VARIABILI (materiali + lavorazioni extra)
     # ------------------------------------------------------------------
-    story.append(_section_header("LISTINO OPZIONI E VARIANTI (prezzi indicativi)", NAVY, st_section))
+    story.append(_section_header("LISTINO OPZIONI E VARIANTI NON INCLUSE NEL PREVENTIVO", NAVY, st_section))
 
     orca_totale = float(p.supplemento_orca) * metri_val
     rif_totale = float(p.prezzo_rifinitura_strisciato) * metri_val
