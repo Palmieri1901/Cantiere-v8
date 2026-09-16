@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,10 +16,10 @@ function formatError(detail) {
   return String(detail);
 }
 
-export default function ResetPassword() {
-  const [params] = useSearchParams();
+export default function RecuperoPin() {
   const nav = useNavigate();
-  const token = params.get("token") || "";
+  const { refresh } = useAuth();
+  const [pin, setPin] = useState("");
   const [pw1, setPw1] = useState("");
   const [pw2, setPw2] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,13 +29,15 @@ export default function ResetPassword() {
   const submit = async (e) => {
     e.preventDefault();
     setErr("");
-    if (pw1.length < 6) { setErr("La password deve contenere almeno 6 caratteri"); return; }
+    if (!pin.trim()) { setErr("Inserisci il PIN di recupero"); return; }
+    if (pw1.length < 3) { setErr("La password deve contenere almeno 3 caratteri"); return; }
     if (pw1 !== pw2) { setErr("Le due password non coincidono"); return; }
     setLoading(true);
     try {
-      await api.post("/auth/reset-password", { token, new_password: pw1 });
+      await api.post("/auth/pin-reset", { pin: pin.trim(), new_password: pw1 });
       setDone(true);
-      setTimeout(() => nav("/login", { replace: true }), 2500);
+      await refresh();
+      setTimeout(() => nav("/", { replace: true }), 1500);
     } catch (e) {
       setErr(formatError(e.response?.data?.detail) || "Impossibile aggiornare la password");
     } finally {
@@ -43,7 +46,7 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-secondary/40 to-background grid place-items-center px-4" data-testid="reset-page">
+    <div className="min-h-screen bg-gradient-to-b from-secondary/40 to-background grid place-items-center px-4" data-testid="recupero-pin-page">
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <div className="w-14 h-14 rounded-lg bg-primary text-primary-foreground grid place-items-center mb-4">
@@ -54,40 +57,46 @@ export default function ResetPassword() {
         </div>
 
         <Card className="p-8">
-          <h2 className="font-display text-2xl font-semibold mb-1">Nuova password</h2>
+          <h2 className="font-display text-2xl font-semibold mb-1">Recupero password</h2>
           <p className="text-sm text-muted-foreground mb-6">
-            Scegli una password di almeno 6 caratteri. Il link è utilizzabile una sola volta.
+            Inserisci il tuo PIN di recupero master e imposta una nuova password.
           </p>
 
-          {!token && (
-            <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-sm" data-testid="reset-no-token">
-              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-              <span>Link non valido: token mancante.</span>
-            </div>
-          )}
-
           {done ? (
-            <div className="space-y-4" data-testid="reset-done">
+            <div className="space-y-4" data-testid="recupero-done">
               <div className="flex items-start gap-3 p-4 rounded-md bg-primary/5 border border-primary/20">
                 <CheckCircle2 className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                 <div className="text-sm">
                   <div className="font-semibold text-foreground">Password aggiornata</div>
                   <p className="text-muted-foreground mt-1 leading-relaxed">
-                    Puoi ora accedere con la nuova password. Reindirizzamento in corso…
+                    Accesso automatico in corso…
                   </p>
                 </div>
               </div>
             </div>
-          ) : token ? (
+          ) : (
             <form onSubmit={submit} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">PIN di recupero</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  placeholder="es. 1985"
+                  required
+                  autoFocus
+                  autoComplete="off"
+                  data-testid="input-recupero-pin"
+                />
+              </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nuova password</Label>
                 <PasswordInput
                   value={pw1}
                   onChange={(e) => setPw1(e.target.value)}
                   required
-                  autoFocus
-                  data-testid="input-reset-pw1"
+                  data-testid="input-recupero-pw1"
                 />
               </div>
               <div className="space-y-1.5">
@@ -96,29 +105,33 @@ export default function ResetPassword() {
                   value={pw2}
                   onChange={(e) => setPw2(e.target.value)}
                   required
-                  data-testid="input-reset-pw2"
+                  data-testid="input-recupero-pw2"
                 />
               </div>
 
               {err && (
-                <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-sm" data-testid="reset-error">
+                <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-sm" data-testid="recupero-error">
                   <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                   <span>{err}</span>
                 </div>
               )}
 
-              <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90" data-testid="btn-reset-submit">
+              <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90" data-testid="btn-recupero-submit">
                 <KeyRound className="w-4 h-4 mr-2" />
-                {loading ? "Aggiornamento…" : "Salva nuova password"}
+                {loading ? "Aggiornamento…" : "Reimposta password"}
               </Button>
-            </form>
-          ) : null}
 
-          <Link to="/login" className="text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 pt-4" data-testid="link-back-login-reset">
-            <ArrowLeft className="w-3 h-3" />
-            Torna al login
-          </Link>
+              <Link to="/login" className="text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 pt-2" data-testid="link-back-login-recupero">
+                <ArrowLeft className="w-3 h-3" />
+                Torna al login
+              </Link>
+            </form>
+          )}
         </Card>
+
+        <p className="text-center text-xs text-muted-foreground mt-6">
+          Portomare · Gestionale Cantiere Nautico
+        </p>
       </div>
     </div>
   );

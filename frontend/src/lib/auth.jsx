@@ -20,8 +20,8 @@ export function AuthProvider({ children }) {
 
   useEffect(() => { check(); }, []);
 
-  const login = async (email, password) => {
-    const r = await api.post("/auth/login", { email, password });
+  const login = async (password) => {
+    const r = await api.post("/auth/login", { password });
     setUser({ id: r.data.id, email: r.data.email, nome: r.data.nome, role: r.data.role });
     return r.data;
   };

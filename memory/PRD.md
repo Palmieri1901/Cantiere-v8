@@ -8,8 +8,8 @@ Se fuori calcolo dei costi della copertura, alaggio e varo, note dei lavori eseg
 Sono circa 200 posti barca"
 
 ## User Choices
-- Autenticazione: **JWT custom email+password** (session 30 giorni "ricordami"), single admin ora, estensibile a più utenti
-- Recupero password: **link via email** a indirizzo fisso `info@gebnautica.it`
+- Autenticazione: **Password unica condivisa** (utente singolo, nessuna email richiesta in UI). Backend usa `ADMIN_EMAIL` internamente.
+- Recupero password: **PIN di recupero master** (default `1985`, cambiabile da Impostazioni). Reset diretto senza email.
 - Costi: **Tariffe base configurabili + override manuale per cliente**
 - Extra: **Export Excel/CSV** + integrazioni future
 - Lingua: **Italiano**

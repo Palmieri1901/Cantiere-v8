@@ -11,6 +11,7 @@ from database import db, logger
 from models import (
     LoginRequest, RegisterRequest,
     ForgotPasswordRequest, ResetPasswordRequest, ChangePasswordRequest,
+    PinResetRequest, ChangePinRequest,
 )
 from email_service import send_email, build_password_reset_email
 
@@ -99,13 +100,79 @@ async def register(payload: RegisterRequest, response: Response):
 
 @auth_router.post("/login")
 async def login(payload: LoginRequest, response: Response):
-    email = payload.email.strip().lower()
+    # Utente unico condiviso: se l'email non è fornita usiamo ADMIN_EMAIL.
+    email = (payload.email or "").strip().lower()
+    if not email:
+        email = os.environ.get("ADMIN_EMAIL", "admin@portomare.it").strip().lower()
     user = await db.users.find_one({"email": email})
     if not user or not verify_password(payload.password, user.get("password_hash", "")):
-        raise HTTPException(401, "Email o password non corretta")
+        raise HTTPException(401, "Password non corretta")
     token = create_access_token(user["id"], email)
     _set_cookie(response, token)
     return {"id": user["id"], "email": email, "nome": user.get("nome", ""), "role": user.get("role", "user"), "token": token}
+
+
+@auth_router.post("/pin-reset")
+async def pin_reset(payload: PinResetRequest, response: Response):
+    """Recupero password tramite PIN master.
+
+    Verifica il PIN salvato in `app_settings`. Se corretto, aggiorna la
+    password dell'utente admin e apre una sessione (login automatico).
+    """
+    pin_raw = (payload.pin or "").strip()
+    if not pin_raw or not payload.new_password:
+        raise HTTPException(400, "PIN e nuova password obbligatori")
+    if len(payload.new_password) < 3:
+        raise HTTPException(400, "La password deve contenere almeno 3 caratteri")
+
+    settings = await db.app_settings.find_one({"id": "auth"})
+    if not settings or not settings.get("recovery_pin_hash"):
+        raise HTTPException(500, "PIN di recupero non configurato")
+    if not verify_password(pin_raw, settings["recovery_pin_hash"]):
+        raise HTTPException(401, "PIN non corretto")
+
+    admin_email = os.environ.get("ADMIN_EMAIL", "admin@portomare.it").strip().lower()
+    user = await db.users.find_one({"email": admin_email})
+    if not user:
+        raise HTTPException(500, "Utente admin non trovato")
+
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {
+            "password_hash": hash_password(payload.new_password),
+            "password_customized": True,
+        }},
+    )
+    logger.info(f"Password admin reimpostata via PIN per {admin_email}")
+
+    token = create_access_token(user["id"], admin_email)
+    _set_cookie(response, token)
+    return {"ok": True, "id": user["id"], "email": admin_email, "nome": user.get("nome", ""), "role": user.get("role", "user"), "token": token}
+
+
+@auth_router.post("/change-pin")
+async def change_pin(payload: ChangePinRequest, user: dict = Depends(get_current_user)):
+    """Permette all'utente autenticato di cambiare il PIN di recupero."""
+    if not payload.current_password or not payload.new_pin:
+        raise HTTPException(400, "Compila entrambi i campi")
+    new_pin = payload.new_pin.strip()
+    if len(new_pin) < 4:
+        raise HTTPException(400, "Il PIN deve contenere almeno 4 caratteri")
+
+    full = await db.users.find_one({"id": user["id"]})
+    if not full or not verify_password(payload.current_password, full.get("password_hash", "")):
+        raise HTTPException(401, "Password attuale non corretta")
+
+    await db.app_settings.update_one(
+        {"id": "auth"},
+        {"$set": {
+            "recovery_pin_hash": hash_password(new_pin),
+            "pin_customized": True,
+            "updated_at": datetime.now(timezone.utc),
+        }},
+        upsert=True,
+    )
+    return {"ok": True, "message": "PIN di recupero aggiornato"}
 
 
 @auth_router.post("/logout")
@@ -218,7 +285,7 @@ async def change_password(payload: ChangePasswordRequest, user: dict = Depends(g
 
 async def seed_admin():
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@portomare.it").strip().lower()
-    admin_password = os.environ.get("ADMIN_PASSWORD", "portomare2026")
+    admin_password = os.environ.get("ADMIN_PASSWORD", "admin")
     existing = await db.users.find_one({"email": admin_email})
     if existing is None:
         await db.users.insert_one({
@@ -232,11 +299,31 @@ async def seed_admin():
         logger.info(f"Admin seeded: {admin_email}")
     elif not verify_password(admin_password, existing.get("password_hash", "")):
         # NOTA: aggiorniamo la password solo se l'utente non l'ha mai cambiata.
-        # Se hasCustomPassword=True significa che l'admin ha già impostato la propria password:
-        # in tal caso NON sovrascriviamo con quella del .env.
         if not existing.get("password_customized"):
             await db.users.update_one(
                 {"email": admin_email},
                 {"$set": {"password_hash": hash_password(admin_password)}}
             )
             logger.info(f"Admin password aggiornata dal .env: {admin_email}")
+
+    # Seed PIN di recupero master (singleton in app_settings)
+    recovery_pin = os.environ.get("RECOVERY_PIN", "1985").strip()
+    settings = await db.app_settings.find_one({"id": "auth"})
+    if settings is None:
+        await db.app_settings.insert_one({
+            "id": "auth",
+            "recovery_pin_hash": hash_password(recovery_pin),
+            "pin_customized": False,
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
+        })
+        logger.info("Recovery PIN seeded from .env")
+    elif not settings.get("pin_customized") and not verify_password(recovery_pin, settings.get("recovery_pin_hash", "")):
+        await db.app_settings.update_one(
+            {"id": "auth"},
+            {"$set": {
+                "recovery_pin_hash": hash_password(recovery_pin),
+                "updated_at": datetime.now(timezone.utc),
+            }},
+        )
+        logger.info("Recovery PIN aggiornato dal .env")

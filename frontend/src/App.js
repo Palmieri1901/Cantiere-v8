@@ -16,8 +16,7 @@ import Contratti from "@/pages/Contratti";
 import Magazzino from "@/pages/Magazzino";
 import Tubolari from "@/pages/Tubolari";
 import Login from "@/pages/Login";
-import ForgotPassword from "@/pages/ForgotPassword";
-import ResetPassword from "@/pages/ResetPassword";
+import RecuperoPin from "@/pages/RecuperoPin";
 
 function App() {
   return (
@@ -28,8 +27,9 @@ function App() {
             <Routes>
               {/* Rotte pubbliche */}
               <Route path="/login" element={<Login />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/recupero-pin" element={<RecuperoPin />} />
+              <Route path="/forgot-password" element={<Navigate to="/recupero-pin" replace />} />
+              <Route path="/reset-password" element={<Navigate to="/recupero-pin" replace />} />
 
               {/* Rotte protette */}
               <Route

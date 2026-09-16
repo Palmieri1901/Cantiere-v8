@@ -412,8 +412,20 @@ class ApriAnnoRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: str
+    # Email opzionale: l'app usa un utente unico condiviso, quindi in UI
+    # viene chiesta solo la password. Se assente, viene usato ADMIN_EMAIL.
+    email: Optional[str] = ""
     password: str
+
+
+class PinResetRequest(BaseModel):
+    pin: str
+    new_password: str
+
+
+class ChangePinRequest(BaseModel):
+    current_password: str
+    new_pin: str
 
 
 class RegisterRequest(BaseModel):

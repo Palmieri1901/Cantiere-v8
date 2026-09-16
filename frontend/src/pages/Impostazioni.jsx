@@ -39,9 +39,13 @@ export default function Impostazioni() {
   const [pwNew, setPwNew] = useState("");
   const [pwNew2, setPwNew2] = useState("");
   const [pwSaving, setPwSaving] = useState(false);
+  // PIN di recupero master
+  const [pinCurrentPw, setPinCurrentPw] = useState("");
+  const [pinNew, setPinNew] = useState("");
+  const [pinSaving, setPinSaving] = useState(false);
 
   const changePassword = async () => {
-    if (pwNew.length < 6) { toast.error("La nuova password deve avere almeno 6 caratteri"); return; }
+    if (pwNew.length < 3) { toast.error("La nuova password deve avere almeno 3 caratteri"); return; }
     if (pwNew !== pwNew2) { toast.error("Le due password non coincidono"); return; }
     setPwSaving(true);
     try {
@@ -53,6 +57,22 @@ export default function Impostazioni() {
       toast.error(typeof d === "string" ? d : "Impossibile aggiornare la password");
     } finally {
       setPwSaving(false);
+    }
+  };
+
+  const changePin = async () => {
+    if (!pinCurrentPw) { toast.error("Inserisci la password attuale"); return; }
+    if (pinNew.trim().length < 4) { toast.error("Il PIN deve avere almeno 4 caratteri"); return; }
+    setPinSaving(true);
+    try {
+      await api.post("/auth/change-pin", { current_password: pinCurrentPw, new_pin: pinNew.trim() });
+      toast.success("PIN di recupero aggiornato — conservalo in un posto sicuro");
+      setPinCurrentPw(""); setPinNew("");
+    } catch (e) {
+      const d = e.response?.data?.detail;
+      toast.error(typeof d === "string" ? d : "Impossibile aggiornare il PIN");
+    } finally {
+      setPinSaving(false);
     }
   };
 
@@ -291,9 +311,8 @@ export default function Impostazioni() {
         </div>
         <h3 className="font-display text-xl font-semibold mb-1">Cambia password</h3>
         <p className="text-sm text-muted-foreground mb-4 max-w-2xl">
-          Aggiorna la password di accesso al gestionale. Se l'hai dimenticata usa
-          il link "Password dimenticata?" nella pagina di login: riceverai un
-          link di recupero all'indirizzo email di ripristino del cantiere.
+          Aggiorna la password di accesso al gestionale. Se la dimentichi puoi
+          reimpostarla dalla pagina di login usando il <b>PIN di recupero master</b>.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl">
           <div>
@@ -333,6 +352,54 @@ export default function Impostazioni() {
           >
             <KeyRound className="w-4 h-4 mr-2" />
             {pwSaving ? "Aggiornamento…" : "Aggiorna password"}
+          </Button>
+        </div>
+      </Card>
+
+      {/* PIN di recupero master */}
+      <Card className="p-6 mt-6" data-testid="pin-card">
+        <div className="label-mini mb-2 flex items-center gap-1.5">
+          <KeyRound className="w-3.5 h-3.5" /> PIN di recupero master
+        </div>
+        <h3 className="font-display text-xl font-semibold mb-1">Cambia il PIN di recupero</h3>
+        <p className="text-sm text-muted-foreground mb-4 max-w-2xl">
+          Il PIN ti permette di reimpostare la password se la dimentichi.
+          <b> Annotalo in un posto sicuro</b> (es. carta d'identità del cantiere,
+          agenda cartacea). Consigliato: almeno 4-6 cifre facili da ricordare.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+          <div>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Password attuale</Label>
+            <PasswordInput
+              value={pinCurrentPw}
+              onChange={(e) => setPinCurrentPw(e.target.value)}
+              className="mt-1.5"
+              data-testid="input-pin-current-pw"
+            />
+          </div>
+          <div>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nuovo PIN</Label>
+            <Input
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              value={pinNew}
+              onChange={(e) => setPinNew(e.target.value)}
+              placeholder="es. 1985"
+              className="mt-1.5 font-mono tracking-widest text-lg"
+              data-testid="input-pin-new"
+            />
+          </div>
+        </div>
+        <div className="mt-4">
+          <Button
+            onClick={changePin}
+            disabled={pinSaving || !pinCurrentPw || !pinNew}
+            className="bg-primary hover:bg-primary/90"
+            data-testid="btn-change-pin"
+          >
+            <KeyRound className="w-4 h-4 mr-2" />
+            {pinSaving ? "Aggiornamento…" : "Aggiorna PIN"}
           </Button>
         </div>
       </Card>

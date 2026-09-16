@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { useNavigate, useLocation, Navigate } from "react-router-dom";
+import { useNavigate, useLocation, Navigate, Link } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import PasswordInput from "@/components/PasswordInput";
-import { Sailboat, LogIn, AlertCircle } from "lucide-react";
+import { Sailboat, LogIn, AlertCircle, KeyRound } from "lucide-react";
 
 function formatError(detail) {
   if (!detail) return "Errore imprevisto";
@@ -19,7 +18,6 @@ export default function Login() {
   const { user, login } = useAuth();
   const nav = useNavigate();
   const loc = useLocation();
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,7 +29,7 @@ export default function Login() {
     setErr("");
     setLoading(true);
     try {
-      await login(email, password);
+      await login(password);
       nav(loc.state?.from || "/", { replace: true });
     } catch (e) {
       setErr(formatError(e.response?.data?.detail) || "Impossibile accedere");
@@ -54,28 +52,17 @@ export default function Login() {
         <Card className="p-8">
           <h2 className="font-display text-2xl font-semibold mb-1">Accedi</h2>
           <p className="text-sm text-muted-foreground mb-6">
-            Inserisci le tue credenziali per accedere al gestionale.
+            Inserisci la password per entrare nel gestionale.
           </p>
 
           <form onSubmit={submit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email</Label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@portomare.it"
-                required
-                autoFocus
-                data-testid="input-login-email"
-              />
-            </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Password</Label>
               <PasswordInput
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoFocus
                 data-testid="input-login-password"
               />
             </div>
@@ -98,13 +85,14 @@ export default function Login() {
             </Button>
 
             <div className="text-center pt-2">
-              <a
-                href="/forgot-password"
-                className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+              <Link
+                to="/recupero-pin"
+                className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline inline-flex items-center gap-1"
                 data-testid="link-forgot-password"
               >
-                Password dimenticata?
-              </a>
+                <KeyRound className="w-3 h-3" />
+                Password dimenticata? Usa il PIN di recupero
+              </Link>
             </div>
           </form>
         </Card>
