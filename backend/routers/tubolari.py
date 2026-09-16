@@ -388,8 +388,6 @@ def _build_preventivo_pdf(p: PreventivoTubolare, cfg: TubolariConfig, cantiere: 
         ("Rifinitura interna con profilo a unghia", "incluso"),
         ("Colore di finitura a scelta", "incluso"),
         ("Grafica GEB standard", "inclusa"),
-        ("Scritte / Loghi con taglio laser", _stato_prezzo(cfg.scritte_loghi_taglio_laser)),
-        ("Colori tubo differenti / graffiati (carbon, perlage…)", _stato_prezzo(cfg.colori_tubo_differenti)),
     ]
     rows_a = [[Paragraph(f"•  {desc}", st_row), Paragraph(stato, st_row_bold)] for desc, stato in inclusi]
     ta = Table(rows_a, colWidths=[141*mm, 45*mm])
