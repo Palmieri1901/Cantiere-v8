@@ -156,7 +156,7 @@ export default function Home() {
           <QuickActionCard
             testId="cta-preventivo-veloce"
             icon={FileText}
-            title="Preventivo veloce"
+            title="Preventivo veloce Rimessaggio"
             subtitle="Crea un PDF senza salvare il cliente"
             onClick={() => setOpenPreventivo(true)}
             variant="primary"
@@ -164,7 +164,7 @@ export default function Home() {
           <QuickActionCard
             testId="cta-listino-pdf"
             icon={FileText}
-            title="Listino prezzi (PDF)"
+            title="Listino prezzi Rimessaggio (PDF)"
             subtitle="Stampa il tariffario aggiornato"
             href={`${API}/tariffe/listino.pdf`}
             newTab
