@@ -120,7 +120,7 @@ export default function Home() {
             <Button asChild variant="outline" size="lg" className="h-12 px-6 border-foreground/20 hover:bg-foreground/5" data-testid="cta-clienti">
               <Link to="/clienti">
                 <Anchor className="w-4 h-4 mr-2" />
-                Gestione clienti
+                Rimessaggio
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="h-12 px-6 border-foreground/20 hover:bg-foreground/5" data-testid="cta-magazzino">
