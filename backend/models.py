@@ -714,3 +714,130 @@ class PreventivoTubolareCreate(BaseModel):
     prezzo_rinforzi_diving: Optional[float] = 0.0
     note: Optional[str] = ""
     stato: Optional[str] = "bozza"
+
+
+# =============================================================================
+# MODULO FUORIBORDO SUZUKI
+# =============================================================================
+
+class SuzukiModello(BaseModel):
+    """Modello di fuoribordo Suzuki con specifiche tecniche e prezzi/sconti."""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    codice: Optional[str] = ""                   # es. "DF9.9BS", codice articolo Suzuki
+    modello: str                                  # es. "DF150ATL"
+    potenza_hp: float = 0                         # es. 150
+    cilindrata_cc: Optional[float] = 0            # es. 2867
+    cilindri: Optional[str] = ""                  # es. "4 in linea"
+    alimentazione: Optional[str] = ""             # es. "EFI iniezione elettronica"
+    peso_kg: Optional[float] = 0
+    avviamento: Optional[str] = ""                # "elettrico" / "manuale" / "elettrico + manuale"
+    gambo: Optional[str] = ""                     # "S" / "L" / "UL" / "XL"
+    trim: Optional[str] = ""                      # "PT&T" / "idraulico" / "manuale"
+    comandi: Optional[str] = ""                   # "a distanza" / "da barra"
+    alternatore_A: Optional[float] = 0
+    categoria: Optional[str] = ""                 # es. "Portable" / "Mid range" / "V6"
+    prezzo_listino: float = 0                     # € IVA esclusa, come da listino Suzuki
+    sconto_perc_1: Optional[float] = 0            # primo sconto es. 10%
+    sconto_perc_2: Optional[float] = 0            # secondo sconto es. 5%
+    note: Optional[str] = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class SuzukiModelloCreate(BaseModel):
+    codice: Optional[str] = ""
+    modello: str
+    potenza_hp: Optional[float] = 0
+    cilindrata_cc: Optional[float] = 0
+    cilindri: Optional[str] = ""
+    alimentazione: Optional[str] = ""
+    peso_kg: Optional[float] = 0
+    avviamento: Optional[str] = ""
+    gambo: Optional[str] = ""
+    trim: Optional[str] = ""
+    comandi: Optional[str] = ""
+    alternatore_A: Optional[float] = 0
+    categoria: Optional[str] = ""
+    prezzo_listino: Optional[float] = 0
+    sconto_perc_1: Optional[float] = 0
+    sconto_perc_2: Optional[float] = 0
+    note: Optional[str] = ""
+
+
+class SuzukiModelloUpdate(BaseModel):
+    codice: Optional[str] = None
+    modello: Optional[str] = None
+    potenza_hp: Optional[float] = None
+    cilindrata_cc: Optional[float] = None
+    cilindri: Optional[str] = None
+    alimentazione: Optional[str] = None
+    peso_kg: Optional[float] = None
+    avviamento: Optional[str] = None
+    gambo: Optional[str] = None
+    trim: Optional[str] = None
+    comandi: Optional[str] = None
+    alternatore_A: Optional[float] = None
+    categoria: Optional[str] = None
+    prezzo_listino: Optional[float] = None
+    sconto_perc_1: Optional[float] = None
+    sconto_perc_2: Optional[float] = None
+    note: Optional[str] = None
+
+
+class SuzukiPreventivo(BaseModel):
+    """Preventivo per un fuoribordo Suzuki con sconto composto (es. 10% + 5%)
+    e voce montaggio opzionale."""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    numero: Optional[str] = ""
+    data: str = Field(default_factory=lambda: datetime.now(timezone.utc).date().isoformat())
+    # cliente
+    cliente_nome: str = ""
+    cliente_telefono: Optional[str] = ""
+    cliente_email: Optional[str] = ""
+    # modello (snapshot al momento della creazione)
+    modello_id: Optional[str] = ""
+    codice: Optional[str] = ""
+    modello: str = ""
+    potenza_hp: Optional[float] = 0
+    specifiche: Optional[str] = ""                # riepilogo tecnico (cilindri, cilindrata, peso, gambo…)
+    # prezzi
+    prezzo_listino: float = 0
+    sconto_perc_1: float = 0
+    sconto_perc_2: float = 0
+    montaggio: Optional[float] = 0
+    note: Optional[str] = ""
+    stato: Optional[str] = "bozza"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class SuzukiPreventivoCreate(BaseModel):
+    numero: Optional[str] = ""
+    data: Optional[str] = None
+    cliente_nome: str
+    cliente_telefono: Optional[str] = ""
+    cliente_email: Optional[str] = ""
+    modello_id: Optional[str] = ""
+    codice: Optional[str] = ""
+    modello: str
+    potenza_hp: Optional[float] = 0
+    specifiche: Optional[str] = ""
+    prezzo_listino: float
+    sconto_perc_1: Optional[float] = 0
+    sconto_perc_2: Optional[float] = 0
+    montaggio: Optional[float] = 0
+    note: Optional[str] = ""
+    stato: Optional[str] = "bozza"
+
+
+class SuzukiImportRequest(BaseModel):
+    """Payload per l'import via AI: PDF o immagine in base64.
+    Il backend usa Gemini Vision per estrarre la lista dei modelli."""
+    file_base64: str                              # dati base64 (data URL o raw)
+    file_name: Optional[str] = ""
+
+
+class SuzukiBulkCreate(BaseModel):
+    modelli: List[SuzukiModelloCreate]

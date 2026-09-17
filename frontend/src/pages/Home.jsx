@@ -135,6 +135,12 @@ export default function Home() {
                 Rifacimento tubolari
               </Link>
             </Button>
+            <Button asChild variant="outline" size="lg" className="h-12 px-6 border-foreground/20 hover:bg-foreground/5" data-testid="cta-suzuki">
+              <Link to="/suzuki">
+                <Ship className="w-4 h-4 mr-2" />
+                Fuoribordo Suzuki
+              </Link>
+            </Button>
             <Button asChild variant="ghost" size="lg" className="h-12 px-4 text-muted-foreground hover:text-foreground" data-testid="cta-impostazioni">
               <Link to="/impostazioni">
                 <Settings className="w-4 h-4 mr-2" />

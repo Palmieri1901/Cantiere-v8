@@ -15,6 +15,7 @@ import Report from "@/pages/Report";
 import Contratti from "@/pages/Contratti";
 import Magazzino from "@/pages/Magazzino";
 import Tubolari from "@/pages/Tubolari";
+import Suzuki from "@/pages/Suzuki";
 import Login from "@/pages/Login";
 import RecuperoPin from "@/pages/RecuperoPin";
 
@@ -56,6 +57,7 @@ function App() {
                 <Route path="/contratti" element={<Contratti />} />
                 <Route path="/magazzino" element={<Magazzino />} />
                 <Route path="/tubolari" element={<Tubolari />} />
+                <Route path="/suzuki" element={<Suzuki />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Routes>
