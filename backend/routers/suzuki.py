@@ -339,7 +339,19 @@ async def seed_listino():
 
 @router.get("/listino.pdf")
 async def listino_pdf():
-    """PDF ufficiale del listino gamma Suzuki Marine, raggruppato per categoria HP."""
+    """PDF listino pubblico (per clienti finali)."""
+    return await _build_listino_pdf(concessionario=False)
+
+
+@router.get("/listino-concessionario.pdf")
+async def listino_concessionario_pdf():
+    """PDF listino concessionario: aggiunge sconti e netto costo al concessionario."""
+    return await _build_listino_pdf(concessionario=True)
+
+
+async def _build_listino_pdf(concessionario: bool = False):
+    """PDF listino gamma Suzuki Marine, raggruppato per categoria HP.
+    Se `concessionario=True` aggiunge colonne Sconto 1, Sconto 2, Netto concessionario."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -353,6 +365,7 @@ async def listino_pdf():
 
     styles = getSampleStyleSheet()
     NAVY = colors.HexColor("#0F2A47")
+    ACCENT = colors.HexColor("#B85A3B")
     LIGHT = colors.HexColor("#F2F4F7")
     BORDER = colors.HexColor("#D0D5DD")
 
@@ -361,9 +374,13 @@ async def listino_pdf():
 
     story = []
     logo = _logo_flowable(max_w_mm=42, max_h_mm=22)
-    header_title = Paragraph("<b>SUZUKI MARINE — Listino Gamma Fuoribordo 2025-2026</b>",
-                             ParagraphStyle("t", parent=styles["Heading1"], fontSize=14, textColor=NAVY, spaceAfter=2))
-    header_sub = Paragraph("GEB di Palmieri Sandro · Concessionario Suzuki Marine",
+    variante = "Concessionario" if concessionario else "Pubblico"
+    title_color = ACCENT if concessionario else NAVY
+    header_title = Paragraph(f"<b>SUZUKI MARINE — Listino {variante} 2025-2026</b>",
+                             ParagraphStyle("t", parent=styles["Heading1"], fontSize=14, textColor=title_color, spaceAfter=2))
+    subtitle_text = ("GEB di Palmieri Sandro · <b>DOCUMENTO RISERVATO CONCESSIONARIO</b>"
+                     if concessionario else "GEB di Palmieri Sandro · Concessionario Suzuki Marine")
+    header_sub = Paragraph(subtitle_text,
                            ParagraphStyle("s", parent=styles["Normal"], fontSize=9, textColor=colors.grey))
     if logo:
         head = Table([[logo, [header_title, header_sub]]], colWidths=[46*mm, 140*mm])
@@ -386,44 +403,82 @@ async def listino_pdf():
         gruppi.setdefault(d.get("categoria") or "Altro", []).append(d)
     ordine_cat = ["Portatile", "In-linea 2", "In-linea 3", "In-linea 4", "V6", "V6 Flagship", "Altro"]
 
+    if concessionario:
+        head_row = ["Modello", "HP", "Cilindrata", "Gambo", "Peso",
+                    "Listino IVA escl.", "Sc.1", "Sc.2", "Netto conc.", "Pubblico IVA incl."]
+        col_widths = [28*mm, 10*mm, 17*mm, 14*mm, 13*mm, 26*mm, 11*mm, 11*mm, 26*mm, 30*mm]
+        font_size = 7.6
+    else:
+        head_row = ["Modello", "HP", "Cilindrata", "Gambo", "Peso",
+                    "Listino € (IVA escl.)", "Pubblico € (IVA incl.)"]
+        col_widths = [38*mm, 12*mm, 22*mm, 22*mm, 16*mm, 38*mm, 38*mm]
+        font_size = 8.5
+
     for cat in [c for c in ordine_cat if c in gruppi]:
         rows = sorted(gruppi[cat], key=lambda x: (x.get("potenza_hp") or 0, x.get("modello") or ""))
         story.append(Paragraph(f"<b>{cat.upper()}</b>",
                                ParagraphStyle("cat", parent=styles["Heading3"], fontSize=11, textColor=NAVY, spaceBefore=6, spaceAfter=4)))
-        head = ["Modello", "HP", "Cilindrata", "Gambo", "Peso", "Listino € (IVA escl.)", "Pubblico € (IVA incl.)"]
-        data = [head]
+        st_head = ParagraphStyle("hd", parent=styles["Normal"], fontName="Helvetica-Bold",
+                                 fontSize=font_size, leading=font_size + 1.5,
+                                 textColor=colors.white, alignment=TA_CENTER)
+        header_paras = [Paragraph(h, st_head) for h in head_row]
+        data = [header_paras]
         for r in rows:
-            data.append([
+            base = [
                 r.get("modello", ""),
                 f"{r.get('potenza_hp',0):g}",
                 f"{r.get('cilindrata_cc',0):g} cc" if r.get("cilindrata_cc") else "—",
                 r.get("gambo", "") or "—",
                 f"{r.get('peso_kg',0):g} kg" if r.get("peso_kg") else "—",
                 _fmt_eur(r.get("prezzo_listino", 0)) if r.get("prezzo_listino") else "—",
-                _fmt_eur(r.get("prezzo_pubblico", 0)) if r.get("prezzo_pubblico") else "—",
-            ])
-        t = Table(data, colWidths=[38*mm, 12*mm, 22*mm, 22*mm, 16*mm, 38*mm, 38*mm], repeatRows=1)
-        t.setStyle(TableStyle([
-            ("BACKGROUND", (0,0), (-1,0), NAVY),
+            ]
+            if concessionario:
+                pl = float(r.get("prezzo_listino") or 0)
+                s1 = float(r.get("sconto_perc_1") or 0)
+                s2 = float(r.get("sconto_perc_2") or 0)
+                netto = pl * (1 - s1/100) * (1 - s2/100) if pl else 0
+                base += [
+                    f"{s1:g}%" if s1 else "—",
+                    f"{s2:g}%" if s2 else "—",
+                    _fmt_eur(netto) if netto else "—",
+                ]
+            base.append(_fmt_eur(r.get("prezzo_pubblico", 0)) if r.get("prezzo_pubblico") else "—")
+            data.append(base)
+        t = Table(data, colWidths=col_widths, repeatRows=1)
+        style = [
+            ("BACKGROUND", (0,0), (-1,0), title_color),
             ("TEXTCOLOR", (0,0), (-1,0), colors.white),
             ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
-            ("FONTSIZE", (0,0), (-1,-1), 8.5),
+            ("FONTSIZE", (0,0), (-1,-1), font_size),
             ("ALIGN", (1,1), (-1,-1), "CENTER"),
             ("ALIGN", (5,1), (-1,-1), "RIGHT"),
             ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, LIGHT]),
             ("GRID", (0,0), (-1,-1), 0.25, BORDER),
             ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-            ("LEFTPADDING", (0,0), (-1,-1), 5),
-            ("RIGHTPADDING", (0,0), (-1,-1), 5),
+            ("LEFTPADDING", (0,0), (-1,-1), 4 if concessionario else 5),
+            ("RIGHTPADDING", (0,0), (-1,-1), 4 if concessionario else 5),
             ("TOPPADDING", (0,0), (-1,-1), 3),
             ("BOTTOMPADDING", (0,0), (-1,-1), 3),
-        ]))
+        ]
+        if concessionario:
+            # evidenzia colonne concessionario
+            style += [
+                ("BACKGROUND", (6, 1), (8, -1), colors.HexColor("#FFF4EE")),
+                ("TEXTCOLOR", (8, 1), (8, -1), ACCENT),
+                ("FONTNAME", (8, 1), (8, -1), "Helvetica-Bold"),
+                ("ALIGN", (6, 1), (7, -1), "CENTER"),
+            ]
+        t.setStyle(TableStyle(style))
         story.append(t)
 
     story.append(Spacer(1, 8))
-    story.append(Paragraph(
-        "<i>Prezzi Suzuki Italia validi dal listino 2025-2026 salvo variazioni. "
-        "Il prezzo IVA inclusa è indicativo per il cliente finale; il concessionario applica le proprie condizioni.</i>",
+    if concessionario:
+        disclaimer = ("<i>Documento riservato al concessionario. Contiene prezzi netti al concessionario "
+                      "dopo applicazione degli sconti Suzuki (Sc.1 e Sc.2). Non consegnare al cliente finale.</i>")
+    else:
+        disclaimer = ("<i>Prezzi Suzuki Italia validi dal listino 2025-2026 salvo variazioni. "
+                      "Il prezzo IVA inclusa è indicativo per il cliente finale; il concessionario applica le proprie condizioni.</i>")
+    story.append(Paragraph(disclaimer,
         ParagraphStyle("note", parent=styles["Normal"], fontSize=8, textColor=colors.grey)))
 
     # Legenda sigle
@@ -433,8 +488,9 @@ async def listino_pdf():
 
     doc.build(story)
     buf.seek(0)
+    filename = f"listino_suzuki_{'concessionario' if concessionario else 'pubblico'}_2025-2026.pdf"
     return StreamingResponse(buf, media_type="application/pdf",
-                             headers={"Content-Disposition": 'inline; filename="listino_suzuki_2025-2026.pdf"'})
+                             headers={"Content-Disposition": f'inline; filename="{filename}"'})
 
 
 @router.get("/caratteristiche.pdf")

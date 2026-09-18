@@ -1,9 +1,8 @@
 # PRD — Portomare: Gestione Cantiere Nautico
 
 ## Changelog
-- **2026-02-15** — Legenda sigle motori Suzuki: nuova collezione MongoDB `suzuki_legenda` con 15 voci di default (auto-seed al primo accesso). CRUD completo via `GET/POST/PUT/DELETE /api/suzuki/legenda` + `POST /api/suzuki/legenda/reset-defaults`. La legenda viene stampata automaticamente su Preventivo (compatta), Listino e Caratteristiche (estesa). Nuovo tab **"Legenda sigle"** nella pagina Suzuki con tabella editabile per gruppo (Lunghezza piede e avviamento / Comando, tilt e linea / Altro).
-- **2026-02-15** — Logo intestazione PDF Suzuki personalizzabile (vedi voce precedente).
-- **2026-02-15** — PDF Preventivo Suzuki: scheda tecnica motore a griglia 3×3 (vedi voce precedente).
+- **2026-02-15** — Doppio listino Suzuki: `GET /api/suzuki/listino.pdf` (Pubblico, blu navy, per clienti) e `GET /api/suzuki/listino-concessionario.pdf` (arancione, riservato, aggiunge colonne Sc.1 · Sc.2 · Netto conc.). Frontend: due bottoni distinti "Listino pubblico" + "Listino concessionario" nella tab Modelli.
+- **2026-02-15** — Legenda sigle motori Suzuki editabile stampata su tutti i PDF (vedi voci precedenti).
 
 
 

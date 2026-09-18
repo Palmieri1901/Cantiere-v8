@@ -123,7 +123,10 @@ function ModelliTab() {
           <Download className="w-4 h-4 mr-2" /> Popola listino 2025-2026
         </Button>
         <Button variant="outline" onClick={() => window.open(`${API}/suzuki/listino.pdf`, "_blank")} data-testid="btn-pdf-listino">
-          <FileText className="w-4 h-4 mr-2" /> PDF Listino
+          <FileText className="w-4 h-4 mr-2" /> Listino pubblico
+        </Button>
+        <Button variant="outline" onClick={() => window.open(`${API}/suzuki/listino-concessionario.pdf`, "_blank")} className="border-accent/60 text-accent hover:bg-accent/10" data-testid="btn-pdf-listino-conc">
+          <FileText className="w-4 h-4 mr-2" /> Listino concessionario
         </Button>
         <Button variant="outline" onClick={() => window.open(`${API}/suzuki/caratteristiche.pdf`, "_blank")} data-testid="btn-pdf-caratt">
           <FileText className="w-4 h-4 mr-2" /> PDF Caratteristiche
