@@ -553,6 +553,18 @@ class ScanDDTRequest(BaseModel):
     mime_type: Optional[str] = None
 
 
+class OrdineComposoItem(BaseModel):
+    articolo_id: str
+    quantita: float = 1
+    nota: Optional[str] = ""
+
+
+class OrdineComposto(BaseModel):
+    items: List[OrdineComposoItem]
+    fornitore_id: Optional[str] = None
+    note: Optional[str] = ""
+
+
 class RicaricoCategoria(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

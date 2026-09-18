@@ -17,6 +17,7 @@ from models import (
     ScanArticoloRequest, ScanDDTRequest,
     RicaricoCategoria, RicaricoCategoriaCreate,
     SpesaAccessoria, SpesaCreate,
+    OrdineComposto,
 )
 
 
@@ -839,6 +840,129 @@ async def listino_pdf(
     buf.seek(0)
     fname = "listino_accessori.pdf"
     return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+@router.post("/ordine/componi-pdf")
+async def ordine_composto_pdf(payload: OrdineComposto):
+    """Genera un PDF ordine per i soli articoli scelti dall'utente
+    (raggruppati per fornitore), con le quantità decise a mano.
+    Pattern d'uso: si parte dagli articoli sotto scorta, si aggiungono
+    altri articoli dal magazzino e si tolgono quelli non necessari."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+
+    if not payload.items:
+        raise HTTPException(400, "Nessun articolo selezionato per l'ordine")
+
+    # Carica tutti gli articoli richiesti
+    ids = [i.articolo_id for i in payload.items]
+    art_docs = await db.articoli.find({"id": {"$in": ids}}, {"_id": 0}).to_list(5000)
+    art_map = {a["id"]: a for a in art_docs}
+    qty_map = {i.articolo_id: float(i.quantita or 0) for i in payload.items}
+    note_map = {i.articolo_id: (i.nota or "") for i in payload.items}
+
+    # Raggruppa per fornitore
+    fornitori_docs = await db.fornitori.find({}, {"_id": 0}).to_list(1000)
+    forn_map = {f["id"]: f for f in fornitori_docs}
+    gruppi: dict = {}  # fornitore_id -> [articoli]
+    for aid in ids:
+        art = art_map.get(aid)
+        if not art:
+            continue
+        fid = art.get("fornitore_id") or "_nofornitore"
+        gruppi.setdefault(fid, []).append(art)
+
+    cantiere = await db.cantiere.find_one({"id": "default"}, {"_id": 0}) or {}
+    nome_cantiere = cantiere.get("nome") or "Portomare"
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)
+    styles = getSampleStyleSheet()
+    story = []
+
+    story.append(Paragraph(f"<b>{nome_cantiere}</b>", styles["Title"]))
+    riga_ind = " · ".join(x for x in [
+        cantiere.get("indirizzo"),
+        f"{cantiere.get('cap','')} {cantiere.get('citta','')} ({cantiere.get('provincia','')})".strip(),
+        f"Tel {cantiere.get('telefono')}" if cantiere.get("telefono") else "",
+        f"P.IVA {cantiere.get('piva')}" if cantiere.get("piva") else "",
+    ] if x and x.strip() and x.strip() != "()")
+    if riga_ind:
+        story.append(Paragraph(riga_ind, styles["Normal"]))
+    story.append(Spacer(1, 8))
+    story.append(Paragraph("<b>ORDINE MATERIALE</b>", styles["Heading2"]))
+    story.append(Paragraph(datetime.now().strftime("Data: %d/%m/%Y"), styles["Normal"]))
+    if payload.note:
+        story.append(Spacer(1, 4))
+        story.append(Paragraph(f"<i>{payload.note}</i>", styles["Normal"]))
+    story.append(Spacer(1, 8))
+
+    for fid, articoli in gruppi.items():
+        f = forn_map.get(fid)
+        titolo = "Spett.le " + (f.get("nome") if f else "Fornitore non assegnato")
+        story.append(Paragraph(f"<b>{titolo}</b>", styles["Heading3"]))
+        if f:
+            info = []
+            if f.get("referente"): info.append(f"c.a. {f['referente']}")
+            if f.get("indirizzo"): info.append(f["indirizzo"])
+            if f.get("email"): info.append(f["email"])
+            if f.get("telefono"): info.append(f"Tel {f['telefono']}")
+            if info:
+                story.append(Paragraph(" · ".join(info), styles["Normal"]))
+        story.append(Spacer(1, 4))
+
+        headers = ["Codice", "Descrizione", "U.M.", "Giacenza", "Scorta min.", "Q.tà ordinata"]
+        data = [headers]
+        articoli.sort(key=lambda a: (a.get("categoria", "") or "", a.get("nome", "")))
+        for a in articoli:
+            qt = float(a.get("quantita", 0))
+            sm = float(a.get("scorta_minima", 0))
+            desc = (a.get("nome", "") or "")
+            if a.get("descrizione"):
+                desc += " — " + a["descrizione"]
+            nota = note_map.get(a["id"], "")
+            if nota:
+                desc += f"  ({nota})"
+            data.append([
+                a.get("codice", "") or "—",
+                desc,
+                a.get("unita_misura", "pz") or "pz",
+                f"{qt:g}",
+                f"{sm:g}",
+                f"{qty_map.get(a['id'], 0):g}",
+            ])
+        t = Table(data, colWidths=[25*mm, 75*mm, 15*mm, 20*mm, 20*mm, 30*mm], repeatRows=1)
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("ALIGN", (3, 1), (-1, -1), "RIGHT"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#cbd5e1")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("BACKGROUND", (5, 1), (5, -1), colors.HexColor("#fef3c7")),
+            ("FONTNAME", (5, 1), (5, -1), "Helvetica-Bold"),
+        ]))
+        story.append(t)
+        story.append(Spacer(1, 10))
+
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        "In attesa di conferma d'ordine con tempi di consegna, si porgono cordiali saluti.",
+        styles["Normal"]))
+    story.append(Spacer(1, 18))
+    story.append(Paragraph(f"<b>{nome_cantiere}</b>", styles["Normal"]))
+    story.append(Paragraph("_______________________________", styles["Normal"]))
+
+    doc.build(story)
+    buf.seek(0)
+    fname = f"ordine_composto_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+    return StreamingResponse(buf, media_type="application/pdf",
+                             headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
 @router.get("/ordine-fornitore.pdf")
