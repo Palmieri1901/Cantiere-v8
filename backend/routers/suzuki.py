@@ -365,7 +365,7 @@ async def _build_listino_pdf(concessionario: bool = False):
 
     styles = getSampleStyleSheet()
     NAVY = colors.HexColor("#0F2A47")
-    ACCENT = colors.HexColor("#B85A3B")
+    ACCENT = colors.HexColor("#C62828")  # rosso per listino concessionario
     LIGHT = colors.HexColor("#F2F4F7")
     BORDER = colors.HexColor("#D0D5DD")
 
@@ -463,7 +463,7 @@ async def _build_listino_pdf(concessionario: bool = False):
         if concessionario:
             # evidenzia colonne concessionario
             style += [
-                ("BACKGROUND", (6, 1), (8, -1), colors.HexColor("#FFF4EE")),
+                ("BACKGROUND", (6, 1), (8, -1), colors.HexColor("#FDECEC")),
                 ("TEXTCOLOR", (8, 1), (8, -1), ACCENT),
                 ("FONTNAME", (8, 1), (8, -1), "Helvetica-Bold"),
                 ("ALIGN", (6, 1), (7, -1), "CENTER"),
