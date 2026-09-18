@@ -346,7 +346,8 @@ function ArticoliTab() {
                       {a.immagine_base64 && <img src={a.immagine_base64} alt="" className="w-8 h-8 rounded object-cover" />}
                       <div>
                         <div>{a.nome}</div>
-                        {a.descrizione && <div className="text-xs text-muted-foreground line-clamp-1 max-w-[280px]">{a.descrizione}</div>}
+                        {/* Descrizione non mostrata sotto il nome nelle liste/preventivi:
+                            la si vede solo nel dettaglio dell'articolo. */}
                       </div>
                     </div>
                   </TableCell>

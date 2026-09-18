@@ -921,8 +921,6 @@ async def ordine_composto_pdf(payload: OrdineComposto):
             qt = float(a.get("quantita", 0))
             sm = float(a.get("scorta_minima", 0))
             desc = (a.get("nome", "") or "")
-            if a.get("descrizione"):
-                desc += " — " + a["descrizione"]
             nota = note_map.get(a["id"], "")
             if nota:
                 desc += f"  ({nota})"
@@ -1038,7 +1036,7 @@ async def ordine_fornitore_pdf(fornitore_id: Optional[str] = None):
             da_ordinare = max(int(sm * 2 - qt + 0.999), int(sm) or 1)
             data.append([
                 d.get("codice", "") or "—",
-                (d.get("nome", "") or "") + ((" — " + d.get("descrizione", "")) if d.get("descrizione") else ""),
+                (d.get("nome", "") or ""),
                 d.get("unita_misura", "pz") or "pz",
                 f"{qt:g}",
                 f"{sm:g}",

@@ -1082,9 +1082,6 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
                               {a.codice && <span className="font-mono text-xs text-muted-foreground mr-1.5">[{a.codice}]</span>}
                               <span className="font-medium">{a.nome}</span>
                             </div>
-                            {a.descrizione && (
-                              <div className="text-[11px] text-muted-foreground truncate">{a.descrizione}</div>
-                            )}
                             <div className="text-[11px] text-muted-foreground/80">
                               {fmtEuro(a.prezzo_listino)}/{a.unita_misura || "pz"} · giac. {a.quantita}
                               {a.categoria && <> · {a.categoria}</>}
