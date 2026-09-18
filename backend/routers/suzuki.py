@@ -4,11 +4,13 @@ import io
 import json
 import os
 import re
+import shutil
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import List, Optional, Dict
 
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi.responses import StreamingResponse, FileResponse
 
 from database import db
 from helpers import serialize
@@ -20,6 +22,79 @@ from models import (
 from routers import suzuki_seed
 
 router = APIRouter(prefix="/suzuki", tags=["Suzuki"])
+
+# ---------------------------------------------------------------------------
+# LOGO INTESTAZIONE PDF (personalizzabile dall'utente)
+# ---------------------------------------------------------------------------
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
+LOGO_PATH = STATIC_DIR / "suzuki_logo.png"
+_ALLOWED_LOGO_MIME = {"image/png": ".png", "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/webp": ".webp"}
+
+
+def _logo_flowable(max_w_mm: float, max_h_mm: float):
+    """Restituisce un `Image` reportlab del logo mantenendo le proporzioni, oppure None."""
+    if not LOGO_PATH.exists():
+        return None
+    try:
+        from reportlab.lib.units import mm
+        from reportlab.platypus import Image as RLImage
+        from PIL import Image as PILImage
+        with PILImage.open(LOGO_PATH) as im:
+            w, h = im.size
+        if not w or not h:
+            return None
+        ratio = w / h
+        max_w = max_w_mm * mm
+        max_h = max_h_mm * mm
+        # scala prima sulla larghezza, poi vincola all'altezza
+        target_w = max_w
+        target_h = target_w / ratio
+        if target_h > max_h:
+            target_h = max_h
+            target_w = target_h * ratio
+        return RLImage(str(LOGO_PATH), width=target_w, height=target_h)
+    except Exception:
+        return None
+
+
+@router.get("/logo")
+async def get_logo():
+    """Serve il logo corrente per il preview in UI (o 404 se non presente)."""
+    if not LOGO_PATH.exists():
+        raise HTTPException(404, "Logo non impostato")
+    return FileResponse(str(LOGO_PATH), media_type="image/png")
+
+
+@router.post("/logo")
+async def upload_logo(file: UploadFile = File(...)):
+    """Sostituisce il logo di intestazione dei PDF Suzuki."""
+    ctype = (file.content_type or "").lower()
+    if ctype not in _ALLOWED_LOGO_MIME:
+        raise HTTPException(400, f"Formato non supportato: {ctype}. Usa PNG, JPG o WebP.")
+    data = await file.read()
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(400, "File troppo grande (max 5 MB).")
+    # normalizza sempre in PNG per uniformità
+    try:
+        from PIL import Image as PILImage
+        with PILImage.open(io.BytesIO(data)) as im:
+            im = im.convert("RGBA")
+            w, h = im.size
+            if w > 1600:
+                im = im.resize((1600, int(h * 1600 / w)))
+            im.save(LOGO_PATH, "PNG", optimize=True)
+    except Exception as e:
+        raise HTTPException(400, f"Immagine non valida: {e}")
+    return {"ok": True, "size": LOGO_PATH.stat().st_size}
+
+
+@router.delete("/logo")
+async def reset_logo():
+    """Rimuove il logo personalizzato (i PDF torneranno senza logo)."""
+    if LOGO_PATH.exists():
+        LOGO_PATH.unlink()
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------
@@ -136,13 +211,26 @@ async def listino_pdf():
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=12*mm, bottomMargin=12*mm)
 
-    story = [
-        Paragraph("<b>SUZUKI MARINE — Listino Gamma Fuoribordo 2025-2026</b>",
-                  ParagraphStyle("t", parent=styles["Heading1"], fontSize=15, textColor=NAVY, spaceAfter=2)),
-        Paragraph("GEB di Palmieri Sandro · Concessionario Suzuki Marine",
-                  ParagraphStyle("s", parent=styles["Normal"], fontSize=9, textColor=colors.grey)),
-        Spacer(1, 8),
-    ]
+    story = []
+    logo = _logo_flowable(max_w_mm=42, max_h_mm=22)
+    header_title = Paragraph("<b>SUZUKI MARINE — Listino Gamma Fuoribordo 2025-2026</b>",
+                             ParagraphStyle("t", parent=styles["Heading1"], fontSize=14, textColor=NAVY, spaceAfter=2))
+    header_sub = Paragraph("GEB di Palmieri Sandro · Concessionario Suzuki Marine",
+                           ParagraphStyle("s", parent=styles["Normal"], fontSize=9, textColor=colors.grey))
+    if logo:
+        head = Table([[logo, [header_title, header_sub]]], colWidths=[46*mm, 140*mm])
+        head.setStyle(TableStyle([
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+            ("LEFTPADDING", (0,0), (-1,-1), 0),
+            ("RIGHTPADDING", (0,0), (-1,-1), 0),
+            ("TOPPADDING", (0,0), (-1,-1), 0),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 0),
+        ]))
+        story.append(head)
+    else:
+        story.append(header_title)
+        story.append(header_sub)
+    story.append(Spacer(1, 8))
 
     # Raggruppa per categoria
     gruppi: Dict[str, List[dict]] = {}
@@ -217,13 +305,26 @@ async def caratteristiche_pdf():
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=10*mm, rightMargin=10*mm, topMargin=12*mm, bottomMargin=12*mm)
 
-    story = [
-        Paragraph("<b>SUZUKI MARINE — Caratteristiche Tecniche Gamma 2025-2026</b>",
-                  ParagraphStyle("t", parent=styles["Heading1"], fontSize=14, textColor=NAVY, spaceAfter=2)),
-        Paragraph("GEB di Palmieri Sandro · Concessionario Suzuki Marine",
-                  ParagraphStyle("s", parent=styles["Normal"], fontSize=9, textColor=colors.grey)),
-        Spacer(1, 8),
-    ]
+    story = []
+    logo = _logo_flowable(max_w_mm=42, max_h_mm=22)
+    header_title = Paragraph("<b>SUZUKI MARINE — Caratteristiche Tecniche Gamma 2025-2026</b>",
+                             ParagraphStyle("t", parent=styles["Heading1"], fontSize=13, textColor=NAVY, spaceAfter=2))
+    header_sub = Paragraph("GEB di Palmieri Sandro · Concessionario Suzuki Marine",
+                           ParagraphStyle("s", parent=styles["Normal"], fontSize=9, textColor=colors.grey))
+    if logo:
+        head = Table([[logo, [header_title, header_sub]]], colWidths=[46*mm, 144*mm])
+        head.setStyle(TableStyle([
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+            ("LEFTPADDING", (0,0), (-1,-1), 0),
+            ("RIGHTPADDING", (0,0), (-1,-1), 0),
+            ("TOPPADDING", (0,0), (-1,-1), 0),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 0),
+        ]))
+        story.append(head)
+    else:
+        story.append(header_title)
+        story.append(header_sub)
+    story.append(Spacer(1, 8))
 
     gruppi: Dict[str, List[dict]] = {}
     for d in docs:
@@ -553,11 +654,27 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
     story = []
 
     # HEADER
-    left = [
-        Paragraph("<b>GEB di Palmieri Sandro</b>", st_val),
+    left_text = [
         Paragraph("VIA DEGLI ARTIGIANI, 1 · 57034 CAMPO NELL'ELBA (LI)", st_sub),
         Paragraph("Tel. 347 260 08 72 · info@genbnautica.it · www.genbnautica.it", st_sub),
     ]
+    logo = _logo_flowable(max_w_mm=44, max_h_mm=22)
+    if logo:
+        left_block = Table([[logo], [left_text]], colWidths=[110*mm])
+        left_block.setStyle(TableStyle([
+            ("VALIGN", (0,0), (-1,-1), "TOP"),
+            ("LEFTPADDING", (0,0), (-1,-1), 0),
+            ("RIGHTPADDING", (0,0), (-1,-1), 0),
+            ("TOPPADDING", (0,0), (-1,-1), 0),
+            ("BOTTOMPADDING", (0,0), (0,0), 2),
+            ("BOTTOMPADDING", (0,1), (-1,-1), 0),
+        ]))
+        left = left_block
+    else:
+        left = [
+            Paragraph("<b>GEB di Palmieri Sandro</b>", st_val),
+            *left_text,
+        ]
     data_it = "—"
     try:
         d = datetime.fromisoformat((p.data or "")[:10])
