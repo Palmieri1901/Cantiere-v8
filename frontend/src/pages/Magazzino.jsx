@@ -2254,16 +2254,34 @@ function ComponiOrdineDialog({ open, onOpenChange, articoli, fornitori }) {
     setDownloading(true);
     try {
       const payload = { items: items.map((i) => ({ articolo_id: i.articolo_id, quantita: Number(i.quantita) || 0, nota: i.nota || "" })), note };
-      const res = await api.post("/magazzino/ordine/componi-pdf", payload, { responseType: "blob" });
-      const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+      const res = await api.post("/magazzino/ordine/componi-pdf", payload, {
+        responseType: "blob",
+        timeout: 120000,
+      });
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      // Metodo download più robusto (compatibile con più browser)
       const a = document.createElement("a");
       a.href = url;
       a.download = `ordine_composto_${new Date().toISOString().slice(0, 10)}.pdf`;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
       toast.success("PDF ordine generato");
     } catch (e) {
-      toast.error(e.response?.data?.detail || "Errore generazione PDF");
+      // Il server può restituire l'errore come Blob JSON (perché responseType=blob)
+      let msg = "Errore generazione PDF";
+      const data = e?.response?.data;
+      if (data && typeof data.text === "function") {
+        try { const txt = await data.text(); const j = JSON.parse(txt); msg = j.detail || msg; }
+        catch { /* keep default */ }
+      } else if (typeof data?.detail === "string") {
+        msg = data.detail;
+      } else if (e?.message) {
+        msg = e.message;
+      }
+      toast.error(msg);
     } finally {
       setDownloading(false);
     }
