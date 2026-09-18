@@ -107,6 +107,21 @@ function ModelliTab() {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Cerca per modello, codice, categoria…" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" data-testid="input-search-modelli" />
         </div>
+        <Button variant="outline" onClick={async () => {
+          try {
+            const r = await api.post("/suzuki/seed-listino-2025-2026");
+            toast.success(`Listino 2025-2026 popolato · ${r.data.created} nuovi, ${r.data.updated} aggiornati`);
+            load();
+          } catch (e) { toast.error(e.response?.data?.detail || "Errore seed listino"); }
+        }} data-testid="btn-seed-listino">
+          <Download className="w-4 h-4 mr-2" /> Popola listino 2025-2026
+        </Button>
+        <Button variant="outline" onClick={() => window.open(`${API}/suzuki/listino.pdf`, "_blank")} data-testid="btn-pdf-listino">
+          <FileText className="w-4 h-4 mr-2" /> PDF Listino
+        </Button>
+        <Button variant="outline" onClick={() => window.open(`${API}/suzuki/caratteristiche.pdf`, "_blank")} data-testid="btn-pdf-caratt">
+          <FileText className="w-4 h-4 mr-2" /> PDF Caratteristiche
+        </Button>
         <Button variant="outline" onClick={() => setImportOpen(true)} data-testid="btn-import-ai">
           <Sparkles className="w-4 h-4 mr-2" /> Importa listino con AI
         </Button>

@@ -749,7 +749,9 @@ class SuzukiModello(BaseModel):
     comandi: Optional[str] = ""                   # "a distanza" / "da barra"
     alternatore_A: Optional[float] = 0
     categoria: Optional[str] = ""                 # es. "Portable" / "Mid range" / "V6"
-    prezzo_listino: float = 0                     # € IVA esclusa, come da listino Suzuki
+    prezzo_listino: float = 0                     # € IVA esclusa, prezzo concessionario
+    prezzo_pubblico: Optional[float] = 0          # € IVA inclusa, prezzo di listino pubblico
+    carburante: Optional[str] = ""                # es. "91 (87 RON US)"
     sconto_perc_1: Optional[float] = 0            # primo sconto es. 10%
     sconto_perc_2: Optional[float] = 0            # secondo sconto es. 5%
     note: Optional[str] = ""
@@ -772,6 +774,8 @@ class SuzukiModelloCreate(BaseModel):
     alternatore_A: Optional[float] = 0
     categoria: Optional[str] = ""
     prezzo_listino: Optional[float] = 0
+    prezzo_pubblico: Optional[float] = 0
+    carburante: Optional[str] = ""
     sconto_perc_1: Optional[float] = 0
     sconto_perc_2: Optional[float] = 0
     note: Optional[str] = ""
@@ -792,6 +796,8 @@ class SuzukiModelloUpdate(BaseModel):
     alternatore_A: Optional[float] = None
     categoria: Optional[str] = None
     prezzo_listino: Optional[float] = None
+    prezzo_pubblico: Optional[float] = None
+    carburante: Optional[str] = None
     sconto_perc_1: Optional[float] = None
     sconto_perc_2: Optional[float] = None
     note: Optional[str] = None

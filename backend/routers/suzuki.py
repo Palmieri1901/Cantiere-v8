@@ -5,7 +5,7 @@ import json
 import os
 import re
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -17,6 +17,7 @@ from models import (
     SuzukiPreventivo, SuzukiPreventivoCreate,
     SuzukiImportRequest, SuzukiBulkCreate,
 )
+from routers import suzuki_seed
 
 router = APIRouter(prefix="/suzuki", tags=["Suzuki"])
 
@@ -90,6 +91,184 @@ async def bulk_create_modelli(payload: SuzukiBulkCreate):
         await db.suzuki_modelli.insert_one(serialize(m))
         created.append(m)
     return created
+
+
+@router.post("/seed-listino-2025-2026")
+async def seed_listino():
+    """Popola il DB con i 61 modelli ufficiali del Listino Suzuki Marine 2025-2026
+    (prezzo concessionario IVA escl., prezzo pubblico IVA incl., specifiche tecniche).
+    Aggiorna quelli esistenti (match per `modello`) e crea i mancanti."""
+    rows = suzuki_seed.build_seed_rows()
+    created, updated = 0, 0
+    for r in rows:
+        existing = await db.suzuki_modelli.find_one({"modello": r["modello"]}, {"_id": 0})
+        if existing:
+            merged = {**existing, **r, "updated_at": datetime.now(timezone.utc)}
+            m = SuzukiModello(**merged)
+            await db.suzuki_modelli.update_one({"id": existing["id"]}, {"$set": serialize(m)})
+            updated += 1
+        else:
+            m = SuzukiModello(**r)
+            await db.suzuki_modelli.insert_one(serialize(m))
+            created += 1
+    return {"ok": True, "created": created, "updated": updated, "total": len(rows)}
+
+
+@router.get("/listino.pdf")
+async def listino_pdf():
+    """PDF ufficiale del listino gamma Suzuki Marine, raggruppato per categoria HP."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_RIGHT, TA_CENTER
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+
+    docs = await db.suzuki_modelli.find({}, {"_id": 0}).sort([("potenza_hp", 1), ("modello", 1)]).to_list(1000)
+    if not docs:
+        raise HTTPException(400, "Nessun modello in catalogo. Popola prima il listino.")
+
+    styles = getSampleStyleSheet()
+    NAVY = colors.HexColor("#0F2A47")
+    LIGHT = colors.HexColor("#F2F4F7")
+    BORDER = colors.HexColor("#D0D5DD")
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=12*mm, bottomMargin=12*mm)
+
+    story = [
+        Paragraph("<b>SUZUKI MARINE — Listino Gamma Fuoribordo 2025-2026</b>",
+                  ParagraphStyle("t", parent=styles["Heading1"], fontSize=15, textColor=NAVY, spaceAfter=2)),
+        Paragraph("GEB di Palmieri Sandro · Concessionario Suzuki Marine",
+                  ParagraphStyle("s", parent=styles["Normal"], fontSize=9, textColor=colors.grey)),
+        Spacer(1, 8),
+    ]
+
+    # Raggruppa per categoria
+    gruppi: Dict[str, List[dict]] = {}
+    for d in docs:
+        gruppi.setdefault(d.get("categoria") or "Altro", []).append(d)
+    ordine_cat = ["Portatile", "In-linea 2", "In-linea 3", "In-linea 4", "V6", "V6 Flagship", "Altro"]
+
+    for cat in [c for c in ordine_cat if c in gruppi]:
+        rows = sorted(gruppi[cat], key=lambda x: (x.get("potenza_hp") or 0, x.get("modello") or ""))
+        story.append(Paragraph(f"<b>{cat.upper()}</b>",
+                               ParagraphStyle("cat", parent=styles["Heading3"], fontSize=11, textColor=NAVY, spaceBefore=6, spaceAfter=4)))
+        head = ["Modello", "HP", "Cilindrata", "Gambo", "Peso", "Listino € (IVA escl.)", "Pubblico € (IVA incl.)"]
+        data = [head]
+        for r in rows:
+            data.append([
+                r.get("modello", ""),
+                f"{r.get('potenza_hp',0):g}",
+                f"{r.get('cilindrata_cc',0):g} cc" if r.get("cilindrata_cc") else "—",
+                r.get("gambo", "") or "—",
+                f"{r.get('peso_kg',0):g} kg" if r.get("peso_kg") else "—",
+                _fmt_eur(r.get("prezzo_listino", 0)) if r.get("prezzo_listino") else "—",
+                _fmt_eur(r.get("prezzo_pubblico", 0)) if r.get("prezzo_pubblico") else "—",
+            ])
+        t = Table(data, colWidths=[38*mm, 12*mm, 22*mm, 22*mm, 16*mm, 38*mm, 38*mm], repeatRows=1)
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), NAVY),
+            ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+            ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+            ("FONTSIZE", (0,0), (-1,-1), 8.5),
+            ("ALIGN", (1,1), (-1,-1), "CENTER"),
+            ("ALIGN", (5,1), (-1,-1), "RIGHT"),
+            ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, LIGHT]),
+            ("GRID", (0,0), (-1,-1), 0.25, BORDER),
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+            ("LEFTPADDING", (0,0), (-1,-1), 5),
+            ("RIGHTPADDING", (0,0), (-1,-1), 5),
+            ("TOPPADDING", (0,0), (-1,-1), 3),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+        ]))
+        story.append(t)
+
+    story.append(Spacer(1, 8))
+    story.append(Paragraph(
+        "<i>Prezzi Suzuki Italia validi dal listino 2025-2026 salvo variazioni. "
+        "Il prezzo IVA inclusa è indicativo per il cliente finale; il concessionario applica le proprie condizioni.</i>",
+        ParagraphStyle("note", parent=styles["Normal"], fontSize=8, textColor=colors.grey)))
+
+    doc.build(story)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/pdf",
+                             headers={"Content-Disposition": 'inline; filename="listino_suzuki_2025-2026.pdf"'})
+
+
+@router.get("/caratteristiche.pdf")
+async def caratteristiche_pdf():
+    """PDF caratteristiche tecniche della gamma Suzuki Marine, raggruppato per categoria."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+
+    docs = await db.suzuki_modelli.find({}, {"_id": 0}).sort([("potenza_hp", 1), ("modello", 1)]).to_list(1000)
+    if not docs:
+        raise HTTPException(400, "Nessun modello in catalogo. Popola prima il listino.")
+
+    styles = getSampleStyleSheet()
+    NAVY = colors.HexColor("#0F2A47")
+    LIGHT = colors.HexColor("#F2F4F7")
+    BORDER = colors.HexColor("#D0D5DD")
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=10*mm, rightMargin=10*mm, topMargin=12*mm, bottomMargin=12*mm)
+
+    story = [
+        Paragraph("<b>SUZUKI MARINE — Caratteristiche Tecniche Gamma 2025-2026</b>",
+                  ParagraphStyle("t", parent=styles["Heading1"], fontSize=14, textColor=NAVY, spaceAfter=2)),
+        Paragraph("GEB di Palmieri Sandro · Concessionario Suzuki Marine",
+                  ParagraphStyle("s", parent=styles["Normal"], fontSize=9, textColor=colors.grey)),
+        Spacer(1, 8),
+    ]
+
+    gruppi: Dict[str, List[dict]] = {}
+    for d in docs:
+        gruppi.setdefault(d.get("categoria") or "Altro", []).append(d)
+    ordine_cat = ["Portatile", "In-linea 2", "In-linea 3", "In-linea 4", "V6", "V6 Flagship", "Altro"]
+
+    for cat in [c for c in ordine_cat if c in gruppi]:
+        rows = sorted(gruppi[cat], key=lambda x: (x.get("potenza_hp") or 0, x.get("modello") or ""))
+        story.append(Paragraph(f"<b>{cat.upper()}</b>",
+                               ParagraphStyle("cat", parent=styles["Heading3"], fontSize=11, textColor=NAVY, spaceBefore=6, spaceAfter=4)))
+        head = ["Modello", "HP", "Cilindrata", "Cilindri", "Alimentazione", "Peso", "Gambo", "Carburante"]
+        data = [head]
+        for r in rows:
+            data.append([
+                r.get("modello", ""),
+                f"{r.get('potenza_hp',0):g}",
+                f"{r.get('cilindrata_cc',0):g} cc" if r.get("cilindrata_cc") else "—",
+                r.get("cilindri", "") or "—",
+                r.get("alimentazione", "") or "—",
+                f"{r.get('peso_kg',0):g} kg" if r.get("peso_kg") else "—",
+                r.get("gambo", "") or "—",
+                r.get("carburante", "") or "—",
+            ])
+        t = Table(data, colWidths=[30*mm, 11*mm, 21*mm, 40*mm, 32*mm, 15*mm, 20*mm, 21*mm], repeatRows=1)
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), NAVY),
+            ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+            ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+            ("FONTSIZE", (0,0), (-1,-1), 7.8),
+            ("ALIGN", (1,1), (2,-1), "CENTER"),
+            ("ALIGN", (5,1), (7,-1), "CENTER"),
+            ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, LIGHT]),
+            ("GRID", (0,0), (-1,-1), 0.25, BORDER),
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+            ("LEFTPADDING", (0,0), (-1,-1), 4),
+            ("RIGHTPADDING", (0,0), (-1,-1), 4),
+            ("TOPPADDING", (0,0), (-1,-1), 3),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+        ]))
+        story.append(t)
+
+    doc.build(story)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/pdf",
+                             headers={"Content-Disposition": 'inline; filename="caratteristiche_suzuki_2025-2026.pdf"'})
 
 
 # ---------------------------------------------------------------------------
