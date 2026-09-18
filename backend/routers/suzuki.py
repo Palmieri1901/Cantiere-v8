@@ -18,6 +18,7 @@ from models import (
     SuzukiModello, SuzukiModelloCreate, SuzukiModelloUpdate,
     SuzukiPreventivo, SuzukiPreventivoCreate,
     SuzukiImportRequest, SuzukiBulkCreate,
+    SuzukiLegendaVoce, SuzukiLegendaVoceCreate, SuzukiLegendaVoceUpdate,
 )
 from routers import suzuki_seed
 
@@ -95,6 +96,153 @@ async def reset_logo():
     if LOGO_PATH.exists():
         LOGO_PATH.unlink()
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# LEGENDA SIGLE (editabile, integrata in ogni PDF)
+# ---------------------------------------------------------------------------
+GRUPPO_LUNGHEZZA = "Lunghezza piede e avviamento"
+GRUPPO_COMANDO = "Comando, tilt e linea"
+DEFAULT_LEGENDA = [
+    {"sigla": "S", "significato": "corto (mm 381)", "gruppo": GRUPPO_LUNGHEZZA, "ordine": 10},
+    {"sigla": "L", "significato": "lungo (mm 508)", "gruppo": GRUPPO_LUNGHEZZA, "ordine": 20},
+    {"sigla": "X", "significato": "extra lungo (mm 635)", "gruppo": GRUPPO_LUNGHEZZA, "ordine": 30},
+    {"sigla": "XX", "significato": "ultra lungo (mm 762)", "gruppo": GRUPPO_LUNGHEZZA, "ordine": 40},
+    {"sigla": "E", "significato": "avviamento elettrico", "gruppo": GRUPPO_LUNGHEZZA, "ordine": 50},
+    {"sigla": "R", "significato": "scatola telecomando a paratia / avv. elettrico", "gruppo": GRUPPO_LUNGHEZZA, "ordine": 60},
+    {"sigla": "T", "significato": "power trim e tilt", "gruppo": GRUPPO_LUNGHEZZA, "ordine": 70},
+    {"sigla": "H", "significato": "barra di guida", "gruppo": GRUPPO_LUNGHEZZA, "ordine": 80},
+    {"sigla": "Q", "significato": "tilt a gas", "gruppo": GRUPPO_COMANDO, "ordine": 110},
+    {"sigla": "Z", "significato": "versione controrotante", "gruppo": GRUPPO_COMANDO, "ordine": 120},
+    {"sigla": "TH", "significato": "tilt, guida a barra", "gruppo": GRUPPO_COMANDO, "ordine": 130},
+    {"sigla": "G", "significato": "telecomando elettronico", "gruppo": GRUPPO_COMANDO, "ordine": 140},
+    {"sigla": "AP", "significato": "telecomando elettronico, piede selettivo", "gruppo": GRUPPO_COMANDO, "ordine": 150},
+    {"sigla": "BARRA", "significato": "barra di guida", "gruppo": GRUPPO_COMANDO, "ordine": 160},
+    {"sigla": "SL", "significato": "Stealth Line, colorazione nero mat", "gruppo": GRUPPO_COMANDO, "ordine": 170},
+]
+
+
+async def _seed_legenda_if_empty():
+    count = await db.suzuki_legenda.count_documents({})
+    if count == 0:
+        for v in DEFAULT_LEGENDA:
+            voce = SuzukiLegendaVoce(**v)
+            await db.suzuki_legenda.insert_one(serialize(voce))
+
+
+@router.get("/legenda", response_model=List[SuzukiLegendaVoce])
+async def list_legenda():
+    await _seed_legenda_if_empty()
+    docs = await db.suzuki_legenda.find({}, {"_id": 0}).sort([("ordine", 1), ("sigla", 1)]).to_list(500)
+    return [SuzukiLegendaVoce(**d) for d in docs]
+
+
+@router.post("/legenda", response_model=SuzukiLegendaVoce)
+async def create_legenda(payload: SuzukiLegendaVoceCreate):
+    voce = SuzukiLegendaVoce(**payload.model_dump())
+    await db.suzuki_legenda.insert_one(serialize(voce))
+    return voce
+
+
+@router.put("/legenda/{vid}", response_model=SuzukiLegendaVoce)
+async def update_legenda(vid: str, payload: SuzukiLegendaVoceUpdate):
+    doc = await db.suzuki_legenda.find_one({"id": vid}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Voce non trovata")
+    upd = {k: v for k, v in payload.model_dump().items() if v is not None}
+    upd["updated_at"] = datetime.now(timezone.utc)
+    new_doc = {**doc, **upd}
+    voce = SuzukiLegendaVoce(**new_doc)
+    await db.suzuki_legenda.update_one({"id": vid}, {"$set": serialize(voce)})
+    return voce
+
+
+@router.delete("/legenda/{vid}")
+async def delete_legenda(vid: str):
+    res = await db.suzuki_legenda.delete_one({"id": vid})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Voce non trovata")
+    return {"ok": True}
+
+
+@router.post("/legenda/reset-defaults")
+async def reset_legenda_defaults():
+    """Ripristina la legenda ai valori originali (elimina tutte le voci correnti)."""
+    await db.suzuki_legenda.delete_many({})
+    for v in DEFAULT_LEGENDA:
+        voce = SuzukiLegendaVoce(**v)
+        await db.suzuki_legenda.insert_one(serialize(voce))
+    return {"ok": True, "count": len(DEFAULT_LEGENDA)}
+
+
+async def _legenda_flowables(avail_width_mm: float = 182, compact: bool = False):
+    """Genera i flowables per stampare la legenda in fondo ai PDF."""
+    await _seed_legenda_if_empty()
+    voci = await db.suzuki_legenda.find({}, {"_id": 0}).sort([("ordine", 1), ("sigla", 1)]).to_list(500)
+    if not voci:
+        return []
+    from collections import OrderedDict
+    from reportlab.platypus import Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+
+    NAVY = colors.HexColor("#0F2A47")
+    LIGHT = colors.HexColor("#F2F4F7")
+    BORDER = colors.HexColor("#D0D5DD")
+
+    styles = getSampleStyleSheet()
+    sz = 7 if compact else 8.5
+    sz_h = 8 if compact else 9.5
+    st_sig = ParagraphStyle("lg_sig", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=sz, leading=sz + 2)
+    st_val = ParagraphStyle("lg_val", parent=styles["Normal"], fontSize=sz, leading=sz + 2)
+    st_grp = ParagraphStyle("lg_grp", parent=styles["Normal"], fontName="Helvetica-Bold",
+                            fontSize=sz_h, leading=sz_h + 2, textColor=colors.white)
+
+    gruppi = OrderedDict()
+    for v in voci:
+        gruppi.setdefault(v.get("gruppo") or "Legenda sigle", []).append(v)
+
+    aw = avail_width_mm * mm
+    sigw = (15 if compact else 18) * mm
+    valw = (aw - 2 * sigw) / 2
+
+    out = []
+    for gruppo, items in gruppi.items():
+        title = f"LEGENDA SIGLE — {gruppo.upper()}"
+        header = Table([[Paragraph(title, st_grp)]], colWidths=[aw])
+        header.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), NAVY),
+            ("TOPPADDING", (0, 0), (-1, -1), 2 if compact else 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2 if compact else 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8 if compact else 10),
+        ]))
+        out.append(header)
+        rows = []
+        for i in range(0, len(items), 2):
+            left = items[i]
+            right = items[i + 1] if i + 1 < len(items) else None
+            rows.append([
+                Paragraph(left["sigla"], st_sig),
+                Paragraph(left["significato"], st_val),
+                Paragraph(right["sigla"] if right else "", st_sig),
+                Paragraph(right["significato"] if right else "", st_val),
+            ])
+        t = Table(rows, colWidths=[sigw, valw, sigw, valw])
+        t.setStyle(TableStyle([
+            ("BOX", (0, 0), (-1, -1), 0.3, BORDER),
+            ("INNERGRID", (0, 0), (-1, -1), 0.2, BORDER),
+            ("BACKGROUND", (0, 0), (0, -1), LIGHT),
+            ("BACKGROUND", (2, 0), (2, -1), LIGHT),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5 if compact else 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 5 if compact else 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 1.5 if compact else 2.5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5 if compact else 2.5),
+        ]))
+        out.append(t)
+        out.append(Spacer(1, 3 if compact else 6))
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -278,6 +426,11 @@ async def listino_pdf():
         "Il prezzo IVA inclusa è indicativo per il cliente finale; il concessionario applica le proprie condizioni.</i>",
         ParagraphStyle("note", parent=styles["Normal"], fontSize=8, textColor=colors.grey)))
 
+    # Legenda sigle
+    story.append(Spacer(1, 8))
+    for f in await _legenda_flowables(avail_width_mm=186, compact=False):
+        story.append(f)
+
     doc.build(story)
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/pdf",
@@ -365,6 +518,11 @@ async def caratteristiche_pdf():
             ("BOTTOMPADDING", (0,0), (-1,-1), 3),
         ]))
         story.append(t)
+
+    # Legenda sigle
+    story.append(Spacer(1, 8))
+    for f in await _legenda_flowables(avail_width_mm=190, compact=False):
+        story.append(f)
 
     doc.build(story)
     buf.seek(0)
@@ -877,6 +1035,10 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
     if p.note:
         story.append(Paragraph(f"<b>Note:</b> {p.note}", st_row))
         story.append(Spacer(1, 6))
+
+    # LEGENDA SIGLE (compatta)
+    for f in await _legenda_flowables(avail_width_mm=182, compact=True):
+        story.append(f)
 
     # FOOTER — condizioni + firma
     condizioni = [

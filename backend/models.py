@@ -880,3 +880,29 @@ class SuzukiImportRequest(BaseModel):
 
 class SuzukiBulkCreate(BaseModel):
     modelli: List[SuzukiModelloCreate]
+
+
+class SuzukiLegendaVoce(BaseModel):
+    """Voce della legenda delle sigle motori Suzuki (editabile dall'utente)."""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    sigla: str
+    significato: str
+    gruppo: Optional[str] = ""
+    ordine: int = 0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class SuzukiLegendaVoceCreate(BaseModel):
+    sigla: str
+    significato: str
+    gruppo: Optional[str] = ""
+    ordine: Optional[int] = 0
+
+
+class SuzukiLegendaVoceUpdate(BaseModel):
+    sigla: Optional[str] = None
+    significato: Optional[str] = None
+    gruppo: Optional[str] = None
+    ordine: Optional[int] = None

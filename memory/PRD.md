@@ -1,8 +1,9 @@
 # PRD — Portomare: Gestione Cantiere Nautico
 
 ## Changelog
-- **2026-02-15** — Logo intestazione PDF Suzuki: aggiunto logo G.E.B. Nautica + Suzuki come header su tutti e 3 i PDF (Preventivo, Listino, Caratteristiche). Endpoint `GET/POST/DELETE /api/suzuki/logo` per personalizzarlo, con dialog frontend "Logo PDF" (preview + upload + remove). Logo stored in `/app/backend/static/suzuki_logo.png`, normalizzato in PNG lato server, max 5 MB.
-- **2026-02-15** — PDF Preventivo Suzuki: dettagli tecnici motore ora renderizzati come **scheda tecnica a griglia 3×3** (Cilindri · Cilindrata · Alimentazione · Peso · Gambo · Trim · Avviamento · Alternatore · Carburante) anziché fila di codici. Snapshot dei campi tecnici strutturati salvato sul preventivo (`SuzukiPreventivo` esteso). Fallback automatico al catalogo per preventivi legacy. Frontend: sostituita la textarea "Specifiche" con 9 campi strutturati modificabili.
+- **2026-02-15** — Legenda sigle motori Suzuki: nuova collezione MongoDB `suzuki_legenda` con 15 voci di default (auto-seed al primo accesso). CRUD completo via `GET/POST/PUT/DELETE /api/suzuki/legenda` + `POST /api/suzuki/legenda/reset-defaults`. La legenda viene stampata automaticamente su Preventivo (compatta), Listino e Caratteristiche (estesa). Nuovo tab **"Legenda sigle"** nella pagina Suzuki con tabella editabile per gruppo (Lunghezza piede e avviamento / Comando, tilt e linea / Altro).
+- **2026-02-15** — Logo intestazione PDF Suzuki personalizzabile (vedi voce precedente).
+- **2026-02-15** — PDF Preventivo Suzuki: scheda tecnica motore a griglia 3×3 (vedi voce precedente).
 
 
 
