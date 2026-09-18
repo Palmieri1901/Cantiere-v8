@@ -819,7 +819,18 @@ class SuzukiPreventivo(BaseModel):
     codice: Optional[str] = ""
     modello: str = ""
     potenza_hp: Optional[float] = 0
-    specifiche: Optional[str] = ""                # riepilogo tecnico (cilindri, cilindrata, peso, gambo…)
+    specifiche: Optional[str] = ""                # riepilogo tecnico legacy (compatibilità)
+    # snapshot campi tecnici strutturati (per rendering PDF a colonne)
+    cilindri: Optional[str] = ""
+    cilindrata_cc: Optional[float] = 0
+    alimentazione: Optional[str] = ""
+    peso_kg: Optional[float] = 0
+    avviamento: Optional[str] = ""
+    gambo: Optional[str] = ""
+    trim: Optional[str] = ""
+    comandi: Optional[str] = ""
+    alternatore_A: Optional[float] = 0
+    carburante: Optional[str] = ""
     # prezzi
     prezzo_listino: float = 0
     sconto_perc_1: float = 0
@@ -842,6 +853,16 @@ class SuzukiPreventivoCreate(BaseModel):
     modello: str
     potenza_hp: Optional[float] = 0
     specifiche: Optional[str] = ""
+    cilindri: Optional[str] = ""
+    cilindrata_cc: Optional[float] = 0
+    alimentazione: Optional[str] = ""
+    peso_kg: Optional[float] = 0
+    avviamento: Optional[str] = ""
+    gambo: Optional[str] = ""
+    trim: Optional[str] = ""
+    comandi: Optional[str] = ""
+    alternatore_A: Optional[float] = 0
+    carburante: Optional[str] = ""
     prezzo_listino: float
     sconto_perc_1: Optional[float] = 0
     sconto_perc_2: Optional[float] = 0

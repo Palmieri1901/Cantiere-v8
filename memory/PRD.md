@@ -1,5 +1,9 @@
 # PRD — Portomare: Gestione Cantiere Nautico
 
+## Changelog
+- **2026-02-15** — PDF Preventivo Suzuki: dettagli tecnici motore ora renderizzati come **scheda tecnica a griglia 3×3** (Cilindri · Cilindrata · Alimentazione · Peso · Gambo · Trim · Avviamento · Alternatore · Carburante) anziché fila di codici. Snapshot dei campi tecnici strutturati salvato sul preventivo (`SuzukiPreventivo` esteso). Fallback automatico al catalogo per preventivi legacy. Frontend: sostituita la textarea "Specifiche" con 9 campi strutturati modificabili.
+
+
 ## Problem Statement (Original, IT)
 "Una app di gestione clienti per un cantiere nautico
 Nome, cognome, tipo di barca e lunghezza,

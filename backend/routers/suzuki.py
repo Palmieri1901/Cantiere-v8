@@ -482,7 +482,7 @@ async def preview_pdf(payload: SuzukiPreventivoCreate):
     if not data.get("numero"):
         data["numero"] = "ANTEPRIMA"
     prev = SuzukiPreventivo(**data)
-    pdf_bytes = _build_pdf(prev)
+    pdf_bytes = await _build_pdf(prev)
     return StreamingResponse(io.BytesIO(pdf_bytes), media_type="application/pdf")
 
 
@@ -492,7 +492,7 @@ async def get_preventivo_pdf(pid: str):
     if not doc:
         raise HTTPException(404, "Preventivo non trovato")
     prev = SuzukiPreventivo(**doc)
-    pdf_bytes = _build_pdf(prev)
+    pdf_bytes = await _build_pdf(prev)
     filename = f"preventivo_suzuki_{prev.numero or prev.id}.pdf"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
@@ -510,7 +510,7 @@ def _fmt_eur(v: float) -> str:
     return f"{s} €"
 
 
-def _build_pdf(p: SuzukiPreventivo) -> bytes:
+async def _build_pdf(p: SuzukiPreventivo) -> bytes:
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
@@ -618,27 +618,91 @@ def _build_pdf(p: SuzukiPreventivo) -> bytes:
 
     # MODELLO + SPECIFICHE
     story.append(section_header("MODELLO SUZUKI"))
-    specs = []
-    if p.codice:
-        specs.append(("Codice articolo", p.codice))
-    specs.append(("Modello", p.modello or "—"))
-    if p.potenza_hp:
-        specs.append(("Potenza", f"{p.potenza_hp:g} HP"))
-    if p.specifiche:
-        specs.append(("Dettagli tecnici", p.specifiche))
-    specs_rows = [[Paragraph(k, st_row), Paragraph(v, st_row_bold)] for k, v in specs]
-    tspecs = Table(specs_rows, colWidths=[45*mm, 137*mm])
-    tspecs.setStyle(TableStyle([
+
+    # Fallback: se lo snapshot tecnico è vuoto ma abbiamo modello_id, prendi dal catalogo
+    def _has_snapshot(pv: SuzukiPreventivo) -> bool:
+        return any([
+            pv.cilindri, pv.cilindrata_cc, pv.alimentazione, pv.peso_kg,
+            pv.avviamento, pv.gambo, pv.trim, pv.alternatore_A, pv.carburante,
+        ])
+
+    tech = {
+        "cilindri": p.cilindri or "",
+        "cilindrata_cc": p.cilindrata_cc or 0,
+        "alimentazione": p.alimentazione or "",
+        "peso_kg": p.peso_kg or 0,
+        "avviamento": p.avviamento or "",
+        "gambo": p.gambo or "",
+        "trim": p.trim or "",
+        "alternatore_A": p.alternatore_A or 0,
+        "carburante": p.carburante or "",
+    }
+    if not _has_snapshot(p) and p.modello_id:
+        m = await db.suzuki_modelli.find_one({"id": p.modello_id}, {"_id": 0})
+        if m:
+            for k in tech.keys():
+                tech[k] = m.get(k, tech[k]) or tech[k]
+
+    # Riga info principali (Codice · Modello · Potenza)
+    st_cell_lab = ParagraphStyle("cl", parent=styles["Normal"], fontSize=7.5, textColor=TEXT_MUTED, leading=9)
+    st_cell_val = ParagraphStyle("cv", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10, leading=12)
+
+    def cell(label: str, value: str):
+        return [Paragraph(label.upper(), st_cell_lab), Paragraph(value or "—", st_cell_val)]
+
+    info_row = [[
+        cell("Codice articolo", p.codice or "—"),
+        cell("Modello", p.modello or "—"),
+        cell("Potenza", f"{p.potenza_hp:g} HP" if p.potenza_hp else "—"),
+    ]]
+    tinfo = Table(info_row, colWidths=[60.66*mm, 60.66*mm, 60.66*mm])
+    tinfo.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,-1), LIGHT_GREY),
+        ("BOX", (0,0), (-1,-1), 0.4, BORDER),
+        ("INNERGRID", (0,0), (-1,-1), 0.25, BORDER),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("LEFTPADDING", (0,0), (-1,-1), 8),
+        ("RIGHTPADDING", (0,0), (-1,-1), 8),
+        ("TOPPADDING", (0,0), (-1,-1), 4),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+    ]))
+    story.append(tinfo)
+    story.append(Spacer(1, 4))
+
+    # Scheda tecnica 3×3
+    def fmt_n(v, suffix):
+        try:
+            f = float(v)
+            if f > 0:
+                return f"{f:g} {suffix}"
+        except Exception:
+            pass
+        return "—"
+
+    grid_cells = [
+        cell("Cilindri", tech["cilindri"] or "—"),
+        cell("Cilindrata", fmt_n(tech["cilindrata_cc"], "cc")),
+        cell("Alimentazione", tech["alimentazione"] or "—"),
+        cell("Peso", fmt_n(tech["peso_kg"], "kg")),
+        cell("Gambo", tech["gambo"] or "—"),
+        cell("Trim", tech["trim"] or "—"),
+        cell("Avviamento", tech["avviamento"] or "—"),
+        cell("Alternatore", fmt_n(tech["alternatore_A"], "A")),
+        cell("Carburante", tech["carburante"] or "—"),
+    ]
+    grid_rows = [grid_cells[i:i+3] for i in range(0, 9, 3)]
+    tgrid = Table(grid_rows, colWidths=[60.66*mm, 60.66*mm, 60.66*mm])
+    tgrid.setStyle(TableStyle([
         ("BOX", (0,0), (-1,-1), 0.4, BORDER),
         ("INNERGRID", (0,0), (-1,-1), 0.25, BORDER),
         ("ROWBACKGROUNDS", (0,0), (-1,-1), [colors.white, LIGHT_GREY]),
         ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-        ("LEFTPADDING", (0,0), (-1,-1), 10),
-        ("RIGHTPADDING", (0,0), (-1,-1), 10),
-        ("TOPPADDING", (0,0), (-1,-1), 3),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+        ("LEFTPADDING", (0,0), (-1,-1), 8),
+        ("RIGHTPADDING", (0,0), (-1,-1), 8),
+        ("TOPPADDING", (0,0), (-1,-1), 4),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
     ]))
-    story.append(tspecs)
+    story.append(tgrid)
     story.append(Spacer(1, 10))
 
     # CALCOLO PREZZO

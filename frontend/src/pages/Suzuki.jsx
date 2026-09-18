@@ -21,6 +21,8 @@ const EMPTY_MODEL = {
 const EMPTY_PREV = {
   cliente_nome: "", cliente_telefono: "", cliente_email: "",
   modello_id: "", codice: "", modello: "", potenza_hp: 0, specifiche: "",
+  cilindri: "", cilindrata_cc: 0, alimentazione: "", peso_kg: 0, avviamento: "",
+  gambo: "", trim: "", comandi: "", alternatore_A: 0, carburante: "",
   prezzo_listino: 0, sconto_perc_1: 0, sconto_perc_2: 0, montaggio: 0,
   note: "", stato: "bozza",
   data: new Date().toISOString().slice(0, 10),
@@ -497,6 +499,16 @@ function PreventivoDialog({ value, modelli, onClose, onSaved }) {
       ...f,
       modello_id: mid, codice: m.codice || "", modello: m.modello,
       potenza_hp: m.potenza_hp || 0, specifiche,
+      cilindri: m.cilindri || "",
+      cilindrata_cc: m.cilindrata_cc || 0,
+      alimentazione: m.alimentazione || "",
+      peso_kg: m.peso_kg || 0,
+      avviamento: m.avviamento || "",
+      gambo: m.gambo || "",
+      trim: m.trim || "",
+      comandi: m.comandi || "",
+      alternatore_A: m.alternatore_A || 0,
+      carburante: m.carburante || "",
       prezzo_listino: m.prezzo_listino || 0,
       sconto_perc_1: m.sconto_perc_1 || 0, sconto_perc_2: m.sconto_perc_2 || 0,
     }));
@@ -577,9 +589,20 @@ function PreventivoDialog({ value, modelli, onClose, onSaved }) {
                 <Field label="Codice"><Input value={form.codice || ""} onChange={(e) => set("codice", e.target.value)} /></Field>
                 <Field label="Modello"><Input value={form.modello || ""} onChange={(e) => set("modello", e.target.value)} data-testid="p-modello" /></Field>
               </div>
-              <Field label="Specifiche tecniche (compilate automaticamente)" className="mt-3">
-                <Textarea value={form.specifiche || ""} onChange={(e) => set("specifiche", e.target.value)} rows={2} data-testid="p-spec" />
-              </Field>
+              <div className="mt-3">
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Scheda tecnica</div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <Field label="Cilindri"><Input value={form.cilindri || ""} onChange={(e) => set("cilindri", e.target.value)} data-testid="p-cilindri" /></Field>
+                  <Field label="Cilindrata (cc)"><Input type="number" step="1" value={form.cilindrata_cc || ""} onChange={(e) => set("cilindrata_cc", e.target.value)} data-testid="p-cc" /></Field>
+                  <Field label="Alimentazione"><Input value={form.alimentazione || ""} onChange={(e) => set("alimentazione", e.target.value)} /></Field>
+                  <Field label="Peso (kg)"><Input type="number" step="0.1" value={form.peso_kg || ""} onChange={(e) => set("peso_kg", e.target.value)} /></Field>
+                  <Field label="Gambo"><Input value={form.gambo || ""} onChange={(e) => set("gambo", e.target.value)} /></Field>
+                  <Field label="Trim"><Input value={form.trim || ""} onChange={(e) => set("trim", e.target.value)} /></Field>
+                  <Field label="Avviamento"><Input value={form.avviamento || ""} onChange={(e) => set("avviamento", e.target.value)} /></Field>
+                  <Field label="Alternatore (A)"><Input type="number" step="1" value={form.alternatore_A || ""} onChange={(e) => set("alternatore_A", e.target.value)} /></Field>
+                  <Field label="Carburante"><Input value={form.carburante || ""} onChange={(e) => set("carburante", e.target.value)} /></Field>
+                </div>
+              </div>
             </Card>
 
             {/* Prezzi */}
