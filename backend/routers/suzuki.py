@@ -409,9 +409,8 @@ async def _build_listino_pdf(concessionario: bool = False):
         col_widths = [28*mm, 10*mm, 17*mm, 14*mm, 13*mm, 26*mm, 11*mm, 11*mm, 26*mm, 30*mm]
         font_size = 7.6
     else:
-        head_row = ["Modello", "HP", "Cilindrata", "Gambo", "Peso",
-                    "Listino € (IVA escl.)", "Pubblico € (IVA incl.)"]
-        col_widths = [38*mm, 12*mm, 22*mm, 22*mm, 16*mm, 38*mm, 38*mm]
+        head_row = ["Modello", "HP", "Cilindrata", "Gambo", "Peso", "Pubblico € (IVA incl.)"]
+        col_widths = [46*mm, 16*mm, 26*mm, 26*mm, 22*mm, 50*mm]
         font_size = 8.5
 
     for cat in [c for c in ordine_cat if c in gruppi]:
@@ -430,9 +429,9 @@ async def _build_listino_pdf(concessionario: bool = False):
                 f"{r.get('cilindrata_cc',0):g} cc" if r.get("cilindrata_cc") else "—",
                 r.get("gambo", "") or "—",
                 f"{r.get('peso_kg',0):g} kg" if r.get("peso_kg") else "—",
-                _fmt_eur(r.get("prezzo_listino", 0)) if r.get("prezzo_listino") else "—",
             ]
             if concessionario:
+                base.append(_fmt_eur(r.get("prezzo_listino", 0)) if r.get("prezzo_listino") else "—")
                 pl = float(r.get("prezzo_listino") or 0)
                 s1 = float(r.get("sconto_perc_1") or 0)
                 s2 = float(r.get("sconto_perc_2") or 0)
