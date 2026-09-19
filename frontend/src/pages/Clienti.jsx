@@ -20,6 +20,7 @@ import ClienteForm from "@/pages/ClienteForm";
 import ClienteDettaglio from "@/pages/ClienteDettaglio";
 import { API } from "@/lib/api";
 import { useYear } from "@/lib/year";
+import { PdfPreviewOverlay } from "@/components/PdfPreviewOverlay";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
 } from "@/components/ui/dialog";
@@ -38,7 +39,27 @@ export default function Clienti() {
   const [openStorico, setOpenStorico] = useState(false);
   const [nominativi, setNominativi] = useState([]);
   const [storicoSel, setStoricoSel] = useState("");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewName, setPreviewName] = useState("preventivo.pdf");
+  const [previewLoadingId, setPreviewLoadingId] = useState(null);
   const { year } = useYear();
+
+  const openPdfPreview = async (c, kind /* 'preventivo' | 'contratto' */) => {
+    setPreviewLoadingId(`${kind}-${c.id}`);
+    try {
+      const path = kind === "contratto" ? `/clienti/${c.id}/preventivo-contratto.pdf` : `/clienti/${c.id}/preventivo.pdf`;
+      const res = await api.get(path, { responseType: "blob" });
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl((old) => { if (old) URL.revokeObjectURL(old); return url; });
+      const base = kind === "contratto" ? "preventivo_contratto" : "preventivo";
+      setPreviewName(`${base}_${(c.cognome || "cliente")}_${(c.nome || "")}.pdf`.toLowerCase().replace(/\s+/g, "_"));
+      setPreviewOpen(true);
+    } catch {
+      toast.error("Errore apertura PDF");
+    } finally { setPreviewLoadingId(null); }
+  };
 
   const load = () => {
     setLoading(true);
@@ -318,15 +339,11 @@ export default function Clienti() {
                       <Button size="icon" variant="ghost" onClick={() => setDettaglio(c)} data-testid={`btn-dettaglio-${c.id}`} title="Vedi conteggio dettagliato">
                         <Eye className="w-4 h-4" />
                       </Button>
-                      <Button size="icon" variant="ghost" asChild data-testid={`btn-pdf-${c.id}`} title="Scarica preventivo PDF">
-                        <a href={`${API}/clienti/${c.id}/preventivo.pdf`} download target="_blank" rel="noreferrer">
-                          <FileText className="w-4 h-4" />
-                        </a>
+                      <Button size="icon" variant="ghost" onClick={() => openPdfPreview(c, "preventivo")} disabled={previewLoadingId === `preventivo-${c.id}`} data-testid={`btn-pdf-${c.id}`} title="Anteprima preventivo PDF">
+                        <FileText className="w-4 h-4" />
                       </Button>
-                      <Button size="icon" variant="ghost" asChild data-testid={`btn-pdf-contratto-${c.id}`} title="Scarica preventivo + contratto in un unico PDF">
-                        <a href={`${API}/clienti/${c.id}/preventivo-contratto.pdf`} download target="_blank" rel="noreferrer">
-                          <FileSignature className="w-4 h-4" />
-                        </a>
+                      <Button size="icon" variant="ghost" onClick={() => openPdfPreview(c, "contratto")} disabled={previewLoadingId === `contratto-${c.id}`} data-testid={`btn-pdf-contratto-${c.id}`} title="Anteprima preventivo + contratto (PDF unico)">
+                        <FileSignature className="w-4 h-4" />
                       </Button>
                       <Button size="icon" variant="ghost" onClick={() => { setEditing(c); setFormOpen(true); }} data-testid={`btn-edit-${c.id}`}>
                         <Pencil className="w-4 h-4" />
@@ -348,6 +365,13 @@ export default function Clienti() {
         onOpenChange={setFormOpen}
         cliente={editing}
         onSaved={load}
+      />
+
+      <PdfPreviewOverlay
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        url={previewUrl}
+        filename={previewName}
       />
 
       <ClienteDettaglio

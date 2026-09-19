@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { FileSignature, Download, User, RefreshCw } from "lucide-react";
+import { FileSignature, FileText, User, RefreshCw } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useYear } from "@/lib/year";
+import { PdfPreviewOverlay } from "@/components/PdfPreviewOverlay";
 
 export default function Contratti() {
   const { year } = useYear();
@@ -20,6 +21,8 @@ export default function Contratti() {
   const [titolo, setTitolo] = useState("CONTRATTO DI RIMESSAGGIO INVERNALE E MANUTENZIONE");
   const [testo, setTesto] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null);
 
   const load = () => {
     api.get(`/clienti?anno=${year}`).then((r) => setClienti(r.data || []));
@@ -49,14 +52,8 @@ export default function Contratti() {
       const res = await api.post("/contratti/pdf", { cliente_id: clienteId, testo, titolo }, { responseType: "blob" });
       const blob = new Blob([res.data], { type: "application/pdf" });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `contratto_${clienteScelto?.cognome || "cliente"}_${clienteScelto?.nome || ""}.pdf`.toLowerCase().replace(/\s+/g, "_");
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      toast.success("Contratto PDF generato");
+      setPreviewUrl((old) => { if (old) window.URL.revokeObjectURL(old); return url; });
+      setPreviewOpen(true);
     } catch (e) {
       toast.error("Errore nella generazione del contratto");
     } finally {
@@ -82,8 +79,8 @@ export default function Contratti() {
             <RefreshCw className="w-4 h-4 mr-2" /> Ripristina template
           </Button>
           <Button onClick={generatePdf} disabled={generating || !clienteId} className="bg-primary hover:bg-primary/90" data-testid="btn-generate-contratto">
-            <Download className="w-4 h-4 mr-2" />
-            {generating ? "Generazione…" : "Scarica PDF"}
+            <FileText className="w-4 h-4 mr-2" />
+            {generating ? "Generazione…" : "Anteprima PDF"}
           </Button>
         </div>
       </div>
@@ -149,6 +146,13 @@ export default function Contratti() {
           </div>
         </Card>
       </div>
+
+      <PdfPreviewOverlay
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        url={previewUrl}
+        filename={`contratto_${(clienteScelto?.cognome || "cliente")}_${(clienteScelto?.nome || "")}.pdf`.toLowerCase().replace(/\s+/g, "_")}
+      />
     </div>
   );
 }

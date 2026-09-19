@@ -1,6 +1,8 @@
 # PRD — Portomare: Gestione Cantiere Nautico
 
 ## Changelog
+- **2026-02-19** — **Anteprima PDF unificata** in tutta l'app Rimessaggio + Tubolari: nuovo componente `components/PdfPreviewOverlay.jsx` basato su **react-pdf** (PDF.js in canvas). Sostituito iframe/object che in alcuni browser scaricavano il file. Applicato a: Suzuki (preventivi + form), Tubolari (lista + form), Contratti, Clienti (preventivo + preventivo-contratto), ClienteForm (preventivo veloce). Include paginazione ◀ 1/N ▶ e zoom ±. Download solo via pulsante "Scarica PDF".
+- **2026-02-19** — Lunghezza minima password uniformata a **5 caratteri** (backend `auth.py`: register/reset/change/pin-reset + frontend Impostazioni). Password admin iniziale = `admin`.
 - **2026-02-16** — Preventivo Suzuki: base prezzo cambiata da "listino IVA escl." a **"pubblico IVA incl."** (con priorità al `prezzo_offerta` se presente). Etichette PDF e form aggiornate: "TOTALE PREVENTIVO — IVA compresa". Montaggio e cavetteria ora IVA inclusa.
 - **2026-02-16** — Refactoring **Magazzino.jsx** (2411 righe) spezzato in cartella `pages/magazzino/` con 12 file (max 500 righe).
 

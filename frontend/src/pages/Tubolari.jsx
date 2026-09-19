@@ -19,8 +19,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Plus, FileDown, Pencil, Trash2, Ship, Save, Settings2, AlertTriangle, Copy, FileText,
+  Plus, Pencil, Trash2, Ship, Save, Settings2, AlertTriangle, Copy, FileText,
 } from "lucide-react";
+import { PdfPreviewOverlay } from "@/components/PdfPreviewOverlay";
 
 const STATO_LABELS = {
   bozza: { label: "Bozza", cls: "bg-muted text-muted-foreground" },
@@ -54,6 +55,24 @@ export default function Tubolari() {
   const [editing, setEditing] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [configOpen, setConfigOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewName, setPreviewName] = useState("preventivo.pdf");
+  const [previewLoadingId, setPreviewLoadingId] = useState(null);
+
+  const openPreviewFromList = async (p) => {
+    setPreviewLoadingId(p.id);
+    try {
+      const res = await api.get(`/tubolari/preventivi/${p.id}/pdf`, { responseType: "blob" });
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl((old) => { if (old) URL.revokeObjectURL(old); return url; });
+      setPreviewName(`preventivo_tubolari_${(p.cliente_nome || "cliente").replace(/[^a-zA-Z0-9]+/g, "_")}_${p.numero || p.id.slice(0, 6)}.pdf`);
+      setPreviewOpen(true);
+    } catch {
+      toast.error("Errore apertura PDF");
+    } finally { setPreviewLoadingId(null); }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -200,10 +219,8 @@ export default function Tubolari() {
                       <Badge className={`${s.cls} font-medium`}>{s.label}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button asChild variant="ghost" size="icon" title="Scarica PDF" data-testid={`btn-pdf-${p.id}`}>
-                        <a href={`${API}/tubolari/preventivi/${p.id}/pdf`} download>
-                          <FileDown className="w-4 h-4 text-primary" />
-                        </a>
+                      <Button variant="ghost" size="icon" title="Anteprima PDF" onClick={() => openPreviewFromList(p)} disabled={previewLoadingId === p.id} data-testid={`btn-pdf-${p.id}`}>
+                        <FileText className="w-4 h-4 text-primary" />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => duplica(p)} title="Duplica" data-testid={`btn-dup-${p.id}`}>
                         <Copy className="w-4 h-4" />
@@ -227,8 +244,7 @@ export default function Tubolari() {
         open={formOpen}
         onOpenChange={setFormOpen}
         value={editing}
-        onSaved={() => { setFormOpen(false); load(); }}
-      />
+        onSaved={() => { setFormOpen(false); load(); }}      />
 
       <TubolariConfigDialog
         open={configOpen}
@@ -256,6 +272,13 @@ export default function Tubolari() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PdfPreviewOverlay
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        url={previewUrl}
+        filename={previewName}
+      />
     </div>
   );
 }
@@ -267,10 +290,9 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
   const [form, setForm] = useState(EMPTY_PREV);
   const [initial, setInitial] = useState(EMPTY_PREV);
   const [saving, setSaving] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewStale, setPreviewStale] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
 
   useEffect(() => {
@@ -278,10 +300,8 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
       const init = { ...EMPTY_PREV, ...(value || {}) };
       setForm(init);
       setInitial(init);
-      // Reset preview quando si riapre il dialog su un altro preventivo
       setPreviewUrl((old) => { if (old) URL.revokeObjectURL(old); return null; });
-      setPreviewStale(false);
-      setShowPreview(false);
+      setPreviewOpen(false);
     }
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -345,8 +365,7 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
       const blob = new Blob([res.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       setPreviewUrl((old) => { if (old) URL.revokeObjectURL(old); return url; });
-      setPreviewStale(false);
-      setShowPreview(true);
+      setPreviewOpen(true);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Errore generazione anteprima");
     } finally {
@@ -381,9 +400,7 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) attemptClose(); else onOpenChange(true); }}>
-      <DialogContent className={showPreview ? "max-w-[min(1400px,95vw)] max-h-[95vh] overflow-hidden p-0" : "max-w-3xl max-h-[90vh] overflow-y-auto"} data-testid="dialog-prev-tubolari" onEscapeKeyDown={(e) => { if (isDirty) { e.preventDefault(); attemptClose(); } }} onPointerDownOutside={(e) => { if (isDirty) e.preventDefault(); }}>
-        <div className={showPreview ? "grid grid-cols-1 lg:grid-cols-2 gap-0 max-h-[95vh]" : ""}>
-          <div className={showPreview ? "overflow-y-auto p-6 border-r border-border" : ""}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-prev-tubolari" onEscapeKeyDown={(e) => { if (isDirty) { e.preventDefault(); attemptClose(); } }} onPointerDownOutside={(e) => { if (isDirty) e.preventDefault(); }}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 justify-between">
             <span className="flex items-center gap-2 flex-wrap">
@@ -400,23 +417,13 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
                 data-testid="btn-genera-anteprima"
               >
                 <FileText className="w-3.5 h-3.5 mr-1.5" />
-                {previewLoading ? "Generazione…" : (previewUrl ? "Rigenera anteprima" : "Genera anteprima PDF")}
+                {previewLoading ? "Generazione…" : "Anteprima PDF"}
               </Button>
-              {previewUrl && (
-                <Button
-                  variant={showPreview ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setShowPreview((v) => !v)}
-                  data-testid="btn-toggle-preview"
-                >
-                  {showPreview ? "Nascondi" : "Mostra"}
-                </Button>
-              )}
             </div>
           </DialogTitle>
           <DialogDescription>
             Compila i dati: il totale si aggiorna in tempo reale.{" "}
-            <b>Nulla viene salvato o esportato finché non premi "Salva preventivo" o "Genera anteprima PDF"</b>
+            <b>Nulla viene salvato o esportato finché non premi "Salva preventivo" o "Anteprima PDF"</b>
             {form.id ? "" : "; il numero progressivo viene assegnato al salvataggio."}
           </DialogDescription>
         </DialogHeader>
@@ -516,40 +523,14 @@ function PreventivoForm({ open, onOpenChange, value, onSaved }) {
             <Save className="w-4 h-4 mr-1.5" /> {saving ? "Salvataggio…" : (isDirty ? "Salva preventivo" : "Nessuna modifica")}
           </Button>
         </DialogFooter>
-          </div>
-          {showPreview && (
-            <div className="hidden lg:flex flex-col bg-muted/30 max-h-[95vh]" data-testid="pdf-preview-panel">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-background/60 backdrop-blur">
-                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <FileText className="w-3.5 h-3.5" />
-                  Anteprima PDF
-                  {previewLoading && <span className="text-[10px] font-normal normal-case text-primary animate-pulse">generazione…</span>}
-                  {previewStale && !previewLoading && (
-                    <span className="text-[10px] font-normal normal-case text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded" data-testid="badge-preview-stale">
-                      obsoleta — rigenera
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                {previewUrl ? (
-                  <iframe
-                    key={previewUrl}
-                    src={previewUrl}
-                    title="Anteprima PDF"
-                    className="w-full h-full border-0"
-                    data-testid="pdf-preview-iframe"
-                  />
-                ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm p-6 text-center">
-                    Premi "Genera anteprima PDF" per vedere il preventivo.
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
       </DialogContent>
+
+      <PdfPreviewOverlay
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        url={previewUrl}
+        filename={`preventivo_tubolari_${(form.cliente_nome || "cliente").replace(/[^a-zA-Z0-9]+/g, "_")}_${form.numero || "bozza"}.pdf`}
+      />
 
       <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
         <AlertDialogContent>

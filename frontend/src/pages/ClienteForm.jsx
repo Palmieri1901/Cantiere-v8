@@ -20,6 +20,7 @@ import LavoriSection from "@/pages/LavoriSection";
 import { API } from "@/lib/api";
 import { useYear } from "@/lib/year";
 import { FileText, Plus, X, Wrench, Zap, Package } from "lucide-react";
+import { PdfPreviewOverlay } from "@/components/PdfPreviewOverlay";
 
 const empty = {
   nome: "", cognome: "", tipo_barca: "", lunghezza: "",
@@ -68,6 +69,9 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
   const [magPickerId, setMagPickerId] = useState("");
   const [magPickerQty, setMagPickerQty] = useState(1);
   const [magPickerQuery, setMagPickerQuery] = useState("");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewName, setPreviewName] = useState("preventivo.pdf");
   const { year } = useYear();
 
   useEffect(() => {
@@ -315,18 +319,16 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
     };
     try {
       if (isPreventivo) {
-        // Scarica il PDF senza salvare
+        // Genera il PDF senza salvare e mostralo nell'anteprima
         const res = await api.post("/preventivo/pdf", payload, { responseType: "blob" });
         const blob = new Blob([res.data], { type: "application/pdf" });
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `preventivo_${(f.cognome || "").trim()}_${(f.nome || "").trim()}.pdf`.replace(/\s+/g, "_");
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
+        setPreviewUrl((old) => { if (old) window.URL.revokeObjectURL(old); return url; });
+        setPreviewName(`preventivo_${(f.cognome || "").trim()}_${(f.nome || "").trim()}.pdf`.replace(/\s+/g, "_"));
+        setPreviewOpen(true);
         toast.success("Preventivo PDF generato");
+        setSaving(false);
+        return;
       } else if (cliente?.id) {
         await api.put(`/clienti/${cliente.id}`, payload);
         toast.success("Cliente aggiornato");
@@ -1154,6 +1156,13 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PdfPreviewOverlay
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        url={previewUrl}
+        filename={previewName}
+      />
     </Sheet>
   );
 }
