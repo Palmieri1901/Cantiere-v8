@@ -1107,29 +1107,24 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
     story.append(tgrid)
     story.append(Spacer(1, 10))
 
-    # CALCOLO PREZZO
+    # ------------------------------------------------------------------
+    # COSTO MOTORE (evidenziato)
+    # ------------------------------------------------------------------
     calc = _calc_totale(p)
-    story.append(section_header("CALCOLO PREZZO"))
-    rows = [
+    story.append(section_header("COSTO MOTORE"))
+
+    motor_rows = [
         [Paragraph("Prezzo pubblico Suzuki (IVA inclusa)", st_row),
          Paragraph(_fmt_eur(calc["prezzo_listino"]), st_row_bold)],
     ]
     if p.sconto_perc_1:
-        rows.append([Paragraph(f"Sconto 1: <b>{p.sconto_perc_1:g}%</b>", st_row),
-                     Paragraph("− " + _fmt_eur(calc["importo_sconto_1"]), st_row_bold)])
+        motor_rows.append([Paragraph(f"Sconto 1: <b>{p.sconto_perc_1:g}%</b>", st_row),
+                           Paragraph("− " + _fmt_eur(calc["importo_sconto_1"]), st_row_bold)])
     if p.sconto_perc_2:
-        rows.append([Paragraph(f"Sconto 2: <b>{p.sconto_perc_2:g}%</b>", st_row),
-                     Paragraph("− " + _fmt_eur(calc["importo_sconto_2"]), st_row_bold)])
-    rows.append([Paragraph("<b>Netto motore scontato</b>", st_row_bold),
-                 Paragraph("<b>" + _fmt_eur(calc["netto_motore"]) + "</b>", st_row_bold)])
-    if calc["montaggio"] > 0:
-        rows.append([Paragraph("Montaggio e collaudo", st_row),
-                     Paragraph("+ " + _fmt_eur(calc["montaggio"]), st_row_bold)])
-    if calc["cavetteria"] > 0:
-        rows.append([Paragraph("Cavetteria e accessori di installazione", st_row),
-                     Paragraph("+ " + _fmt_eur(calc["cavetteria"]), st_row_bold)])
-    tcalc = Table(rows, colWidths=[140*mm, 42*mm])
-    tcalc.setStyle(TableStyle([
+        motor_rows.append([Paragraph(f"Sconto 2: <b>{p.sconto_perc_2:g}%</b>", st_row),
+                           Paragraph("− " + _fmt_eur(calc["importo_sconto_2"]), st_row_bold)])
+    tmotor = Table(motor_rows, colWidths=[140*mm, 42*mm])
+    tmotor.setStyle(TableStyle([
         ("BOX", (0,0), (-1,-1), 0.4, BORDER),
         ("INNERGRID", (0,0), (-1,-1), 0.25, BORDER),
         ("ROWBACKGROUNDS", (0,0), (-1,-1), [colors.white, LIGHT_GREY]),
@@ -1140,8 +1135,57 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
         ("TOPPADDING", (0,0), (-1,-1), 3),
         ("BOTTOMPADDING", (0,0), (-1,-1), 3),
     ]))
-    story.append(tcalc)
-    story.append(Spacer(1, 6))
+    story.append(tmotor)
+
+    # Riga netto motore — evidenziata con fondo colorato e font più grande
+    st_motor_lab = ParagraphStyle("motorlab", parent=styles["Normal"], fontName="Helvetica-Bold",
+                                  fontSize=11, textColor=colors.white, leading=14)
+    st_motor_val = ParagraphStyle("motorval", parent=styles["Normal"], fontName="Helvetica-Bold",
+                                  fontSize=13, textColor=colors.white, leading=15, alignment=TA_RIGHT)
+    tnetto = Table(
+        [[Paragraph("NETTO MOTORE SCONTATO", st_motor_lab),
+          Paragraph(_fmt_eur(calc["netto_motore"]), st_motor_val)]],
+        colWidths=[140*mm, 42*mm],
+    )
+    tnetto.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,-1), NAVY_LIGHT),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("LEFTPADDING", (0,0), (-1,-1), 10),
+        ("RIGHTPADDING", (0,0), (-1,-1), 10),
+        ("TOPPADDING", (0,0), (-1,-1), 6),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+    ]))
+    story.append(tnetto)
+    story.append(Spacer(1, 8))
+
+    # ------------------------------------------------------------------
+    # INSTALLAZIONE E ACCESSORI (solo se presenti)
+    # ------------------------------------------------------------------
+    extra_rows = []
+    if calc["montaggio"] > 0:
+        extra_rows.append([Paragraph("Montaggio e collaudo", st_row),
+                           Paragraph("+ " + _fmt_eur(calc["montaggio"]), st_row_bold)])
+    if calc["cavetteria"] > 0:
+        extra_rows.append([Paragraph("Cavetteria e accessori di installazione", st_row),
+                           Paragraph("+ " + _fmt_eur(calc["cavetteria"]), st_row_bold)])
+    if extra_rows:
+        story.append(section_header("INSTALLAZIONE E ACCESSORI"))
+        textra = Table(extra_rows, colWidths=[140*mm, 42*mm])
+        textra.setStyle(TableStyle([
+            ("BOX", (0,0), (-1,-1), 0.4, BORDER),
+            ("INNERGRID", (0,0), (-1,-1), 0.25, BORDER),
+            ("ROWBACKGROUNDS", (0,0), (-1,-1), [colors.white, LIGHT_GREY]),
+            ("ALIGN", (1,0), (1,-1), "RIGHT"),
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+            ("LEFTPADDING", (0,0), (-1,-1), 10),
+            ("RIGHTPADDING", (0,0), (-1,-1), 10),
+            ("TOPPADDING", (0,0), (-1,-1), 3),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+        ]))
+        story.append(textra)
+        story.append(Spacer(1, 8))
+    else:
+        story.append(Spacer(1, 4))
 
     # TOTALE FINALE
     tot_tbl = Table(
