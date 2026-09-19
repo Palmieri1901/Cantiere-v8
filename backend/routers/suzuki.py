@@ -1119,7 +1119,7 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
     rows.append([Paragraph("<b>Netto motore scontato</b>", st_row_bold),
                  Paragraph("<b>" + _fmt_eur(calc["netto_motore"]) + "</b>", st_row_bold)])
     if calc["montaggio"] > 0:
-        rows.append([Paragraph("Montaggio, messa in acqua e collaudo", st_row),
+        rows.append([Paragraph("Montaggio e collaudo", st_row),
                      Paragraph("+ " + _fmt_eur(calc["montaggio"]), st_row_bold)])
     if calc["cavetteria"] > 0:
         rows.append([Paragraph("Cavetteria e accessori di installazione", st_row),
