@@ -256,6 +256,31 @@ async def save_listino_conc_sconti(payload: dict):
     return {"sc1": sc1, "sc2": sc2}
 
 
+@router.put("/offerte")
+async def save_offerte(payload: dict):
+    """Imposta i motori in offerta casa madre. Body: {offerte: {<modello_id>: prezzo_imposto_iva_incl}}.
+    I modelli non presenti vengono tolti dall'offerta (prezzo_offerta=0)."""
+    offerte = payload.get("offerte") or {}
+    if not isinstance(offerte, dict):
+        raise HTTPException(400, "offerte deve essere un oggetto")
+    clean: Dict[str, float] = {}
+    for mid, val in offerte.items():
+        try:
+            p = float(val or 0)
+        except (TypeError, ValueError):
+            continue
+        if p > 0:
+            clean[str(mid)] = p
+    now = datetime.now(timezone.utc)
+    await db.suzuki_modelli.update_many(
+        {"id": {"$nin": list(clean.keys())}, "prezzo_offerta": {"$gt": 0}},
+        {"$set": {"prezzo_offerta": 0, "updated_at": now}},
+    )
+    for mid, p in clean.items():
+        await db.suzuki_modelli.update_one({"id": mid}, {"$set": {"prezzo_offerta": p, "updated_at": now}})
+    return {"count": len(clean), "offerte": clean}
+
+
 @router.get("/listino-conc-overrides")
 async def get_listino_conc_overrides():
     """Ritorna gli override sc1/sc2 salvati per singolo modello + defaults 10/5.
@@ -557,7 +582,10 @@ async def _build_listino_pdf(concessionario: bool = False, sc1: float = 10.0, sc
     # override per-modello caricati dalle impostazioni (se presenti)
     overrides_doc = await db.suzuki_settings.find_one({"id": "listino_conc_overrides"}, {"_id": 0}) if concessionario else None
     overrides_map: Dict[str, dict] = (overrides_doc or {}).get("overrides", {}) if concessionario else {}
-    neg_rows_by_cat: Dict[str, List[int]] = {}  # per categoria: indici (1-based) delle righe con guadagno negativo
+    OFFER_BG = colors.HexColor("#FFF3E0")
+    OFFER_FG = colors.HexColor("#E65100")
+    st_cell_c = ParagraphStyle("cc", parent=styles["Normal"], fontSize=font_size, leading=font_size + 1.5, alignment=TA_CENTER)
+    st_cell_r = ParagraphStyle("cr", parent=styles["Normal"], fontSize=font_size, leading=font_size + 1.5, alignment=TA_RIGHT)
 
     for cat in [c for c in ordine_cat if c in gruppi]:
         rows = sorted(gruppi[cat], key=lambda x: (x.get("potenza_hp") or 0, x.get("modello") or ""))
@@ -569,7 +597,11 @@ async def _build_listino_pdf(concessionario: bool = False, sc1: float = 10.0, sc
         header_paras = [Paragraph(h, st_head) for h in head_row]
         data = [header_paras]
         neg_rows = []
+        offer_rows = []
         for row_idx, r in enumerate(rows, start=1):
+            offerta = float(r.get("prezzo_offerta") or 0)
+            if offerta > 0:
+                offer_rows.append(row_idx)
             if concessionario:
                 base = [
                     r.get("modello", ""),
@@ -599,24 +631,40 @@ async def _build_listino_pdf(concessionario: bool = False, sc1: float = 10.0, sc
                 ov = overrides_map.get(str(r.get("id") or ""))
                 row_sc1 = float((ov or {}).get("sc1", sc1))
                 row_sc2 = float((ov or {}).get("sc2", sc2))
+                if offerta > 0:
+                    # motore in offerta casa madre: prezzo imposto, sconti bloccati a 0
+                    pub = offerta
+                    row_sc1 = row_sc2 = 0.0
+                    pub_escl = pub / IVA_M
+                    sconto_list_perc = ((pub_escl - pl) / pub_escl * 100) if pub_escl > 0 and pl > 0 else 0
                 # Guadagno = netto vendita al cliente (row_sc1+row_sc2 sul pubblico) − costo reale (netto conc.)
                 netto_vendita_incl = pub * (1 - row_sc1/100) * (1 - row_sc2/100) if pub else 0
                 netto_vendita_escl = netto_vendita_incl / IVA_M if netto_vendita_incl else 0
                 guadagno = netto_vendita_escl - netto_conc if pl and pub else 0
                 if guadagno < 0:
                     neg_rows.append(row_idx)
+                if offerta > 0:
+                    base[0] = Paragraph(f"<b>{r.get('modello','')}</b><br/><font color='#E65100' size='{font_size-1.2}'>OFFERTA</font>",
+                                        ParagraphStyle("mo", parent=styles["Normal"], fontSize=font_size, leading=font_size + 1.5))
                 base += [
                     _fmt_eur(pl) if pl else "—",
                     f"{row_sc1:g}%",  # override per modello o default
                     f"{row_sc2:g}%",
                     _fmt_eur(netto_conc) if netto_conc else "—",
-                    _fmt_eur(pub) if pub else "—",
+                    Paragraph(f"<b>{_fmt_eur(pub)}</b>", st_cell_r) if offerta > 0 else (_fmt_eur(pub) if pub else "—"),
                     f"{sconto_list_perc:.1f}%" if sconto_list_perc > 0 else "—",
                     _fmt_eur(guadagno) if guadagno else "—",
                 ]
             else:
-                base.append(_fmt_eur(r.get("prezzo_pubblico", 0)) if r.get("prezzo_pubblico") else "—")
-                base.append(_fmt_eur(r.get("prezzo_offerta", 0)) if r.get("prezzo_offerta") else "—")
+                pub = float(r.get("prezzo_pubblico") or 0)
+                if offerta > 0:
+                    base.append(Paragraph(
+                        f"<strike><font color='grey'>{_fmt_eur(pub)}</font></strike>  <b>{_fmt_eur(offerta)}</b>" if pub else f"<b>{_fmt_eur(offerta)}</b>",
+                        st_cell_r))
+                    base.append(Paragraph("<b>OFFERTA</b>", st_cell_c))
+                else:
+                    base.append(_fmt_eur(pub) if pub else "—")
+                    base.append("—")
             data.append(base)
         t = Table(data, colWidths=col_widths, repeatRows=1)
         style = [
@@ -654,7 +702,19 @@ async def _build_listino_pdf(concessionario: bool = False, sc1: float = 10.0, sc
                     ("TEXTCOLOR", (10, ridx), (10, ridx), colors.HexColor("#B71C1C")),
                     ("FONTNAME", (10, ridx), (10, ridx), "Helvetica-Bold"),
                 ]
+            for ridx in offer_rows:
+                style += [
+                    ("BACKGROUND", (5, ridx), (6, ridx), OFFER_BG),
+                    ("TEXTCOLOR", (5, ridx), (6, ridx), OFFER_FG),
+                    ("FONTNAME", (5, ridx), (6, ridx), "Helvetica-Bold"),
+                    ("BACKGROUND", (8, ridx), (8, ridx), OFFER_BG),
+                ]
         else:
+            for ridx in offer_rows:
+                style += [
+                    ("BACKGROUND", (5, ridx), (6, ridx), OFFER_BG),
+                    ("TEXTCOLOR", (5, ridx), (6, ridx), OFFER_FG),
+                ]
             # evidenzia colonna "In offerta" (rosso su sfondo chiaro)
             style += [
                 ("BACKGROUND", (6, 1), (6, -1), colors.HexColor("#FDECEC")),
@@ -670,10 +730,12 @@ async def _build_listino_pdf(concessionario: bool = False, sc1: float = 10.0, sc
                       f"dopo applicazione degli sconti Suzuki (Sc.1 e Sc.2). La colonna <b>% Sc. list.</b> mostra "
                       f"lo sconto complessivo dal prezzo pubblico (IVA escl.) al listino concessionario. La colonna "
                       f"<b>Guadagno ({sc1:g}%+{sc2:g}%)</b> stima il margine (IVA escl.) applicando questi due sconti "
-                      f"sul prezzo pubblico. Non consegnare al cliente finale.</i>")
+                      f"sul prezzo pubblico. I modelli contrassegnati <b>OFFERTA</b> hanno prezzo imposto dalla casa madre: "
+                      f"sconti bloccati a 0% e guadagno calcolato sul prezzo imposto. Non consegnare al cliente finale.</i>")
     else:
         disclaimer = ("<i>Prezzi Suzuki Italia validi dal listino 2025-2026 salvo variazioni. "
-                      "Il prezzo IVA inclusa è indicativo per il cliente finale; il concessionario applica le proprie condizioni.</i>")
+                      "Il prezzo IVA inclusa è indicativo per il cliente finale; il concessionario applica le proprie condizioni. "
+                      "I modelli contrassegnati <b>OFFERTA</b> sono in promozione casa madre al prezzo imposto indicato.</i>")
     story.append(Paragraph(disclaimer,
         ParagraphStyle("note", parent=styles["Normal"], fontSize=8, textColor=colors.grey)))
 

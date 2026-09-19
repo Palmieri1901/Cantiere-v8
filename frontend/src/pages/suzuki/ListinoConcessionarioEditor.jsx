@@ -57,10 +57,12 @@ export default function ListinoConcessionarioEditor({ open, onClose }) {
       : modelli;
     return filtered.map((m) => {
       const ov = overrides[m.id];
-      const s1 = Number(ov?.sc1 ?? defaultSc1) || 0;
-      const s2 = Number(ov?.sc2 ?? defaultSc2) || 0;
+      const offerta = Number(m.prezzo_offerta) || 0;
+      const inOfferta = offerta > 0;
+      const s1 = inOfferta ? 0 : Number(ov?.sc1 ?? defaultSc1) || 0;
+      const s2 = inOfferta ? 0 : Number(ov?.sc2 ?? defaultSc2) || 0;
       const pl = Number(m.prezzo_listino) || 0;
-      const pub = Number(m.prezzo_pubblico) || 0;
+      const pub = inOfferta ? offerta : Number(m.prezzo_pubblico) || 0;
       const s1Mod = Number(m.sconto_perc_1) || 0;
       const s2Mod = Number(m.sconto_perc_2) || 0;
       const nettoConc = pl * (1 - s1Mod / 100) * (1 - s2Mod / 100);
@@ -69,7 +71,7 @@ export default function ListinoConcessionarioEditor({ open, onClose }) {
       const nettoVenditaIncl = pub * (1 - s1 / 100) * (1 - s2 / 100);
       const nettoVenditaEscl = nettoVenditaIncl / IVA_M;
       const guadagno = pl && pub ? nettoVenditaEscl - nettoConc : 0;
-      return { m, s1, s2, pl, pub, nettoConc, scListPerc, nettoVenditaIncl, guadagno, isOverride: !!ov };
+      return { m, s1, s2, pl, pub, nettoConc, scListPerc, nettoVenditaIncl, guadagno, isOverride: !!ov && !inOfferta, inOfferta };
     });
   }, [modelli, overrides, defaultSc1, defaultSc2, q, IVA_M]);
 
@@ -187,23 +189,26 @@ export default function ListinoConcessionarioEditor({ open, onClose }) {
               <tbody>
                 {rows.length === 0 ? (
                   <tr><td colSpan={10} className="text-center py-8 text-muted-foreground">Nessun modello trovato.</td></tr>
-                ) : rows.map(({ m, s1, s2, pl, pub, nettoConc, scListPerc, guadagno, isOverride }) => {
+                ) : rows.map(({ m, s1, s2, pl, pub, nettoConc, scListPerc, guadagno, isOverride, inOfferta }) => {
                   const neg = guadagno < 0 && pl && pub;
                   return (
-                    <tr key={m.id} className={`border-t border-border/60 ${neg ? "bg-red-50" : "hover:bg-muted/40"}`} data-testid={`editor-row-${m.id}`}>
+                    <tr key={m.id} className={`border-t border-border/60 ${neg ? "bg-red-50" : inOfferta ? "bg-orange-50/60" : "hover:bg-muted/40"}`} data-testid={`editor-row-${m.id}`}>
                       <td className="px-3 py-1.5">
-                        <div className="font-semibold">{m.modello}</div>
+                        <div className="font-semibold flex items-center gap-2">
+                          {m.modello}
+                          {inOfferta && <span className="rounded-full bg-orange-100 text-orange-700 text-[9px] font-bold px-1.5 py-0.5 uppercase" data-testid={`editor-badge-offerta-${m.id}`}>Offerta</span>}
+                        </div>
                         <div className="text-[10px] text-muted-foreground">{m.codice || ""}{m.categoria ? ` · ${m.categoria}` : ""}</div>
                       </td>
                       <td className="px-2 py-1.5 text-right font-mono-num">{m.potenza_hp || "—"}</td>
                       <td className="px-2 py-1.5 text-right font-mono-num">{pl ? IT(pl) + " €" : "—"}</td>
-                      <td className="px-2 py-1.5 text-right font-mono-num">{pub ? IT(pub) + " €" : "—"}</td>
+                      <td className={`px-2 py-1.5 text-right font-mono-num ${inOfferta ? "text-orange-700 font-bold" : ""}`}>{pub ? IT(pub) + " €" : "—"}</td>
                       <td className="px-2 py-1.5 text-right text-muted-foreground">{scListPerc > 0 ? scListPerc.toFixed(1) + "%" : "—"}</td>
                       <td className="px-1 py-1.5">
-                        <Input type="number" step="0.5" min="0" max="100" value={overrides[m.id]?.sc1 ?? defaultSc1} onChange={(e) => setOverride(m.id, "sc1", e.target.value)} className={`h-7 text-xs text-center font-mono-num ${isOverride ? "border-primary/50 bg-primary/5" : ""}`} data-testid={`in-sc1-${m.id}`} />
+                        <Input type="number" step="0.5" min="0" max="100" disabled={inOfferta} title={inOfferta ? "Prezzo imposto: sconto bloccato" : ""} value={inOfferta ? 0 : overrides[m.id]?.sc1 ?? defaultSc1} onChange={(e) => setOverride(m.id, "sc1", e.target.value)} className={`h-7 text-xs text-center font-mono-num ${isOverride ? "border-primary/50 bg-primary/5" : ""} ${inOfferta ? "bg-orange-100 text-orange-700" : ""}`} data-testid={`in-sc1-${m.id}`} />
                       </td>
                       <td className="px-1 py-1.5">
-                        <Input type="number" step="0.5" min="0" max="100" value={overrides[m.id]?.sc2 ?? defaultSc2} onChange={(e) => setOverride(m.id, "sc2", e.target.value)} className={`h-7 text-xs text-center font-mono-num ${isOverride ? "border-primary/50 bg-primary/5" : ""}`} data-testid={`in-sc2-${m.id}`} />
+                        <Input type="number" step="0.5" min="0" max="100" disabled={inOfferta} title={inOfferta ? "Prezzo imposto: sconto bloccato" : ""} value={inOfferta ? 0 : overrides[m.id]?.sc2 ?? defaultSc2} onChange={(e) => setOverride(m.id, "sc2", e.target.value)} className={`h-7 text-xs text-center font-mono-num ${isOverride ? "border-primary/50 bg-primary/5" : ""} ${inOfferta ? "bg-orange-100 text-orange-700" : ""}`} data-testid={`in-sc2-${m.id}`} />
                       </td>
                       <td className="px-2 py-1.5 text-right font-mono-num">{nettoConc ? IT(nettoConc) + " €" : "—"}</td>
                       <td className={`px-2 py-1.5 text-right font-mono-num font-bold ${neg ? "text-red-700" : "text-emerald-700"}`} data-testid={`guadagno-${m.id}`}>
@@ -227,6 +232,7 @@ export default function ListinoConcessionarioEditor({ open, onClose }) {
         <DialogFooter className="px-5 py-3 border-t bg-muted/40 shrink-0 gap-2">
           <div className="flex-1 text-xs text-muted-foreground">
             Righe con <span className="text-primary font-semibold">bordo blu</span> hanno sconti personalizzati diversi dal default. Clicca la <X className="w-3 h-3 inline align-text-bottom" /> per rimuovere l'override.
+            Le righe <span className="text-orange-700 font-semibold">OFFERTA</span> hanno prezzo imposto e sconti bloccati a 0%.
           </div>
           <Button variant="outline" onClick={onClose} data-testid="btn-editor-close">Chiudi</Button>
           <Button variant="outline" onClick={save} disabled={saving} data-testid="btn-editor-save">

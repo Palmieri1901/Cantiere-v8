@@ -4,9 +4,10 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Pencil, Trash2, FileText, Sparkles, Search, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Sparkles, Search, Download, Tag } from "lucide-react";
 import { EMPTY_MODEL, fmt } from "./common";
 import ModelloDialog from "./ModelloDialog";
+import OfferteDialog from "./OfferteDialog";
 import ImportAIDialog from "./ImportAIDialog";
 import LogoPdfButton from "./LogoPdfButton";
 import ListinoConcessionarioButton from "./ListinoConcessionarioButton";
@@ -17,6 +18,7 @@ export default function ModelliTab() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [offerteOpen, setOfferteOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -69,6 +71,9 @@ export default function ModelliTab() {
           <FileText className="w-4 h-4 mr-2" /> Listino pubblico
         </Button>
         <ListinoConcessionarioButton />
+        <Button variant="outline" onClick={() => setOfferteOpen(true)} className="border-orange-500 text-orange-700 hover:bg-orange-50 hover:text-orange-800" data-testid="btn-offerte">
+          <Tag className="w-4 h-4 mr-2" /> Motori in offerta
+        </Button>
         <Button variant="outline" onClick={() => window.open(`${API}/suzuki/caratteristiche.pdf`, "_blank")} data-testid="btn-pdf-caratt">
           <FileText className="w-4 h-4 mr-2" /> PDF Caratteristiche
         </Button>
@@ -108,7 +113,14 @@ export default function ModelliTab() {
                 return (
                   <tr key={m.id} className="border-t border-border/60 hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-xs">{m.codice || "—"}</td>
-                    <td className="px-4 py-2.5 font-semibold">{m.modello}</td>
+                    <td className="px-4 py-2.5 font-semibold">
+                      {m.modello}
+                      {Number(m.prezzo_offerta) > 0 && (
+                        <span className="ml-2 inline-flex items-center rounded-full bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-0.5 uppercase" data-testid={`badge-offerta-${m.id}`}>
+                          Offerta {fmt(m.prezzo_offerta)}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-2.5 text-right font-mono-num">{m.potenza_hp || "—"}</td>
                     <td className="px-4 py-2.5 text-xs text-muted-foreground">{m.categoria || "—"}</td>
                     <td className="px-4 py-2.5 text-right font-mono-num">{fmt(m.prezzo_listino)}</td>
@@ -137,6 +149,7 @@ export default function ModelliTab() {
 
       {editing && <ModelloDialog value={editing} onClose={() => setEditing(null)} onSaved={load} />}
       <ImportAIDialog open={importOpen} onClose={() => setImportOpen(false)} onSaved={load} />
+      <OfferteDialog open={offerteOpen} onClose={() => setOfferteOpen(false)} onSaved={load} />
     </div>
   );
 }

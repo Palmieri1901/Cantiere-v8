@@ -1,6 +1,7 @@
 # PRD — Portomare: Gestione Cantiere Nautico
 
 ## Changelog
+- **2026-06** — **Motori in offerta casa madre**: pulsante "Motori in offerta" in tab Modelli → `pages/suzuki/OfferteDialog.jsx` (checkbox + prezzo imposto IVA incl.). Nuovo endpoint `PUT /api/suzuki/offerte` `{offerte:{id:prezzo}}` (azzera i non selezionati). Modelli con `prezzo_offerta>0`: Sc.1/Sc.2 bloccati a 0% e badge OFFERTA nell'editor listino concessionario e nel PDF (guadagno calcolato sul prezzo imposto); listino pubblico PDF mostra vecchio prezzo barrato + prezzo imposto + "OFFERTA". Preventivi già usano `prezzo_offerta` come base.
 - **2026-02-19** — **Refactor Suzuki.jsx** (1059 → 33 righe, –97%) spezzato in `pages/suzuki/` con 10 file: `common.jsx` (helpers), `LogoPdfButton.jsx`, `ModelloDialog.jsx`, `ImportAIDialog.jsx`, `ModelliTab.jsx`, `CondizioniPreventivoButton.jsx`, `PreventivoDialog.jsx`, `PreventiviTab.jsx`, `LegendaDialog.jsx`, `LegendaTab.jsx`. Tutti i data-testid preservati.
 - **2026-02-19** — **Refactor ClienteForm.jsx** (1220 → 652 righe, –47%) spezzato in `pages/cliente-form/` con 4 sotto-componenti.
 - **2026-02-19** — **Aliquota IVA globale** configurabile in Impostazione dati cantiere (`Cantiere.iva_percentuale`, default 22%). Usata dinamicamente da Suzuki `_calc_totale` (form live + PDF) per costo acquisto IVA incl. e allarme sotto-costo.
