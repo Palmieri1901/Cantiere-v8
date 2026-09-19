@@ -410,6 +410,10 @@ function PreventiviTab() {
   const [modelli, setModelli] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewName, setPreviewName] = useState("preventivo.pdf");
+  const [pdfLoadingId, setPdfLoadingId] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -421,6 +425,19 @@ function PreventiviTab() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const openPdf = async (p) => {
+    setPdfLoadingId(p.id);
+    try {
+      const res = await api.get(`/suzuki/preventivi/${p.id}/pdf`, { responseType: "blob" });
+      const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+      setPreviewUrl((old) => { if (old) URL.revokeObjectURL(old); return url; });
+      setPreviewName(`preventivo_suzuki_${(p.cliente_nome || "cliente").replace(/[^a-zA-Z0-9]+/g, "_")}_${p.numero || p.id.slice(0, 6)}.pdf`);
+      setPreviewOpen(true);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Errore caricamento PDF");
+    } finally { setPdfLoadingId(null); }
+  };
 
   const remove = async (id) => {
     if (!window.confirm("Eliminare questo preventivo?")) return;
@@ -478,9 +495,9 @@ function PreventiviTab() {
                     <td className="px-4 py-2.5 text-right font-mono-num font-semibold text-primary">{fmt(totale)}</td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="flex justify-end gap-1">
-                        <a href={`${API}/suzuki/preventivi/${p.id}/pdf`} target="_blank" rel="noreferrer">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Scarica PDF"><FileText className="w-3.5 h-3.5" /></Button>
-                        </a>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Anteprima PDF" onClick={() => openPdf(p)} disabled={pdfLoadingId === p.id} data-testid={`btn-preview-pdf-${p.id}`}>
+                          <FileText className="w-3.5 h-3.5" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditing({ ...p })}><Pencil className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => remove(p.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
@@ -494,6 +511,13 @@ function PreventiviTab() {
       </Card>
 
       {editing && <PreventivoDialog value={editing} modelli={modelli} onClose={() => setEditing(null)} onSaved={load} />}
+
+      <PdfPreviewOverlay
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        url={previewUrl}
+        filename={previewName}
+      />
     </div>
   );
 }
@@ -503,6 +527,7 @@ function PreventivoDialog({ value, modelli, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const pickModello = (mid) => {
@@ -550,6 +575,7 @@ function PreventivoDialog({ value, modelli, onClose, onSaved }) {
       const blob = new Blob([res.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       setPreviewUrl((old) => { if (old) URL.revokeObjectURL(old); return url; });
+      setPreviewOpen(true);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Errore anteprima");
     } finally { setPreviewLoading(false); }
@@ -644,20 +670,25 @@ function PreventivoDialog({ value, modelli, onClose, onSaved }) {
             <Field label="Note"><Textarea value={form.note || ""} onChange={(e) => set("note", e.target.value)} rows={2} /></Field>
           </div>
 
-          {/* Preview */}
-          {previewUrl && (
-            <div className="hidden xl:block w-[420px]" data-testid="preview-area">
-              <div className="border rounded-lg overflow-hidden bg-muted/30 h-[70vh]">
-                <iframe src={previewUrl} title="anteprima" className="w-full h-full border-0" />
-              </div>
-            </div>
-          )}
+          {/* preview inline rimossa: ora usa modale a schermo intero */}
         </div>
+
+        <PdfPreviewOverlay
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          url={previewUrl}
+          filename={`preventivo_suzuki_${(form.cliente_nome || "cliente").replace(/[^a-zA-Z0-9]+/g, "_")}_${form.numero || "bozza"}.pdf`}
+        />
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={genAnteprima} disabled={previewLoading} data-testid="btn-preview-suzuki">
-            <FileText className="w-4 h-4 mr-2" /> {previewLoading ? "Generazione…" : (previewUrl ? "Rigenera anteprima" : "Genera anteprima PDF")}
+            <FileText className="w-4 h-4 mr-2" /> {previewLoading ? "Generazione…" : "Anteprima PDF"}
           </Button>
+          {previewUrl && !previewOpen && (
+            <Button variant="outline" onClick={() => setPreviewOpen(true)} data-testid="btn-riapri-anteprima">
+              <FileText className="w-4 h-4 mr-2" /> Riapri anteprima
+            </Button>
+          )}
           <Button variant="outline" onClick={onClose}>Annulla</Button>
           <Button onClick={save} disabled={saving} className="bg-primary" data-testid="btn-save-suzuki">
             <Save className="w-4 h-4 mr-2" /> {saving ? "Salvataggio…" : "Salva preventivo"}
@@ -975,6 +1006,49 @@ function LogoPdfButton() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// -------------------------------------------------------------------------
+// PDF PREVIEW OVERLAY (comune)
+// -------------------------------------------------------------------------
+function PdfPreviewOverlay({ open, onClose, url, filename }) {
+  if (!open || !url) return null;
+  const download = () => {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename || "documento.pdf";
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => document.body.removeChild(a), 200);
+  };
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-[95vw] w-[95vw] h-[92vh] p-0 gap-0 overflow-hidden" data-testid="pdf-preview-overlay">
+        <DialogHeader className="px-4 py-3 border-b bg-muted/40">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <DialogTitle className="text-base flex items-center gap-2">
+                <FileText className="w-4 h-4 text-primary" /> Anteprima preventivo
+              </DialogTitle>
+              <DialogDescription className="text-xs mt-0.5">
+                Verifica il PDF prima di scaricarlo. Chiudi la finestra per tornare all'editor.
+              </DialogDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose} data-testid="btn-close-preview">
+                <X className="w-4 h-4 mr-1.5" /> Chiudi
+              </Button>
+              <Button onClick={download} className="bg-primary hover:bg-primary/90" data-testid="btn-download-preview">
+                <Download className="w-4 h-4 mr-1.5" /> Scarica PDF
+              </Button>
+            </div>
+          </div>
+        </DialogHeader>
+        <iframe src={url} title="Anteprima PDF" className="w-full h-full border-0 bg-muted/20" />
+      </DialogContent>
+    </Dialog>
   );
 }
 
