@@ -1025,8 +1025,8 @@ function PdfPreviewOverlay({ open, onClose, url, filename }) {
   };
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[95vw] w-[95vw] h-[92vh] p-0 gap-0 overflow-hidden" data-testid="pdf-preview-overlay">
-        <DialogHeader className="px-4 py-3 border-b bg-muted/40">
+      <DialogContent className="max-w-[95vw] w-[95vw] h-[92vh] p-0 gap-0 overflow-hidden flex flex-col" data-testid="pdf-preview-overlay">
+        <DialogHeader className="px-4 py-3 border-b bg-muted/40 shrink-0">
           <div className="flex items-center justify-between gap-3">
             <div>
               <DialogTitle className="text-base flex items-center gap-2">
@@ -1046,7 +1046,9 @@ function PdfPreviewOverlay({ open, onClose, url, filename }) {
             </div>
           </div>
         </DialogHeader>
-        <iframe src={url} title="Anteprima PDF" className="w-full h-full border-0 bg-muted/20" />
+        <object data={url} type="application/pdf" className="flex-1 w-full bg-muted/20" data-testid="pdf-preview-object">
+          <iframe src={url} title="Anteprima PDF" className="w-full h-full border-0 bg-muted/20" />
+        </object>
       </DialogContent>
     </Dialog>
   );
