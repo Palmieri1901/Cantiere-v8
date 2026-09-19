@@ -776,8 +776,8 @@ async def import_ai(payload: SuzukiImportRequest):
 # ---------------------------------------------------------------------------
 # CRUD PREVENTIVI
 # ---------------------------------------------------------------------------
-def _calc_totale(p: SuzukiPreventivo) -> dict:
-    IVA = 1.22  # aliquota standard IT 22%
+def _calc_totale(p: SuzukiPreventivo, iva_perc: float = 22.0) -> dict:
+    IVA = 1 + (float(iva_perc or 0) / 100.0)
     listino = float(p.prezzo_listino or 0)
     s1 = float(p.sconto_perc_1 or 0)
     s2 = float(p.sconto_perc_2 or 0)
@@ -803,7 +803,18 @@ def _calc_totale(p: SuzukiPreventivo) -> dict:
         "acquisto_iva_incl": acquisto_iva_incl,
         "sotto_costo": sotto_costo,
         "margine": margine,
+        "iva_perc": float(iva_perc or 0),
     }
+
+
+async def _get_iva_perc() -> float:
+    doc = await db.cantiere.find_one({"id": "default"}, {"iva_percentuale": 1})
+    if doc and doc.get("iva_percentuale") is not None:
+        try:
+            return float(doc["iva_percentuale"])
+        except (TypeError, ValueError):
+            pass
+    return 22.0
 
 
 async def _next_numero() -> str:
@@ -1119,7 +1130,8 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
     # ------------------------------------------------------------------
     # COSTO MOTORE (evidenziato)
     # ------------------------------------------------------------------
-    calc = _calc_totale(p)
+    iva_perc = await _get_iva_perc()
+    calc = _calc_totale(p, iva_perc=iva_perc)
     story.append(section_header("COSTO MOTORE"))
 
     motor_rows = [
@@ -1176,7 +1188,7 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
                                       textColor=colors.HexColor("#7A1913"), leading=11)
         warn_msg = (
             f"Il <b>NETTO MOTORE</b> ({_fmt_eur(calc['netto_motore'])}) è <b>inferiore</b> al "
-            f"costo di acquisto concessionario IVA inclusa ({_fmt_eur(calc['acquisto_iva_incl'])}). "
+            f"costo di acquisto concessionario IVA inclusa ({_fmt_eur(calc['acquisto_iva_incl'])} · IVA {calc['iva_perc']:g}%). "
             f"Margine attuale: <b>{_fmt_eur(calc['margine'])}</b>."
         )
         twarn = Table(

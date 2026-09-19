@@ -264,6 +264,7 @@ class Cantiere(BaseModel):
     sito_web: str = ""
     orari: str = ""
     logo_base64: str = ""
+    iva_percentuale: float = 22.0  # aliquota IVA globale usata in tutti i calcoli (Suzuki, ecc.)
     # Blocchi testuali stampati in coda al preventivo PDF (editabili)
     preventivo_interno_titolo: str = "Interno cantiere:"
     preventivo_interno_testo: str = (
@@ -369,6 +370,7 @@ class CantiereUpdate(BaseModel):
     sito_web: Optional[str] = None
     orari: Optional[str] = None
     logo_base64: Optional[str] = None
+    iva_percentuale: Optional[float] = None
     preventivo_interno_titolo: Optional[str] = None
     preventivo_interno_testo: Optional[str] = None
     preventivo_piazzale_titolo: Optional[str] = None

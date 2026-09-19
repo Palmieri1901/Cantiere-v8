@@ -100,6 +100,7 @@ export default function Impostazioni() {
       payload.preventivo_condizioni_titolo = c.preventivo_condizioni_titolo ?? "";
       payload.preventivo_condizioni_testo = c.preventivo_condizioni_testo ?? "";
       payload.contratto_template = c.contratto_template ?? "";
+      payload.iva_percentuale = Number(c.iva_percentuale ?? 22);
       await api.put("/cantiere", payload);
       toast.success("Informazioni salvate");
       load();
@@ -233,6 +234,25 @@ export default function Impostazioni() {
                 />
               </div>
             ))}
+          </div>
+          <Separator />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aliquota IVA (%)</Label>
+              <Input
+                type="number"
+                step="0.5"
+                min="0"
+                max="100"
+                value={c.iva_percentuale ?? 22}
+                onChange={(e) => update("iva_percentuale", e.target.value === "" ? "" : Number(e.target.value))}
+                className="mt-1.5"
+                data-testid="input-iva-percentuale"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                Aliquota unica applicata in tutta l'app (default 22%). Modifica il calcolo di margine e costi IVA inclusa in tutti i preventivi.
+              </p>
+            </div>
           </div>
           <Separator />
           <div>

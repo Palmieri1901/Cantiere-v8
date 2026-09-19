@@ -556,8 +556,16 @@ function PreventivoDialog({ value, modelli, onClose, onSaved }) {
     }));
   };
 
+  const [cantiere, setCantiere] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    api.get("/cantiere").then((r) => { if (alive) setCantiere(r.data); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  const ivaPerc = Number(cantiere?.iva_percentuale ?? 22);
+
   const calc = useMemo(() => {
-    const IVA = 1.22;
+    const IVA = 1 + (ivaPerc / 100);
     const listino = Number(form.prezzo_listino || 0);
     const s1 = Number(form.sconto_perc_1 || 0);
     const s2 = Number(form.sconto_perc_2 || 0);
@@ -569,8 +577,8 @@ function PreventivoDialog({ value, modelli, onClose, onSaved }) {
     const acquistoIncl = acquistoEscl * IVA;
     const sottoCosto = acquistoIncl > 0 && dopo2 < acquistoIncl;
     const margine = acquistoIncl > 0 ? dopo2 - acquistoIncl : 0;
-    return { listino, s1_amt: listino - dopo1, s2_amt: dopo1 - dopo2, netto: dopo2, montaggio, cavetteria, totale: dopo2 + montaggio + cavetteria, acquistoEscl, acquistoIncl, sottoCosto, margine };
-  }, [form.prezzo_listino, form.sconto_perc_1, form.sconto_perc_2, form.montaggio, form.cavetteria, form.prezzo_acquisto_concessionario]);
+    return { listino, s1_amt: listino - dopo1, s2_amt: dopo1 - dopo2, netto: dopo2, montaggio, cavetteria, totale: dopo2 + montaggio + cavetteria, acquistoEscl, acquistoIncl, sottoCosto, margine, ivaPerc };
+  }, [form.prezzo_listino, form.sconto_perc_1, form.sconto_perc_2, form.montaggio, form.cavetteria, form.prezzo_acquisto_concessionario, ivaPerc]);
 
   const genAnteprima = async () => {
     if (!form.cliente_nome?.trim() || !form.modello?.trim()) {
@@ -673,7 +681,7 @@ function PreventivoDialog({ value, modelli, onClose, onSaved }) {
                 {calc.s2_amt > 0 && <div className="flex justify-between text-muted-foreground"><span>Sconto 2 ({form.sconto_perc_2}%)</span><span className="font-mono-num">− {fmt(calc.s2_amt)}</span></div>}
                 <div className="flex justify-between font-semibold border-t pt-1"><span>Netto motore</span><span className="font-mono-num">{fmt(calc.netto)}</span></div>
                 {calc.acquistoIncl > 0 && (
-                  <div className="flex justify-between text-xs text-muted-foreground"><span>Costo acquisto conc. (IVA incl. 22%)</span><span className="font-mono-num">{fmt(calc.acquistoIncl)}</span></div>
+                  <div className="flex justify-between text-xs text-muted-foreground"><span>Costo acquisto conc. (IVA incl. {calc.ivaPerc}%)</span><span className="font-mono-num">{fmt(calc.acquistoIncl)}</span></div>
                 )}
                 {calc.acquistoIncl > 0 && (
                   <div className={`flex justify-between text-xs ${calc.sottoCosto ? "text-destructive font-semibold" : "text-emerald-700"}`}>
