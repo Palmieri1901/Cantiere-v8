@@ -1107,7 +1107,7 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
     calc = _calc_totale(p)
     story.append(section_header("CALCOLO PREZZO"))
     rows = [
-        [Paragraph("Prezzo di listino Suzuki (IVA esclusa)", st_row),
+        [Paragraph("Prezzo pubblico Suzuki (IVA inclusa)", st_row),
          Paragraph(_fmt_eur(calc["prezzo_listino"]), st_row_bold)],
     ]
     if p.sconto_perc_1:
@@ -1143,7 +1143,7 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
     tot_tbl = Table(
         [[Paragraph("TOTALE PREVENTIVO", st_total_lab),
           Paragraph(_fmt_eur(calc["totale_iva_esclusa"]), st_total_val)],
-         ["", Paragraph("+ IVA", ParagraphStyle("iva", parent=styles["Normal"], fontSize=9, textColor=colors.white, alignment=TA_RIGHT))]],
+         ["", Paragraph("IVA compresa", ParagraphStyle("iva", parent=styles["Normal"], fontSize=9, textColor=colors.white, alignment=TA_RIGHT))]],
         colWidths=[130*mm, 52*mm],
     )
     tot_tbl.setStyle(TableStyle([

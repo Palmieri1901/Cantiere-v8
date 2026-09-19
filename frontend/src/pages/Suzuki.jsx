@@ -523,7 +523,7 @@ function PreventivoDialog({ value, modelli, onClose, onSaved }) {
       comandi: m.comandi || "",
       alternatore_A: m.alternatore_A || 0,
       carburante: m.carburante || "",
-      prezzo_listino: m.prezzo_listino || 0,
+      prezzo_listino: m.prezzo_offerta || m.prezzo_pubblico || m.prezzo_listino || 0,
       sconto_perc_1: m.sconto_perc_1 || 0, sconto_perc_2: m.sconto_perc_2 || 0,
     }));
   };
@@ -624,20 +624,20 @@ function PreventivoDialog({ value, modelli, onClose, onSaved }) {
             <Card className="p-4">
               <div className="label-mini mb-2">Prezzi & sconti</div>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <Field label="Prezzo listino € (IVA escl.) *"><Input type="number" step="0.01" value={form.prezzo_listino || ""} onChange={(e) => set("prezzo_listino", e.target.value)} data-testid="p-listino" /></Field>
+                <Field label="Prezzo pubblico € (IVA incl.) *"><Input type="number" step="0.01" value={form.prezzo_listino || ""} onChange={(e) => set("prezzo_listino", e.target.value)} data-testid="p-listino" /></Field>
                 <Field label="Sconto 1 (%)"><Input type="number" step="0.5" value={form.sconto_perc_1 || ""} onChange={(e) => set("sconto_perc_1", e.target.value)} data-testid="p-sc1" /></Field>
                 <Field label="Sconto 2 (%)"><Input type="number" step="0.5" value={form.sconto_perc_2 || ""} onChange={(e) => set("sconto_perc_2", e.target.value)} data-testid="p-sc2" /></Field>
-                <Field label="Montaggio € (IVA escl.)"><Input type="number" step="0.01" value={form.montaggio || ""} onChange={(e) => set("montaggio", e.target.value)} data-testid="p-montaggio" /></Field>
-                <Field label="Cavetteria € (IVA escl.)"><Input type="number" step="0.01" value={form.cavetteria || ""} onChange={(e) => set("cavetteria", e.target.value)} data-testid="p-cavetteria" /></Field>
+                <Field label="Montaggio € (IVA incl.)"><Input type="number" step="0.01" value={form.montaggio || ""} onChange={(e) => set("montaggio", e.target.value)} data-testid="p-montaggio" /></Field>
+                <Field label="Cavetteria € (IVA incl.)"><Input type="number" step="0.01" value={form.cavetteria || ""} onChange={(e) => set("cavetteria", e.target.value)} data-testid="p-cavetteria" /></Field>
               </div>
               <div className="mt-3 text-sm space-y-1 bg-muted/40 rounded-md p-3">
-                <div className="flex justify-between"><span>Listino</span><span className="font-mono-num">{fmt(calc.listino)}</span></div>
+                <div className="flex justify-between"><span>Prezzo pubblico</span><span className="font-mono-num">{fmt(calc.listino)}</span></div>
                 {calc.s1_amt > 0 && <div className="flex justify-between text-muted-foreground"><span>Sconto 1 ({form.sconto_perc_1}%)</span><span className="font-mono-num">− {fmt(calc.s1_amt)}</span></div>}
                 {calc.s2_amt > 0 && <div className="flex justify-between text-muted-foreground"><span>Sconto 2 ({form.sconto_perc_2}%)</span><span className="font-mono-num">− {fmt(calc.s2_amt)}</span></div>}
                 <div className="flex justify-between font-semibold border-t pt-1"><span>Netto motore</span><span className="font-mono-num">{fmt(calc.netto)}</span></div>
                 {calc.montaggio > 0 && <div className="flex justify-between"><span>Montaggio</span><span className="font-mono-num">+ {fmt(calc.montaggio)}</span></div>}
                 {calc.cavetteria > 0 && <div className="flex justify-between"><span>Cavetteria</span><span className="font-mono-num">+ {fmt(calc.cavetteria)}</span></div>}
-                <div className="flex justify-between font-bold text-primary text-base border-t pt-1"><span>Totale + IVA</span><span className="font-mono-num" data-testid="p-totale">{fmt(calc.totale)}</span></div>
+                <div className="flex justify-between font-bold text-primary text-base border-t pt-1"><span>Totale IVA inclusa</span><span className="font-mono-num" data-testid="p-totale">{fmt(calc.totale)}</span></div>
               </div>
             </Card>
 
