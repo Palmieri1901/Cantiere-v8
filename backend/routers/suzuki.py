@@ -256,6 +256,59 @@ async def save_listino_conc_sconti(payload: dict):
     return {"sc1": sc1, "sc2": sc2}
 
 
+@router.get("/listino-conc-overrides")
+async def get_listino_conc_overrides():
+    """Ritorna gli override sc1/sc2 salvati per singolo modello + defaults 10/5.
+    Struttura: { default_sc1, default_sc2, overrides: { <modello_id>: {sc1, sc2} } }
+    """
+    defaults = await db.suzuki_settings.find_one({"id": "listino_conc_sconti"}, {"_id": 0}) or {}
+    doc = await db.suzuki_settings.find_one({"id": "listino_conc_overrides"}, {"_id": 0}) or {}
+    return {
+        "default_sc1": float(defaults.get("sc1", 10) or 10),
+        "default_sc2": float(defaults.get("sc2", 5) or 5),
+        "overrides": doc.get("overrides", {}),
+    }
+
+
+@router.put("/listino-conc-overrides")
+async def save_listino_conc_overrides(payload: dict):
+    """Salva override sc1/sc2 per modello. Body: {default_sc1, default_sc2, overrides: {id: {sc1, sc2}}}."""
+    try:
+        default_sc1 = float(payload.get("default_sc1") or 10)
+        default_sc2 = float(payload.get("default_sc2") or 5)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Sconti default non validi")
+    if not (0 <= default_sc1 <= 100 and 0 <= default_sc2 <= 100):
+        raise HTTPException(400, "Sconti default fuori range")
+    overrides = payload.get("overrides") or {}
+    if not isinstance(overrides, dict):
+        raise HTTPException(400, "overrides deve essere un oggetto")
+    clean: Dict[str, dict] = {}
+    for mid, val in overrides.items():
+        if not isinstance(val, dict):
+            continue
+        try:
+            s1 = float(val.get("sc1") or 0)
+            s2 = float(val.get("sc2") or 0)
+        except (TypeError, ValueError):
+            continue
+        if not (0 <= s1 <= 100 and 0 <= s2 <= 100):
+            continue
+        clean[str(mid)] = {"sc1": s1, "sc2": s2}
+    now = datetime.now(timezone.utc)
+    await db.suzuki_settings.update_one(
+        {"id": "listino_conc_sconti"},
+        {"$set": {"sc1": default_sc1, "sc2": default_sc2, "updated_at": now}},
+        upsert=True,
+    )
+    await db.suzuki_settings.update_one(
+        {"id": "listino_conc_overrides"},
+        {"$set": {"overrides": clean, "updated_at": now}},
+        upsert=True,
+    )
+    return {"default_sc1": default_sc1, "default_sc2": default_sc2, "overrides": clean}
+
+
 async def _legenda_flowables(avail_width_mm: float = 182, compact: bool = False):
     """Genera i flowables per stampare la legenda in fondo ai PDF."""
     await _seed_legenda_if_empty()
@@ -426,7 +479,8 @@ async def listino_pdf():
 
 @router.get("/listino-concessionario.pdf")
 async def listino_concessionario_pdf(sc1: float = 10.0, sc2: float = 5.0):
-    """PDF listino concessionario: aggiunge sconti, netto costo, sconto medio Suzuki e guadagno stimato con doppio sconto (sc1, sc2 in %)."""
+    """PDF listino concessionario. Se esistono override per modello nelle impostazioni li usa,
+    altrimenti applica sc1/sc2 uniformi (query param, default 10/5)."""
     return await _build_listino_pdf(concessionario=True, sc1=sc1, sc2=sc2)
 
 
@@ -500,6 +554,9 @@ async def _build_listino_pdf(concessionario: bool = False, sc1: float = 10.0, sc
     # aliquota IVA per calcoli (per il listino concessionario)
     iva_perc_pdf = await _get_iva_perc() if concessionario else 22.0
     IVA_M = 1 + (float(iva_perc_pdf) / 100.0)
+    # override per-modello caricati dalle impostazioni (se presenti)
+    overrides_doc = await db.suzuki_settings.find_one({"id": "listino_conc_overrides"}, {"_id": 0}) if concessionario else None
+    overrides_map: Dict[str, dict] = (overrides_doc or {}).get("overrides", {}) if concessionario else {}
     neg_rows_by_cat: Dict[str, List[int]] = {}  # per categoria: indici (1-based) delle righe con guadagno negativo
 
     for cat in [c for c in ordine_cat if c in gruppi]:
@@ -538,16 +595,20 @@ async def _build_listino_pdf(concessionario: bool = False, sc1: float = 10.0, sc
                 # % sconto listino: da pubblico IVA escl. al listino concessionario
                 pub_escl = pub / IVA_M if pub else 0
                 sconto_list_perc = ((pub_escl - pl) / pub_escl * 100) if pub_escl > 0 and pl > 0 else 0
-                # Guadagno = netto vendita al cliente (sc1+sc2 editabili sul pubblico) − costo reale (netto conc.)
-                netto_vendita_incl = pub * (1 - sc1/100) * (1 - sc2/100) if pub else 0
+                # sconti applicati riga (override per modello se presente, altrimenti uniform sc1/sc2)
+                ov = overrides_map.get(str(r.get("id") or ""))
+                row_sc1 = float((ov or {}).get("sc1", sc1))
+                row_sc2 = float((ov or {}).get("sc2", sc2))
+                # Guadagno = netto vendita al cliente (row_sc1+row_sc2 sul pubblico) − costo reale (netto conc.)
+                netto_vendita_incl = pub * (1 - row_sc1/100) * (1 - row_sc2/100) if pub else 0
                 netto_vendita_escl = netto_vendita_incl / IVA_M if netto_vendita_incl else 0
                 guadagno = netto_vendita_escl - netto_conc if pl and pub else 0
                 if guadagno < 0:
                     neg_rows.append(row_idx)
                 base += [
                     _fmt_eur(pl) if pl else "—",
-                    f"{sc1:g}%",  # ora editabile via query, uguale per tutte le righe
-                    f"{sc2:g}%",
+                    f"{row_sc1:g}%",  # override per modello o default
+                    f"{row_sc2:g}%",
                     _fmt_eur(netto_conc) if netto_conc else "—",
                     _fmt_eur(pub) if pub else "—",
                     f"{sconto_list_perc:.1f}%" if sconto_list_perc > 0 else "—",
