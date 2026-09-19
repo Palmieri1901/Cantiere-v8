@@ -398,14 +398,15 @@ async def listino_pdf():
 
 
 @router.get("/listino-concessionario.pdf")
-async def listino_concessionario_pdf():
-    """PDF listino concessionario: aggiunge sconti e netto costo al concessionario."""
-    return await _build_listino_pdf(concessionario=True)
+async def listino_concessionario_pdf(sc1: float = 10.0, sc2: float = 5.0):
+    """PDF listino concessionario: aggiunge sconti, netto costo, sconto medio Suzuki e guadagno stimato con doppio sconto (sc1, sc2 in %)."""
+    return await _build_listino_pdf(concessionario=True, sc1=sc1, sc2=sc2)
 
 
-async def _build_listino_pdf(concessionario: bool = False):
+async def _build_listino_pdf(concessionario: bool = False, sc1: float = 10.0, sc2: float = 5.0):
     """PDF listino gamma Suzuki Marine, raggruppato per categoria HP.
-    Se `concessionario=True` aggiunge colonne Sconto 1, Sconto 2, Netto concessionario."""
+    Se `concessionario=True` aggiunge colonne Sconto 1, Sconto 2, Netto concessionario,
+    % sconto medio (calcolato da pubblico vs listino) e Guadagno stimato applicando sc1+sc2 sul pubblico."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -458,14 +459,20 @@ async def _build_listino_pdf(concessionario: bool = False):
     ordine_cat = ["Portatile", "In-linea 2", "In-linea 3", "In-linea 4", "V6", "V6 Flagship", "Altro"]
 
     if concessionario:
-        head_row = ["Modello", "HP", "Cilindrata", "Gambo", "Peso",
-                    "Listino IVA escl.", "Sc.1", "Sc.2", "Netto conc.", "Pubblico IVA incl."]
-        col_widths = [28*mm, 10*mm, 17*mm, 14*mm, 13*mm, 26*mm, 11*mm, 11*mm, 26*mm, 30*mm]
-        font_size = 7.6
+        head_row = ["Modello", "HP", "Gambo", "Peso",
+                    "Listino IVA escl.", "Sc.1", "Sc.2", "Netto conc.",
+                    "Pubblico IVA incl.", "% Sc. list.",
+                    f"Guadagno ({sc1:g}%+{sc2:g}%)"]
+        col_widths = [24*mm, 9*mm, 12*mm, 12*mm, 22*mm, 9*mm, 9*mm, 22*mm, 22*mm, 15*mm, 30*mm]
+        font_size = 7.2
     else:
         head_row = ["Modello", "HP", "Cilindrata", "Gambo", "Peso", "Pubblico € (IVA incl.)", "In offerta"]
         col_widths = [40*mm, 14*mm, 22*mm, 22*mm, 18*mm, 40*mm, 30*mm]
         font_size = 8.5
+
+    # aliquota IVA per calcoli (per il listino concessionario)
+    iva_perc_pdf = await _get_iva_perc() if concessionario else 22.0
+    IVA_M = 1 + (float(iva_perc_pdf) / 100.0)
 
     for cat in [c for c in ordine_cat if c in gruppi]:
         rows = sorted(gruppi[cat], key=lambda x: (x.get("potenza_hp") or 0, x.get("modello") or ""))
@@ -477,26 +484,45 @@ async def _build_listino_pdf(concessionario: bool = False):
         header_paras = [Paragraph(h, st_head) for h in head_row]
         data = [header_paras]
         for r in rows:
-            base = [
-                r.get("modello", ""),
-                f"{r.get('potenza_hp',0):g}",
-                f"{r.get('cilindrata_cc',0):g} cc" if r.get("cilindrata_cc") else "—",
-                r.get("gambo", "") or "—",
-                f"{r.get('peso_kg',0):g} kg" if r.get("peso_kg") else "—",
-            ]
             if concessionario:
-                base.append(_fmt_eur(r.get("prezzo_listino", 0)) if r.get("prezzo_listino") else "—")
+                base = [
+                    r.get("modello", ""),
+                    f"{r.get('potenza_hp',0):g}",
+                    r.get("gambo", "") or "—",
+                    f"{r.get('peso_kg',0):g} kg" if r.get("peso_kg") else "—",
+                ]
+            else:
+                base = [
+                    r.get("modello", ""),
+                    f"{r.get('potenza_hp',0):g}",
+                    f"{r.get('cilindrata_cc',0):g} cc" if r.get("cilindrata_cc") else "—",
+                    r.get("gambo", "") or "—",
+                    f"{r.get('peso_kg',0):g} kg" if r.get("peso_kg") else "—",
+                ]
+            if concessionario:
                 pl = float(r.get("prezzo_listino") or 0)
+                pub = float(r.get("prezzo_pubblico") or 0)
                 s1 = float(r.get("sconto_perc_1") or 0)
                 s2 = float(r.get("sconto_perc_2") or 0)
-                netto = pl * (1 - s1/100) * (1 - s2/100) if pl else 0
+                netto_conc = pl * (1 - s1/100) * (1 - s2/100) if pl else 0
+                # % sconto listino: da pubblico IVA escl. al listino concessionario
+                pub_escl = pub / IVA_M if pub else 0
+                sconto_list_perc = ((pub_escl - pl) / pub_escl * 100) if pub_escl > 0 and pl > 0 else 0
+                # guadagno stimato applicando sc1+sc2 (query) sul prezzo pubblico IVA incl., poi da IVA a IVA escl., meno costo dal Suzuki (netto concessionario)
+                netto_vendita_incl = pub * (1 - sc1/100) * (1 - sc2/100) if pub else 0
+                netto_vendita_escl = netto_vendita_incl / IVA_M if netto_vendita_incl else 0
+                guadagno = netto_vendita_escl - netto_conc if pl and pub else 0
                 base += [
+                    _fmt_eur(pl) if pl else "—",
                     f"{s1:g}%" if s1 else "—",
                     f"{s2:g}%" if s2 else "—",
-                    _fmt_eur(netto) if netto else "—",
+                    _fmt_eur(netto_conc) if netto_conc else "—",
+                    _fmt_eur(pub) if pub else "—",
+                    f"{sconto_list_perc:.1f}%" if sconto_list_perc > 0 else "—",
+                    _fmt_eur(guadagno) if guadagno else "—",
                 ]
-            base.append(_fmt_eur(r.get("prezzo_pubblico", 0)) if r.get("prezzo_pubblico") else "—")
-            if not concessionario:
+            else:
+                base.append(_fmt_eur(r.get("prezzo_pubblico", 0)) if r.get("prezzo_pubblico") else "—")
                 base.append(_fmt_eur(r.get("prezzo_offerta", 0)) if r.get("prezzo_offerta") else "—")
             data.append(base)
         t = Table(data, colWidths=col_widths, repeatRows=1)
@@ -517,11 +543,16 @@ async def _build_listino_pdf(concessionario: bool = False):
         ]
         if concessionario:
             # evidenzia colonne concessionario
+            # colonne: 0 Modello, 1 HP, 2 Gambo, 3 Peso, 4 Listino IVA escl, 5 Sc.1, 6 Sc.2, 7 Netto conc, 8 Pubblico, 9 %Sc.list, 10 Guadagno
             style += [
-                ("BACKGROUND", (6, 1), (8, -1), colors.HexColor("#FDECEC")),
-                ("TEXTCOLOR", (8, 1), (8, -1), ACCENT),
-                ("FONTNAME", (8, 1), (8, -1), "Helvetica-Bold"),
-                ("ALIGN", (6, 1), (7, -1), "CENTER"),
+                ("BACKGROUND", (5, 1), (7, -1), colors.HexColor("#FDECEC")),
+                ("TEXTCOLOR", (7, 1), (7, -1), ACCENT),
+                ("FONTNAME", (7, 1), (7, -1), "Helvetica-Bold"),
+                ("ALIGN", (5, 1), (6, -1), "CENTER"),
+                ("BACKGROUND", (9, 1), (10, -1), colors.HexColor("#E8F5E9")),
+                ("TEXTCOLOR", (10, 1), (10, -1), colors.HexColor("#1B5E20")),
+                ("FONTNAME", (10, 1), (10, -1), "Helvetica-Bold"),
+                ("ALIGN", (9, 1), (9, -1), "CENTER"),
             ]
         else:
             # evidenzia colonna "In offerta" (rosso su sfondo chiaro)
@@ -535,8 +566,11 @@ async def _build_listino_pdf(concessionario: bool = False):
 
     story.append(Spacer(1, 8))
     if concessionario:
-        disclaimer = ("<i>Documento riservato al concessionario. Contiene prezzi netti al concessionario "
-                      "dopo applicazione degli sconti Suzuki (Sc.1 e Sc.2). Non consegnare al cliente finale.</i>")
+        disclaimer = (f"<i>Documento riservato al concessionario. Contiene prezzi netti al concessionario "
+                      f"dopo applicazione degli sconti Suzuki (Sc.1 e Sc.2). La colonna <b>% Sc. list.</b> mostra "
+                      f"lo sconto complessivo dal prezzo pubblico (IVA escl.) al listino concessionario. La colonna "
+                      f"<b>Guadagno ({sc1:g}%+{sc2:g}%)</b> stima il margine (IVA escl.) applicando questi due sconti "
+                      f"sul prezzo pubblico. Non consegnare al cliente finale.</i>")
     else:
         disclaimer = ("<i>Prezzi Suzuki Italia validi dal listino 2025-2026 salvo variazioni. "
                       "Il prezzo IVA inclusa è indicativo per il cliente finale; il concessionario applica le proprie condizioni.</i>")

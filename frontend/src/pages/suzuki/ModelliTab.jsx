@@ -9,6 +9,7 @@ import { EMPTY_MODEL, fmt } from "./common";
 import ModelloDialog from "./ModelloDialog";
 import ImportAIDialog from "./ImportAIDialog";
 import LogoPdfButton from "./LogoPdfButton";
+import ListinoConcessionarioButton from "./ListinoConcessionarioButton";
 
 export default function ModelliTab() {
   const [items, setItems] = useState([]);
@@ -67,9 +68,7 @@ export default function ModelliTab() {
         <Button variant="outline" onClick={() => window.open(`${API}/suzuki/listino.pdf`, "_blank")} data-testid="btn-pdf-listino">
           <FileText className="w-4 h-4 mr-2" /> Listino pubblico
         </Button>
-        <Button variant="outline" onClick={() => window.open(`${API}/suzuki/listino-concessionario.pdf`, "_blank")} className="border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700" data-testid="btn-pdf-listino-conc">
-          <FileText className="w-4 h-4 mr-2" /> Listino concessionario
-        </Button>
+        <ListinoConcessionarioButton />
         <Button variant="outline" onClick={() => window.open(`${API}/suzuki/caratteristiche.pdf`, "_blank")} data-testid="btn-pdf-caratt">
           <FileText className="w-4 h-4 mr-2" /> PDF Caratteristiche
         </Button>
