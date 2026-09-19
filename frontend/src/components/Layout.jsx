@@ -24,7 +24,7 @@ const nav = [
   { to: "/magazzino", label: "Magazzino", icon: Package, testId: "nav-magazzino" },
   { to: "/tubolari", label: "Tubolari", icon: Ship, testId: "nav-tubolari" },
   { to: "/suzuki", label: "Suzuki", icon: Sailboat, testId: "nav-suzuki" },
-  { to: "/impostazioni", label: "Impostazioni", icon: Building2, testId: "nav-impostazioni" },
+  { to: "/impostazioni", label: "Impostazione dati cantiere", icon: Building2, testId: "nav-impostazioni" },
 ];
 
 // Flatten per la barra mobile

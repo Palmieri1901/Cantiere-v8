@@ -139,7 +139,7 @@ export default function Home() {
             <Button asChild variant="ghost" size="lg" className="h-12 px-4 text-muted-foreground hover:text-foreground" data-testid="cta-impostazioni">
               <Link to="/impostazioni">
                 <Settings className="w-4 h-4 mr-2" />
-                Info cantiere
+                Impostazione dati cantiere
               </Link>
             </Button>
           </div>
