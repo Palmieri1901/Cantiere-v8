@@ -249,14 +249,6 @@ export default function Impostazioni() {
         </Card>
       </div>
 
-      {/* Testi preventivo e template contratto sono stati spostati in "Rimessaggio → Impostazioni" */}
-      <div className="mt-6 rounded-md border border-primary/30 bg-primary/5 p-4 text-sm" data-testid="preventivo-moved-notice">
-        <div className="font-semibold text-primary mb-1">Testi preventivo e template contratto</div>
-        <p className="text-muted-foreground">
-          Sono stati spostati in <b>Rimessaggio → Impostazioni</b> per tenere insieme tutte le personalizzazioni del modulo Rimessaggio. Clicca la voce nella barra laterale sotto "Rimessaggio" per modificarli.
-        </p>
-      </div>
-
       {/* Sicurezza / Cambio password */}
       <Card className="p-6 mt-6" data-testid="security-card">
         <div className="label-mini mb-2 flex items-center gap-1.5">
