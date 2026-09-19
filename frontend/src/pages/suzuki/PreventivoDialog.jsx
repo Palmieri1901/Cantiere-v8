@@ -163,12 +163,9 @@ export default function PreventivoDialog({ value, modelli, onClose, onSaved }) {
               <div className="label-mini mb-2">Prezzi & sconti</div>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <Field label="Prezzo pubblico € (IVA incl.) *"><Input type="number" step="0.01" value={form.prezzo_listino || ""} onChange={(e) => set("prezzo_listino", e.target.value)} data-testid="p-listino" /></Field>
-                <Field label="Costo acquisto conc. € (IVA escl.)"><Input type="number" step="0.01" value={form.prezzo_acquisto_concessionario || ""} onChange={(e) => set("prezzo_acquisto_concessionario", e.target.value)} data-testid="p-acquisto" /></Field>
                 <Field label="Sconto 1 (%)"><Input type="number" step="0.5" value={form.sconto_perc_1 || ""} onChange={(e) => set("sconto_perc_1", e.target.value)} data-testid="p-sc1" /></Field>
                 <Field label="Sconto 2 (%)"><Input type="number" step="0.5" value={form.sconto_perc_2 || ""} onChange={(e) => set("sconto_perc_2", e.target.value)} data-testid="p-sc2" /></Field>
                 <Field label="Montaggio € (IVA incl.)"><Input type="number" step="0.01" value={form.montaggio || ""} onChange={(e) => set("montaggio", e.target.value)} data-testid="p-montaggio" /></Field>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-3">
                 <Field label="Cavetteria € (IVA incl.)"><Input type="number" step="0.01" value={form.cavetteria || ""} onChange={(e) => set("cavetteria", e.target.value)} data-testid="p-cavetteria" /></Field>
               </div>
               <div className="mt-3 text-sm space-y-1 bg-muted/40 rounded-md p-3">
@@ -176,15 +173,6 @@ export default function PreventivoDialog({ value, modelli, onClose, onSaved }) {
                 {calc.s1_amt > 0 && <div className="flex justify-between text-muted-foreground"><span>Sconto 1 ({form.sconto_perc_1}%)</span><span className="font-mono-num">− {fmt(calc.s1_amt)}</span></div>}
                 {calc.s2_amt > 0 && <div className="flex justify-between text-muted-foreground"><span>Sconto 2 ({form.sconto_perc_2}%)</span><span className="font-mono-num">− {fmt(calc.s2_amt)}</span></div>}
                 <div className="flex justify-between font-semibold border-t pt-1"><span>Netto motore</span><span className="font-mono-num">{fmt(calc.netto)}</span></div>
-                {calc.acquistoIncl > 0 && (
-                  <div className="flex justify-between text-xs text-muted-foreground"><span>Costo acquisto conc. (IVA incl. {calc.ivaPerc}%)</span><span className="font-mono-num">{fmt(calc.acquistoIncl)}</span></div>
-                )}
-                {calc.acquistoIncl > 0 && (
-                  <div className={`flex justify-between text-xs ${calc.sottoCosto ? "text-destructive font-semibold" : "text-emerald-700"}`}>
-                    <span>Margine motore</span>
-                    <span className="font-mono-num" data-testid="p-margine">{calc.margine >= 0 ? "+ " : "− "}{fmt(Math.abs(calc.margine))}</span>
-                  </div>
-                )}
                 {calc.montaggio > 0 && <div className="flex justify-between"><span>Montaggio</span><span className="font-mono-num">+ {fmt(calc.montaggio)}</span></div>}
                 {calc.cavetteria > 0 && <div className="flex justify-between"><span>Cavetteria</span><span className="font-mono-num">+ {fmt(calc.cavetteria)}</span></div>}
                 <div className="flex justify-between font-bold text-primary text-base border-t pt-1"><span>Totale IVA inclusa</span><span className="font-mono-num" data-testid="p-totale">{fmt(calc.totale)}</span></div>
@@ -195,7 +183,7 @@ export default function PreventivoDialog({ value, modelli, onClose, onSaved }) {
                   <div className="text-sm">
                     <div className="font-bold text-destructive">Attenzione: prezzo sotto costo</div>
                     <div className="text-destructive/90 mt-0.5">
-                      Il netto motore ({fmt(calc.netto)}) è inferiore al costo di acquisto concessionario IVA inclusa ({fmt(calc.acquistoIncl)}). Perdita di {fmt(Math.abs(calc.margine))}.
+                      Il netto motore ({fmt(calc.netto)}) è inferiore al prezzo del listino concessionario di questo modello. Verificare gli sconti applicati.
                     </div>
                   </div>
                 </div>

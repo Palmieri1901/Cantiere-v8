@@ -1187,9 +1187,8 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
         st_warn_body = ParagraphStyle("wb", parent=styles["Normal"], fontSize=8.5,
                                       textColor=colors.HexColor("#7A1913"), leading=11)
         warn_msg = (
-            f"Il <b>NETTO MOTORE</b> ({_fmt_eur(calc['netto_motore'])}) è <b>inferiore</b> al "
-            f"costo di acquisto concessionario IVA inclusa ({_fmt_eur(calc['acquisto_iva_incl'])} · IVA {calc['iva_perc']:g}%). "
-            f"Margine attuale: <b>{_fmt_eur(calc['margine'])}</b>."
+            f"Il <b>NETTO MOTORE</b> ({_fmt_eur(calc['netto_motore'])}) è <b>inferiore</b> al prezzo del "
+            f"listino concessionario di questo modello. Verificare gli sconti applicati prima di confermare."
         )
         twarn = Table(
             [[Paragraph("⚠  ATTENZIONE: PREZZO SOTTO COSTO", st_warn_title)],
