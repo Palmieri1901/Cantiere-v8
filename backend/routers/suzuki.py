@@ -229,6 +229,33 @@ async def reset_condizioni_preventivo():
     return {"ok": True, "righe": list(DEFAULT_CONDIZIONI_PREVENTIVO)}
 
 
+@router.get("/listino-conc-sconti")
+async def get_listino_conc_sconti():
+    """Ritorna gli ultimi sconti sc1/sc2 usati per il PDF listino concessionario (default 10/5)."""
+    doc = await db.suzuki_settings.find_one({"id": "listino_conc_sconti"}, {"_id": 0})
+    if not doc:
+        return {"sc1": 10.0, "sc2": 5.0}
+    return {"sc1": float(doc.get("sc1", 10) or 10), "sc2": float(doc.get("sc2", 5) or 5)}
+
+
+@router.put("/listino-conc-sconti")
+async def save_listino_conc_sconti(payload: dict):
+    """Salva gli sconti sc1/sc2 come default per i prossimi listini concessionario."""
+    try:
+        sc1 = float(payload.get("sc1") or 0)
+        sc2 = float(payload.get("sc2") or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Sconti non validi")
+    if sc1 < 0 or sc1 > 100 or sc2 < 0 or sc2 > 100:
+        raise HTTPException(400, "Sconti fuori range (0-100)")
+    await db.suzuki_settings.update_one(
+        {"id": "listino_conc_sconti"},
+        {"$set": {"sc1": sc1, "sc2": sc2, "updated_at": datetime.now(timezone.utc)}},
+        upsert=True,
+    )
+    return {"sc1": sc1, "sc2": sc2}
+
+
 async def _legenda_flowables(avail_width_mm: float = 182, compact: bool = False):
     """Genera i flowables per stampare la legenda in fondo ai PDF."""
     await _seed_legenda_if_empty()
