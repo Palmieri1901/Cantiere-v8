@@ -473,6 +473,7 @@ async def _build_listino_pdf(concessionario: bool = False, sc1: float = 10.0, sc
     # aliquota IVA per calcoli (per il listino concessionario)
     iva_perc_pdf = await _get_iva_perc() if concessionario else 22.0
     IVA_M = 1 + (float(iva_perc_pdf) / 100.0)
+    neg_rows_by_cat: Dict[str, List[int]] = {}  # per categoria: indici (1-based) delle righe con guadagno negativo
 
     for cat in [c for c in ordine_cat if c in gruppi]:
         rows = sorted(gruppi[cat], key=lambda x: (x.get("potenza_hp") or 0, x.get("modello") or ""))
@@ -483,7 +484,8 @@ async def _build_listino_pdf(concessionario: bool = False, sc1: float = 10.0, sc
                                  textColor=colors.white, alignment=TA_CENTER)
         header_paras = [Paragraph(h, st_head) for h in head_row]
         data = [header_paras]
-        for r in rows:
+        neg_rows = []
+        for row_idx, r in enumerate(rows, start=1):
             if concessionario:
                 base = [
                     r.get("modello", ""),
@@ -502,20 +504,23 @@ async def _build_listino_pdf(concessionario: bool = False, sc1: float = 10.0, sc
             if concessionario:
                 pl = float(r.get("prezzo_listino") or 0)
                 pub = float(r.get("prezzo_pubblico") or 0)
-                s1 = float(r.get("sconto_perc_1") or 0)
-                s2 = float(r.get("sconto_perc_2") or 0)
-                netto_conc = pl * (1 - s1/100) * (1 - s2/100) if pl else 0
+                # netto concessionario: costo effettivo Suzuki (stored sconto modello)
+                s1_mod = float(r.get("sconto_perc_1") or 0)
+                s2_mod = float(r.get("sconto_perc_2") or 0)
+                netto_conc = pl * (1 - s1_mod/100) * (1 - s2_mod/100) if pl else 0
                 # % sconto listino: da pubblico IVA escl. al listino concessionario
                 pub_escl = pub / IVA_M if pub else 0
                 sconto_list_perc = ((pub_escl - pl) / pub_escl * 100) if pub_escl > 0 and pl > 0 else 0
-                # guadagno stimato applicando sc1+sc2 (query) sul prezzo pubblico IVA incl., poi da IVA a IVA escl., meno costo dal Suzuki (netto concessionario)
+                # guadagno stimato applicando sc1+sc2 (query, editabili) sul prezzo pubblico IVA incl., meno netto concessionario
                 netto_vendita_incl = pub * (1 - sc1/100) * (1 - sc2/100) if pub else 0
                 netto_vendita_escl = netto_vendita_incl / IVA_M if netto_vendita_incl else 0
                 guadagno = netto_vendita_escl - netto_conc if pl and pub else 0
+                if guadagno < 0:
+                    neg_rows.append(row_idx)
                 base += [
                     _fmt_eur(pl) if pl else "—",
-                    f"{s1:g}%" if s1 else "—",
-                    f"{s2:g}%" if s2 else "—",
+                    f"{sc1:g}%",  # ora editabile via query, uguale per tutte le righe
+                    f"{sc2:g}%",
                     _fmt_eur(netto_conc) if netto_conc else "—",
                     _fmt_eur(pub) if pub else "—",
                     f"{sconto_list_perc:.1f}%" if sconto_list_perc > 0 else "—",
@@ -554,6 +559,13 @@ async def _build_listino_pdf(concessionario: bool = False, sc1: float = 10.0, sc
                 ("FONTNAME", (10, 1), (10, -1), "Helvetica-Bold"),
                 ("ALIGN", (9, 1), (9, -1), "CENTER"),
             ]
+            # Evidenzia righe con guadagno negativo (fondo rosso chiaro, testo rosso su tutta la riga guadagno)
+            for ridx in neg_rows:
+                style += [
+                    ("BACKGROUND", (10, ridx), (10, ridx), colors.HexColor("#FFEBEE")),
+                    ("TEXTCOLOR", (10, ridx), (10, ridx), colors.HexColor("#B71C1C")),
+                    ("FONTNAME", (10, ridx), (10, ridx), "Helvetica-Bold"),
+                ]
         else:
             # evidenzia colonna "In offerta" (rosso su sfondo chiaro)
             style += [
