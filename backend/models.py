@@ -751,6 +751,7 @@ class SuzukiModello(BaseModel):
     categoria: Optional[str] = ""                 # es. "Portable" / "Mid range" / "V6"
     prezzo_listino: float = 0                     # € IVA esclusa, prezzo concessionario
     prezzo_pubblico: Optional[float] = 0          # € IVA inclusa, prezzo di listino pubblico
+    prezzo_offerta: Optional[float] = 0           # € IVA inclusa, prezzo promozionale (opzionale)
     carburante: Optional[str] = ""                # es. "91 (87 RON US)"
     sconto_perc_1: Optional[float] = 0            # primo sconto es. 10%
     sconto_perc_2: Optional[float] = 0            # secondo sconto es. 5%
@@ -775,6 +776,7 @@ class SuzukiModelloCreate(BaseModel):
     categoria: Optional[str] = ""
     prezzo_listino: Optional[float] = 0
     prezzo_pubblico: Optional[float] = 0
+    prezzo_offerta: Optional[float] = 0
     carburante: Optional[str] = ""
     sconto_perc_1: Optional[float] = 0
     sconto_perc_2: Optional[float] = 0
@@ -797,6 +799,7 @@ class SuzukiModelloUpdate(BaseModel):
     categoria: Optional[str] = None
     prezzo_listino: Optional[float] = None
     prezzo_pubblico: Optional[float] = None
+    prezzo_offerta: Optional[float] = None
     carburante: Optional[str] = None
     sconto_perc_1: Optional[float] = None
     sconto_perc_2: Optional[float] = None

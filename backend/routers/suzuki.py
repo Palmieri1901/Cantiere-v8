@@ -409,8 +409,8 @@ async def _build_listino_pdf(concessionario: bool = False):
         col_widths = [28*mm, 10*mm, 17*mm, 14*mm, 13*mm, 26*mm, 11*mm, 11*mm, 26*mm, 30*mm]
         font_size = 7.6
     else:
-        head_row = ["Modello", "HP", "Cilindrata", "Gambo", "Peso", "Pubblico € (IVA incl.)"]
-        col_widths = [46*mm, 16*mm, 26*mm, 26*mm, 22*mm, 50*mm]
+        head_row = ["Modello", "HP", "Cilindrata", "Gambo", "Peso", "Pubblico € (IVA incl.)", "In offerta"]
+        col_widths = [40*mm, 14*mm, 22*mm, 22*mm, 18*mm, 40*mm, 30*mm]
         font_size = 8.5
 
     for cat in [c for c in ordine_cat if c in gruppi]:
@@ -442,6 +442,8 @@ async def _build_listino_pdf(concessionario: bool = False):
                     _fmt_eur(netto) if netto else "—",
                 ]
             base.append(_fmt_eur(r.get("prezzo_pubblico", 0)) if r.get("prezzo_pubblico") else "—")
+            if not concessionario:
+                base.append(_fmt_eur(r.get("prezzo_offerta", 0)) if r.get("prezzo_offerta") else "—")
             data.append(base)
         t = Table(data, colWidths=col_widths, repeatRows=1)
         style = [
@@ -466,6 +468,13 @@ async def _build_listino_pdf(concessionario: bool = False):
                 ("TEXTCOLOR", (8, 1), (8, -1), ACCENT),
                 ("FONTNAME", (8, 1), (8, -1), "Helvetica-Bold"),
                 ("ALIGN", (6, 1), (7, -1), "CENTER"),
+            ]
+        else:
+            # evidenzia colonna "In offerta" (rosso su sfondo chiaro)
+            style += [
+                ("BACKGROUND", (6, 1), (6, -1), colors.HexColor("#FDECEC")),
+                ("TEXTCOLOR", (6, 1), (6, -1), ACCENT),
+                ("FONTNAME", (6, 1), (6, -1), "Helvetica-Bold"),
             ]
         t.setStyle(TableStyle(style))
         story.append(t)

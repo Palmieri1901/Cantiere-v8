@@ -15,7 +15,8 @@ const fmt = (v) => `${Number(v || 0).toLocaleString("it-IT", { minimumFractionDi
 const EMPTY_MODEL = {
   codice: "", modello: "", potenza_hp: 0, cilindrata_cc: 0, cilindri: "", alimentazione: "",
   peso_kg: 0, avviamento: "", gambo: "", trim: "", comandi: "", alternatore_A: 0,
-  categoria: "", prezzo_listino: 0, sconto_perc_1: 0, sconto_perc_2: 0, note: "",
+  categoria: "", prezzo_listino: 0, prezzo_pubblico: 0, prezzo_offerta: 0,
+  sconto_perc_1: 0, sconto_perc_2: 0, note: "",
 };
 
 const EMPTY_PREV = {
@@ -217,6 +218,8 @@ function ModelloDialog({ value, onClose, onSaved }) {
         peso_kg: Number(form.peso_kg) || 0,
         alternatore_A: Number(form.alternatore_A) || 0,
         prezzo_listino: Number(form.prezzo_listino) || 0,
+        prezzo_pubblico: Number(form.prezzo_pubblico) || 0,
+        prezzo_offerta: Number(form.prezzo_offerta) || 0,
         sconto_perc_1: Number(form.sconto_perc_1) || 0,
         sconto_perc_2: Number(form.sconto_perc_2) || 0,
       };
@@ -254,6 +257,8 @@ function ModelloDialog({ value, onClose, onSaved }) {
           <Field label="Comandi"><Input value={form.comandi || ""} onChange={(e) => set("comandi", e.target.value)} placeholder="a distanza" /></Field>
           <Field label="Alternatore (A)"><Input type="number" value={form.alternatore_A || ""} onChange={(e) => set("alternatore_A", e.target.value)} /></Field>
           <Field label="Prezzo listino € (IVA escl.) *"><Input type="number" step="0.01" value={form.prezzo_listino || ""} onChange={(e) => set("prezzo_listino", e.target.value)} data-testid="m-listino" /></Field>
+          <Field label="Pubblico € (IVA incl.)"><Input type="number" step="0.01" value={form.prezzo_pubblico || ""} onChange={(e) => set("prezzo_pubblico", e.target.value)} data-testid="m-pubblico" /></Field>
+          <Field label="Prezzo in offerta € (IVA incl.)"><Input type="number" step="0.01" value={form.prezzo_offerta || ""} onChange={(e) => set("prezzo_offerta", e.target.value)} placeholder="solo se in promo" data-testid="m-offerta" /></Field>
           <Field label="Sconto 1 (%)"><Input type="number" step="0.5" value={form.sconto_perc_1 || ""} onChange={(e) => set("sconto_perc_1", e.target.value)} data-testid="m-sc1" /></Field>
           <Field label="Sconto 2 (%)"><Input type="number" step="0.5" value={form.sconto_perc_2 || ""} onChange={(e) => set("sconto_perc_2", e.target.value)} data-testid="m-sc2" /></Field>
           <div className="col-span-2 md:col-span-4">
