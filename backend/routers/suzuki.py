@@ -862,7 +862,11 @@ async def preview_pdf(payload: SuzukiPreventivoCreate):
         data["numero"] = "ANTEPRIMA"
     prev = SuzukiPreventivo(**data)
     pdf_bytes = await _build_pdf(prev)
-    return StreamingResponse(io.BytesIO(pdf_bytes), media_type="application/pdf")
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="anteprima_preventivo.pdf"'},
+    )
 
 
 @router.get("/preventivi/{pid}/pdf")

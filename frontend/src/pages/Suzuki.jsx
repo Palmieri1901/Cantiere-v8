@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Ship, Plus, Pencil, Trash2, FileText, Upload, Sparkles, Search, Save, X, Download, Image as ImageIcon } from "lucide-react";
+import { PdfPreviewOverlay } from "@/components/PdfPreviewOverlay";
 
 const fmt = (v) => `${Number(v || 0).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
@@ -1006,51 +1007,6 @@ function LogoPdfButton() {
         </DialogContent>
       </Dialog>
     </>
-  );
-}
-
-// -------------------------------------------------------------------------
-// PDF PREVIEW OVERLAY (comune)
-// -------------------------------------------------------------------------
-function PdfPreviewOverlay({ open, onClose, url, filename }) {
-  if (!open || !url) return null;
-  const download = () => {
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename || "documento.pdf";
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => document.body.removeChild(a), 200);
-  };
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[95vw] w-[95vw] h-[92vh] p-0 gap-0 overflow-hidden flex flex-col" data-testid="pdf-preview-overlay">
-        <DialogHeader className="px-4 py-3 border-b bg-muted/40 shrink-0">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <DialogTitle className="text-base flex items-center gap-2">
-                <FileText className="w-4 h-4 text-primary" /> Anteprima preventivo
-              </DialogTitle>
-              <DialogDescription className="text-xs mt-0.5">
-                Verifica il PDF prima di scaricarlo. Chiudi la finestra per tornare all'editor.
-              </DialogDescription>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose} data-testid="btn-close-preview">
-                <X className="w-4 h-4 mr-1.5" /> Chiudi
-              </Button>
-              <Button onClick={download} className="bg-primary hover:bg-primary/90" data-testid="btn-download-preview">
-                <Download className="w-4 h-4 mr-1.5" /> Scarica PDF
-              </Button>
-            </div>
-          </div>
-        </DialogHeader>
-        <object data={url} type="application/pdf" className="flex-1 w-full bg-muted/20" data-testid="pdf-preview-object">
-          <iframe src={url} title="Anteprima PDF" className="w-full h-full border-0 bg-muted/20" />
-        </object>
-      </DialogContent>
-    </Dialog>
   );
 }
 
