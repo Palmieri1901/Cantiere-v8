@@ -1,0 +1,102 @@
+import { useEffect, useState } from "react";
+import { api, API } from "@/lib/api";
+import { toast } from "sonner";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Plus, Pencil, Trash2, FileText, Sparkles, Percent, ClipboardList } from "lucide-react";
+import { EMPTY_GOMMONE, fmt } from "./common";
+import GommoneDialog from "./GommoneDialog";
+import ScontiDialog from "./ScontiDialog";
+import ImportAIGommoniDialog from "./ImportAIGommoniDialog";
+
+export default function CatalogoTab() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null);
+  const [scontiOpen, setScontiOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try { setItems((await api.get("/gommoni/modelli")).data); }
+    catch { toast.error("Errore caricamento gommoni"); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const remove = async (id) => {
+    if (!window.confirm("Eliminare questo gommone?")) return;
+    await api.delete(`/gommoni/modelli/${id}`);
+    toast.success("Gommone eliminato"); load();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2 items-center justify-end">
+        <Button variant="outline" onClick={() => window.open(`${API}/gommoni/listino.pdf?_t=${Date.now()}`, "_blank")} data-testid="btn-pdf-listino-gommoni">
+          <FileText className="w-4 h-4 mr-2" /> Listino pubblico
+        </Button>
+        <Button variant="outline" onClick={() => setScontiOpen(true)} className="border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700" data-testid="btn-listino-cantiere-gommoni">
+          <Percent className="w-4 h-4 mr-2" /> Listino cantiere
+        </Button>
+        <Button variant="outline" onClick={() => window.open(`${API}/gommoni/caratteristiche.pdf?_t=${Date.now()}`, "_blank")} data-testid="btn-pdf-caratt-gommoni">
+          <ClipboardList className="w-4 h-4 mr-2" /> PDF Caratteristiche
+        </Button>
+        <Button variant="outline" onClick={() => setImportOpen(true)} data-testid="btn-import-gommoni">
+          <Sparkles className="w-4 h-4 mr-2" /> Rileva listino con AI
+        </Button>
+        <Button onClick={() => setEditing({ ...EMPTY_GOMMONE })} className="bg-primary" data-testid="btn-new-gommone">
+          <Plus className="w-4 h-4 mr-2" /> Nuovo gommone
+        </Button>
+      </div>
+
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" data-testid="table-gommoni">
+            <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="text-left px-4 py-3">Modello</th>
+                <th className="text-right px-4 py-3">Lungh.</th>
+                <th className="text-right px-4 py-3">Largh.</th>
+                <th className="text-right px-4 py-3">Ø Tub.</th>
+                <th className="text-right px-4 py-3">Persone</th>
+                <th className="text-right px-4 py-3">HP max</th>
+                <th className="text-left px-4 py-3">Tessuto</th>
+                <th className="text-right px-4 py-3">Pubblico</th>
+                <th className="text-right px-4 py-3 w-24">Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">Caricamento…</td></tr>
+              ) : items.length === 0 ? (
+                <tr><td colSpan={9} className="text-center py-10 text-muted-foreground">Nessun gommone. Aggiungi manualmente oppure rileva il listino con l'AI.</td></tr>
+              ) : items.map((m) => (
+                <tr key={m.id} className="border-t border-border/60 hover:bg-muted/30" data-testid={`row-gommone-${m.id}`}>
+                  <td className="px-4 py-2.5 font-semibold">{m.modello}</td>
+                  <td className="px-4 py-2.5 text-right font-mono-num">{m.lunghezza_m ? `${m.lunghezza_m} m` : "—"}</td>
+                  <td className="px-4 py-2.5 text-right font-mono-num">{m.larghezza_m ? `${m.larghezza_m} m` : "—"}</td>
+                  <td className="px-4 py-2.5 text-right font-mono-num">{m.diametro_tubolare_cm ? `${m.diametro_tubolare_cm} cm` : "—"}</td>
+                  <td className="px-4 py-2.5 text-right font-mono-num">{m.portata_persone || "—"}</td>
+                  <td className="px-4 py-2.5 text-right font-mono-num">{m.potenza_max_hp || "—"}</td>
+                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{m.tessuto || "—"}</td>
+                  <td className="px-4 py-2.5 text-right font-mono-num font-semibold text-primary">{fmt(m.prezzo_pubblico)}</td>
+                  <td className="px-4 py-2.5 text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditing({ ...m })} data-testid={`btn-edit-gommone-${m.id}`}><Pencil className="w-3.5 h-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => remove(m.id)} data-testid={`btn-del-gommone-${m.id}`}><Trash2 className="w-3.5 h-3.5" /></Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {editing && <GommoneDialog value={editing} onClose={() => setEditing(null)} onSaved={load} />}
+      <ScontiDialog open={scontiOpen} onClose={() => setScontiOpen(false)} />
+      <ImportAIGommoniDialog open={importOpen} onClose={() => setImportOpen(false)} onSaved={load} />
+    </div>
+  );
+}

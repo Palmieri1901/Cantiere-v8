@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, Link, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, Grid3x3, Settings2, Sailboat, Building2, Home as HomeIcon, FileBarChart, FileSignature, LogOut, User, Package, Ship, ChevronDown, List, SlidersHorizontal } from "lucide-react";
+import { LayoutDashboard, Users, Grid3x3, Settings2, Sailboat, Building2, Home as HomeIcon, FileBarChart, FileSignature, LogOut, User, Package, Ship, ChevronDown, List, SlidersHorizontal, LifeBuoy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -25,6 +25,7 @@ const nav = [
   { to: "/magazzino", label: "Magazzino", icon: Package, testId: "nav-magazzino" },
   { to: "/tubolari", label: "Tubolari", icon: Ship, testId: "nav-tubolari" },
   { to: "/suzuki", label: "Suzuki", icon: Sailboat, testId: "nav-suzuki" },
+  { to: "/gommoni", label: "Gommoni GEB", icon: LifeBuoy, testId: "nav-gommoni" },
   { to: "/impostazioni", label: "Impostazione dati cantiere", icon: Building2, testId: "nav-impostazioni" },
 ];
 
@@ -35,6 +36,7 @@ const mobileFlat = [
   { to: "/magazzino", label: "Magazzino", icon: Package, testId: "nav-magazzino-mobile" },
   { to: "/tubolari", label: "Tubolari", icon: Ship, testId: "nav-tubolari-mobile" },
   { to: "/suzuki", label: "Suzuki", icon: Sailboat, testId: "nav-suzuki-mobile" },
+  { to: "/gommoni", label: "Gommoni", icon: LifeBuoy, testId: "nav-gommoni-mobile" },
 ];
 
 function NavGroup({ item, currentPath }) {

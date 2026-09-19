@@ -915,3 +915,149 @@ class SuzukiLegendaVoceUpdate(BaseModel):
     significato: Optional[str] = None
     gruppo: Optional[str] = None
     ordine: Optional[int] = None
+
+
+
+# ---------------------------------------------------------------------------
+# GOMMONI GEB (marchio proprio)
+# ---------------------------------------------------------------------------
+class GommoneModello(BaseModel):
+    """Gommone a marchio GEB con caratteristiche tecniche e prezzo pubblico."""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    modello: str
+    lunghezza_m: Optional[float] = 0
+    larghezza_m: Optional[float] = 0
+    diametro_tubolare_cm: Optional[float] = 0
+    compartimenti: Optional[int] = 0
+    portata_persone: Optional[int] = 0
+    potenza_max_hp: Optional[float] = 0
+    peso_kg: Optional[float] = 0
+    carena: Optional[str] = ""
+    tessuto: Optional[str] = ""
+    dotazioni: Optional[str] = ""
+    note: Optional[str] = ""
+    prezzo_pubblico: float = 0                    # € IVA inclusa
+    ordine: Optional[int] = 0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class GommoneModelloCreate(BaseModel):
+    modello: str
+    lunghezza_m: Optional[float] = 0
+    larghezza_m: Optional[float] = 0
+    diametro_tubolare_cm: Optional[float] = 0
+    compartimenti: Optional[int] = 0
+    portata_persone: Optional[int] = 0
+    potenza_max_hp: Optional[float] = 0
+    peso_kg: Optional[float] = 0
+    carena: Optional[str] = ""
+    tessuto: Optional[str] = ""
+    dotazioni: Optional[str] = ""
+    note: Optional[str] = ""
+    prezzo_pubblico: Optional[float] = 0
+    ordine: Optional[int] = 0
+
+
+class GommoneBulkCreate(BaseModel):
+    modelli: List[GommoneModelloCreate]
+
+
+class GommoneAccessorio(BaseModel):
+    """Accessorio optional per gommoni GEB."""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    nome: str
+    descrizione: Optional[str] = ""
+    categoria: Optional[str] = ""
+    prezzo: float = 0                             # € IVA inclusa
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class GommoneAccessorioCreate(BaseModel):
+    nome: str
+    descrizione: Optional[str] = ""
+    categoria: Optional[str] = ""
+    prezzo: Optional[float] = 0
+
+
+class GommoneSconti(BaseModel):
+    """Percentuali di sconto per tipologia cliente (listino cantiere)."""
+    privati: float = 0
+    lavoro: float = 10
+    concessionari: float = 20
+
+
+class GommonePreventivoAccessorio(BaseModel):
+    accessorio_id: Optional[str] = ""
+    nome: str
+    prezzo: float = 0
+    quantita: int = 1
+
+
+class GommonePreventivo(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    numero: Optional[str] = ""
+    data: str = Field(default_factory=lambda: datetime.now(timezone.utc).date().isoformat())
+    cliente_nome: str = ""
+    cliente_telefono: Optional[str] = ""
+    cliente_email: Optional[str] = ""
+    tipo_cliente: Optional[str] = "privati"       # privati / lavoro / concessionari
+    # snapshot gommone
+    gommone_id: Optional[str] = ""
+    modello: str = ""
+    lunghezza_m: Optional[float] = 0
+    larghezza_m: Optional[float] = 0
+    diametro_tubolare_cm: Optional[float] = 0
+    compartimenti: Optional[int] = 0
+    portata_persone: Optional[int] = 0
+    potenza_max_hp: Optional[float] = 0
+    peso_kg: Optional[float] = 0
+    carena: Optional[str] = ""
+    tessuto: Optional[str] = ""
+    dotazioni: Optional[str] = ""
+    prezzo_gommone: float = 0                     # € IVA incl. pubblico
+    sconto_perc: float = 0
+    accessori: List[GommonePreventivoAccessorio] = []
+    # motore opzionale
+    motore_modello: Optional[str] = ""
+    motore_prezzo: Optional[float] = 0
+    motore_sconto_perc: Optional[float] = 0
+    montaggio: Optional[float] = 0
+    note: Optional[str] = ""
+    stato: Optional[str] = "bozza"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class GommonePreventivoCreate(BaseModel):
+    numero: Optional[str] = ""
+    data: Optional[str] = None
+    cliente_nome: str
+    cliente_telefono: Optional[str] = ""
+    cliente_email: Optional[str] = ""
+    tipo_cliente: Optional[str] = "privati"
+    gommone_id: Optional[str] = ""
+    modello: str
+    lunghezza_m: Optional[float] = 0
+    larghezza_m: Optional[float] = 0
+    diametro_tubolare_cm: Optional[float] = 0
+    compartimenti: Optional[int] = 0
+    portata_persone: Optional[int] = 0
+    potenza_max_hp: Optional[float] = 0
+    peso_kg: Optional[float] = 0
+    carena: Optional[str] = ""
+    tessuto: Optional[str] = ""
+    dotazioni: Optional[str] = ""
+    prezzo_gommone: float = 0
+    sconto_perc: Optional[float] = 0
+    accessori: List[GommonePreventivoAccessorio] = []
+    motore_modello: Optional[str] = ""
+    motore_prezzo: Optional[float] = 0
+    motore_sconto_perc: Optional[float] = 0
+    montaggio: Optional[float] = 0
+    note: Optional[str] = ""
+    stato: Optional[str] = "bozza"
