@@ -249,60 +249,13 @@ export default function Impostazioni() {
         </Card>
       </div>
 
-      {/* Blocchi editabili del preventivo PDF */}
-      <Card className="p-6 mt-6" data-testid="preventivo-blocks-card">
-        <div className="label-mini mb-2 flex items-center gap-1.5">
-          <FileText className="w-3.5 h-3.5" /> Testo condizioni del preventivo PDF
-        </div>
-        <h3 className="font-display text-xl font-semibold mb-1">Blocchi personalizzabili stampati in coda al preventivo</h3>
-        <p className="text-sm text-muted-foreground mb-4 max-w-3xl">
-          Questi 4 blocchi compaiono automaticamente in fondo a ogni preventivo PDF generato. Lascia vuoto un titolo o un testo per non stamparlo.
+      {/* Testi preventivo e template contratto sono stati spostati in "Rimessaggio → Impostazioni" */}
+      <div className="mt-6 rounded-md border border-primary/30 bg-primary/5 p-4 text-sm" data-testid="preventivo-moved-notice">
+        <div className="font-semibold text-primary mb-1">Testi preventivo e template contratto</div>
+        <p className="text-muted-foreground">
+          Sono stati spostati in <b>Rimessaggio → Impostazioni</b> per tenere insieme tutte le personalizzazioni del modulo Rimessaggio. Clicca la voce nella barra laterale sotto "Rimessaggio" per modificarli.
         </p>
-        <div className="grid grid-cols-1 gap-5">
-          {[
-            { titoloKey: "preventivo_interno_titolo", testoKey: "preventivo_interno_testo", label: "Interno cantiere" },
-            { titoloKey: "preventivo_piazzale_titolo", testoKey: "preventivo_piazzale_testo", label: "Sosta su piazzale" },
-            { titoloKey: "preventivo_esclusi_titolo", testoKey: "preventivo_esclusi_testo", label: "Esclusi dal servizio" },
-            { titoloKey: "preventivo_condizioni_titolo", testoKey: "preventivo_condizioni_testo", label: "Condizioni generali" },
-          ].map((b) => (
-            <div key={b.titoloKey} className="border border-border/60 rounded-md p-4 bg-muted/10">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Titolo · {b.label}</Label>
-              <Input
-                value={c[b.titoloKey] ?? ""}
-                onChange={(e) => update(b.titoloKey, e.target.value)}
-                className="mt-1.5 mb-3"
-                data-testid={`input-${b.titoloKey}`}
-              />
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Testo</Label>
-              <Textarea
-                value={c[b.testoKey] ?? ""}
-                onChange={(e) => update(b.testoKey, e.target.value)}
-                rows={6}
-                className="mt-1.5 font-mono text-xs"
-                data-testid={`input-${b.testoKey}`}
-              />
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Template contratto */}
-      <Card className="p-6 mt-6" data-testid="contratto-template-card">
-        <div className="label-mini mb-2 flex items-center gap-1.5">
-          <FileSignature className="w-3.5 h-3.5" /> Template contratto
-        </div>
-        <h3 className="font-display text-xl font-semibold mb-1">Testo di partenza usato nella pagina Contratti</h3>
-        <p className="text-sm text-muted-foreground mb-4 max-w-3xl">
-          Quando apri la pagina Contratti il testo qui sotto viene pre-caricato nell'editor. Puoi poi personalizzarlo per ogni singolo cliente prima di scaricare il PDF.
-        </p>
-        <Textarea
-          value={c.contratto_template ?? ""}
-          onChange={(e) => update("contratto_template", e.target.value)}
-          rows={12}
-          className="font-mono text-xs"
-          data-testid="input-contratto-template"
-        />
-      </Card>
+      </div>
 
       {/* Sicurezza / Cambio password */}
       <Card className="p-6 mt-6" data-testid="security-card">
