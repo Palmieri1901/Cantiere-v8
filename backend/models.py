@@ -836,6 +836,7 @@ class SuzukiPreventivo(BaseModel):
     carburante: Optional[str] = ""
     # prezzi
     prezzo_listino: float = 0
+    prezzo_acquisto_concessionario: Optional[float] = 0   # € IVA esclusa, costo di acquisto dal concessionario (snapshot)
     sconto_perc_1: float = 0
     sconto_perc_2: float = 0
     montaggio: Optional[float] = 0
@@ -868,6 +869,7 @@ class SuzukiPreventivoCreate(BaseModel):
     alternatore_A: Optional[float] = 0
     carburante: Optional[str] = ""
     prezzo_listino: float
+    prezzo_acquisto_concessionario: Optional[float] = 0
     sconto_perc_1: Optional[float] = 0
     sconto_perc_2: Optional[float] = 0
     montaggio: Optional[float] = 0

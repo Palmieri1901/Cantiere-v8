@@ -777,6 +777,7 @@ async def import_ai(payload: SuzukiImportRequest):
 # CRUD PREVENTIVI
 # ---------------------------------------------------------------------------
 def _calc_totale(p: SuzukiPreventivo) -> dict:
+    IVA = 1.22  # aliquota standard IT 22%
     listino = float(p.prezzo_listino or 0)
     s1 = float(p.sconto_perc_1 or 0)
     s2 = float(p.sconto_perc_2 or 0)
@@ -786,6 +787,10 @@ def _calc_totale(p: SuzukiPreventivo) -> dict:
     montaggio = float(p.montaggio or 0)
     cavetteria = float(p.cavetteria or 0)
     totale = round(netto + montaggio + cavetteria, 2)
+    acquisto_iva_escl = float(p.prezzo_acquisto_concessionario or 0)
+    acquisto_iva_incl = round(acquisto_iva_escl * IVA, 2)
+    sotto_costo = acquisto_iva_incl > 0 and netto < acquisto_iva_incl
+    margine = round(netto - acquisto_iva_incl, 2) if acquisto_iva_incl > 0 else 0.0
     return {
         "prezzo_listino": listino,
         "importo_sconto_1": round(listino - dopo_s1, 2),
@@ -794,6 +799,10 @@ def _calc_totale(p: SuzukiPreventivo) -> dict:
         "montaggio": montaggio,
         "cavetteria": cavetteria,
         "totale_iva_esclusa": totale,
+        "acquisto_iva_escl": acquisto_iva_escl,
+        "acquisto_iva_incl": acquisto_iva_incl,
+        "sotto_costo": sotto_costo,
+        "margine": margine,
     }
 
 
@@ -1156,6 +1165,37 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
         ("BOTTOMPADDING", (0,0), (-1,-1), 6),
     ]))
     story.append(tnetto)
+
+    # ALLARME SOTTO-COSTO (se il netto motore < costo di acquisto IVA incl.)
+    if calc.get("sotto_costo"):
+        WARN_BG = colors.HexColor("#FEF3F2")
+        WARN_BORDER = colors.HexColor("#B42318")
+        st_warn_title = ParagraphStyle("wt", parent=styles["Normal"], fontName="Helvetica-Bold",
+                                       fontSize=10, textColor=WARN_BORDER, leading=13)
+        st_warn_body = ParagraphStyle("wb", parent=styles["Normal"], fontSize=8.5,
+                                      textColor=colors.HexColor("#7A1913"), leading=11)
+        warn_msg = (
+            f"Il <b>NETTO MOTORE</b> ({_fmt_eur(calc['netto_motore'])}) è <b>inferiore</b> al "
+            f"costo di acquisto concessionario IVA inclusa ({_fmt_eur(calc['acquisto_iva_incl'])}). "
+            f"Margine attuale: <b>{_fmt_eur(calc['margine'])}</b>."
+        )
+        twarn = Table(
+            [[Paragraph("⚠  ATTENZIONE: PREZZO SOTTO COSTO", st_warn_title)],
+             [Paragraph(warn_msg, st_warn_body)]],
+            colWidths=[182*mm],
+        )
+        twarn.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,-1), WARN_BG),
+            ("BOX", (0,0), (-1,-1), 1.2, WARN_BORDER),
+            ("VALIGN", (0,0), (-1,-1), "TOP"),
+            ("LEFTPADDING", (0,0), (-1,-1), 10),
+            ("RIGHTPADDING", (0,0), (-1,-1), 10),
+            ("TOPPADDING", (0,0), (-1,-1), 4),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+        ]))
+        story.append(Spacer(1, 4))
+        story.append(twarn)
+
     story.append(Spacer(1, 8))
 
     # ------------------------------------------------------------------
