@@ -78,8 +78,8 @@ async def register(payload: RegisterRequest, response: Response):
     email = payload.email.strip().lower()
     if not email or not payload.password:
         raise HTTPException(400, "Email e password obbligatorie")
-    if len(payload.password) < 6:
-        raise HTTPException(400, "La password deve contenere almeno 6 caratteri")
+    if len(payload.password) < 5:
+        raise HTTPException(400, "La password deve contenere almeno 5 caratteri")
     existing = await db.users.find_one({"email": email})
     if existing:
         raise HTTPException(400, "Email già registrata")
@@ -122,8 +122,8 @@ async def pin_reset(payload: PinResetRequest, response: Response):
     pin_raw = (payload.pin or "").strip()
     if not pin_raw or not payload.new_password:
         raise HTTPException(400, "PIN e nuova password obbligatori")
-    if len(payload.new_password) < 3:
-        raise HTTPException(400, "La password deve contenere almeno 3 caratteri")
+    if len(payload.new_password) < 5:
+        raise HTTPException(400, "La password deve contenere almeno 5 caratteri")
 
     settings = await db.app_settings.find_one({"id": "auth"})
     if not settings or not settings.get("recovery_pin_hash"):
@@ -241,8 +241,8 @@ async def forgot_password(payload: ForgotPasswordRequest):
 async def reset_password(payload: ResetPasswordRequest):
     if not payload.token or not payload.new_password:
         raise HTTPException(400, "Token e nuova password obbligatori")
-    if len(payload.new_password) < 6:
-        raise HTTPException(400, "La password deve contenere almeno 6 caratteri")
+    if len(payload.new_password) < 5:
+        raise HTTPException(400, "La password deve contenere almeno 5 caratteri")
 
     record = await db.password_reset_tokens.find_one({"token": payload.token})
     if not record:
@@ -272,8 +272,8 @@ async def reset_password(payload: ResetPasswordRequest):
 async def change_password(payload: ChangePasswordRequest, user: dict = Depends(get_current_user)):
     if not payload.current_password or not payload.new_password:
         raise HTTPException(400, "Compila entrambi i campi")
-    if len(payload.new_password) < 6:
-        raise HTTPException(400, "La nuova password deve contenere almeno 6 caratteri")
+    if len(payload.new_password) < 5:
+        raise HTTPException(400, "La nuova password deve contenere almeno 5 caratteri")
 
     full = await db.users.find_one({"id": user["id"]})
     if not full or not verify_password(payload.current_password, full.get("password_hash", "")):

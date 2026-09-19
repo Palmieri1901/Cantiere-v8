@@ -45,7 +45,7 @@ export default function Impostazioni() {
   const [pinSaving, setPinSaving] = useState(false);
 
   const changePassword = async () => {
-    if (pwNew.length < 3) { toast.error("La nuova password deve avere almeno 3 caratteri"); return; }
+    if (pwNew.length < 5) { toast.error("La nuova password deve avere almeno 5 caratteri"); return; }
     if (pwNew !== pwNew2) { toast.error("Le due password non coincidono"); return; }
     setPwSaving(true);
     try {
