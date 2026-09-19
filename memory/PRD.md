@@ -1,10 +1,14 @@
 # PRD — Portomare: Gestione Cantiere Nautico
 
 ## Changelog
-- **2026-02-19** — **Anteprima PDF unificata** in tutta l'app Rimessaggio + Tubolari: nuovo componente `components/PdfPreviewOverlay.jsx` basato su **react-pdf** (PDF.js in canvas). Sostituito iframe/object che in alcuni browser scaricavano il file. Applicato a: Suzuki (preventivi + form), Tubolari (lista + form), Contratti, Clienti (preventivo + preventivo-contratto), ClienteForm (preventivo veloce). Include paginazione ◀ 1/N ▶ e zoom ±. Download solo via pulsante "Scarica PDF".
-- **2026-02-19** — Lunghezza minima password uniformata a **5 caratteri** (backend `auth.py`: register/reset/change/pin-reset + frontend Impostazioni). Password admin iniziale = `admin`.
-- **2026-02-16** — Preventivo Suzuki: base prezzo cambiata da "listino IVA escl." a **"pubblico IVA incl."** (con priorità al `prezzo_offerta` se presente). Etichette PDF e form aggiornate: "TOTALE PREVENTIVO — IVA compresa". Montaggio e cavetteria ora IVA inclusa.
-- **2026-02-16** — Refactoring **Magazzino.jsx** (2411 righe) spezzato in cartella `pages/magazzino/` con 12 file (max 500 righe).
+- **2026-02-19** — **Refactor ClienteForm.jsx** (1220 → 652 righe, –47%) spezzato in cartella `pages/cliente-form/` con 4 sotto-componenti: `common.jsx` (shared helpers + EMPTY_CLIENTE + MAX_EXTRA), `MotoreSection.jsx`, `LavorazioniExtraSection.jsx`, `MagazzinoPickerDialog.jsx`. Tutti i data-testid preservati.
+- **2026-02-19** — **Aliquota IVA globale** configurabile in Impostazione dati cantiere (`Cantiere.iva_percentuale`, default 22%). Usata dinamicamente da Suzuki `_calc_totale` (form live + PDF) per costo acquisto IVA incl. e allarme sotto-costo.
+- **2026-02-19** — **Allarme sotto-costo Suzuki**: nuovo campo `prezzo_acquisto_concessionario` (IVA escl.) nel preventivo. Backend/frontend mostrano margine (verde/rosso) e riquadro rosso "⚠ ATTENZIONE: PREZZO SOTTO COSTO" se il netto motore è inferiore all'acquisto IVA incl.
+- **2026-02-19** — **Layout PDF Suzuki riorganizzato**: sezioni "COSTO MOTORE" → barra "NETTO MOTORE SCONTATO" evidenziata → "INSTALLAZIONE E ACCESSORI" → "TOTALE PREVENTIVO".
+- **2026-02-19** — **Anteprima PDF unificata** in tutta l'app (Suzuki, Tubolari, Contratti, Clienti, ClienteForm) con nuovo componente `components/PdfPreviewOverlay.jsx` basato su react-pdf. Include paginazione + zoom, no download automatico.
+- **2026-02-19** — Lunghezza minima password uniformata a **5 caratteri** ovunque.
+- **2026-02-16** — Preventivo Suzuki: base prezzo cambiata da "listino IVA escl." a **"pubblico IVA incl."**.
+- **2026-02-16** — Refactoring **Magazzino.jsx** (2411 righe) spezzato in cartella `pages/magazzino/` con 12 file.
 
 
 

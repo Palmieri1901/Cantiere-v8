@@ -12,55 +12,20 @@ import { Separator } from "@/components/ui/separator";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
-} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import LavoriSection from "@/pages/LavoriSection";
 import { API } from "@/lib/api";
 import { useYear } from "@/lib/year";
-import { FileText, Plus, X, Wrench, Zap, Package } from "lucide-react";
+import { FileText, Zap } from "lucide-react";
 import { PdfPreviewOverlay } from "@/components/PdfPreviewOverlay";
-
-const empty = {
-  nome: "", cognome: "", tipo_barca: "", lunghezza: "",
-  tipo_sosta: "dentro",
-  giorni_sosta_temporanea: 0, posto_barca: "",
-  telefono: "", email: "",
-  codice_fiscale: "", indirizzo: "", cellulare: "",
-  pagato: false,
-  potenza_motore: 0, litri_olio_motore: 3, litri_olio_piede: 1, numero_candele: 4, numero_termostati: 1,
-  tipo_motore: "fuoribordo",
-  filtro_olio_attivo: true, anodi_interni_attivo: true, anodi_esterni_attivo: true, olio_piede_attivo: true, ingrassaggio_attivo: true,
-  primo_motore_attivo: true,
-  secondo_motore: false,
-  potenza_motore_2: 0, litri_olio_motore_2: 3, litri_olio_piede_2: 1, numero_candele_2: 4, numero_termostati_2: 1,
-  tipo_motore_2: "fuoribordo",
-  filtro_olio_2_attivo: true, anodi_interni_2_attivo: true, anodi_esterni_2_attivo: true, olio_piede_2_attivo: true, ingrassaggio_2_attivo: true,
-  girante_2_attivo: true,
-  antivegetativa_attiva: true, girante_attivo: true,
-  scafo_sporco_attivo: false,
-  copertura_attiva: false,
-  lavaggio_inizio_attivo: true, lavaggio_fine_attivo: true,
-  override_costi: false,
-  alaggio_varo_attivo: false,
-  numero_movimenti: 1,
-  destinazione_alaggio_varo: "marina_di_campo",
-  larghezza_personalizzata: "",
-  destinazione_altra_nome: "",
-  costo_sosta: 0, costo_copertura: 0, costo_alaggio: 0,
-  costo_varo: 0, costo_antivegetativa: 0, costo_manutenzione_motore: 0,
-  costo_ricambi_totale: 0, costo_manodopera_motore: 0,
-  costo_ricambi_motore_2_totale: 0, costo_manodopera_motore_2: 0,
-  costo_lavaggio_inizio: 0, costo_lavaggio_fine: 0, costo_scafo_sporco: 0,
-  lavorazioni_extra: [],
-  note_lavori: "",
-  scadenza_antivegetativa: "", scadenza_manutenzione: "",
-};
+import { EMPTY_CLIENTE, MAX_EXTRA, Field, CostField, BreakdownRow } from "@/pages/cliente-form/common";
+import MotoreSection from "@/pages/cliente-form/MotoreSection";
+import LavorazioniExtraSection from "@/pages/cliente-form/LavorazioniExtraSection";
+import MagazzinoPickerDialog from "@/pages/cliente-form/MagazzinoPickerDialog";
 
 export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode = "cliente" }) {
   const isPreventivo = mode === "preventivo";
-  const [f, setF] = useState(empty);
+  const [f, setF] = useState(EMPTY_CLIENTE);
   const [saving, setSaving] = useState(false);
   const [ricambiDettaglio, setRicambiDettaglio] = useState(null);
   const [ricambi2Dettaglio, setRicambi2Dettaglio] = useState(null);
@@ -82,7 +47,7 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
   useEffect(() => {
     if (cliente) {
       setF({
-        ...empty,
+        ...EMPTY_CLIENTE,
         ...cliente,
         posto_barca: cliente.posto_barca ?? "",
         scadenza_antivegetativa: cliente.scadenza_antivegetativa ?? "",
@@ -90,7 +55,7 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
         lavorazioni_extra: Array.isArray(cliente.lavorazioni_extra) ? cliente.lavorazioni_extra : [],
       });
     } else {
-      setF(empty);
+      setF(EMPTY_CLIENTE);
     }
     setRicambiDettaglio(null);
     setRicambi2Dettaglio(null);
@@ -196,17 +161,8 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
   };
 
   // --- Lavorazioni extra helpers ---
-  const MAX_EXTRA = 20;
   const totaleExtra = (Array.isArray(f.lavorazioni_extra) ? f.lavorazioni_extra : [])
     .reduce((s, it) => s + (Number(it?.prezzo) || 0), 0);
-
-  const addExtra = () => {
-    if ((f.lavorazioni_extra || []).length >= MAX_EXTRA) {
-      toast.error(`Massimo ${MAX_EXTRA} lavorazioni extra`);
-      return;
-    }
-    update("lavorazioni_extra", [...(f.lavorazioni_extra || []), { descrizione: "", prezzo: 0 }]);
-  };
 
   const addExtraFromMagazzino = (articoloId, quantita = 1) => {
     if (!articoloId) return;
@@ -226,16 +182,6 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
       { descrizione: desc, prezzo: totale },
     ]);
     toast.success(`Aggiunto: ${a.nome} × ${qLabel}`);
-  };
-  const removeExtra = (idx) => {
-    const list = [...(f.lavorazioni_extra || [])];
-    list.splice(idx, 1);
-    update("lavorazioni_extra", list);
-  };
-  const updateExtra = (idx, key, value) => {
-    const list = [...(f.lavorazioni_extra || [])];
-    list[idx] = { ...list[idx], [key]: key === "prezzo" ? value : String(value ?? "") };
-    update("lavorazioni_extra", list);
   };
 
   const totale =
@@ -473,250 +419,8 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
 
           <Separator />
 
-          {/* Motore */}
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <div className="label-mini">{f.secondo_motore ? "1° Motore" : "Motore"}</div>
-              <div className="flex items-center gap-2">
-                <Label htmlFor="switch-primo-motore" className="text-sm text-muted-foreground">Motore presente</Label>
-                <Switch
-                  id="switch-primo-motore"
-                  checked={f.primo_motore_attivo !== false}
-                  onCheckedChange={(v) => update("primo_motore_attivo", v)}
-                  data-testid="switch-primo-motore"
-                />
-              </div>
-            </div>
-            {f.primo_motore_attivo === false ? (
-              <div className="p-4 rounded-md border border-dashed border-border bg-muted/20 text-sm text-muted-foreground mb-4" data-testid="motore-disattivato">
-                Motore <b>disattivato</b> — nessun costo manodopera/ricambi motore verrà calcolato. I servizi opzionali qui sotto restano comunque disponibili.
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                  <Field label="Tipo motore">
-                    <Select value={f.tipo_motore || "fuoribordo"} onValueChange={(v) => update("tipo_motore", v)}>
-                      <SelectTrigger data-testid="select-tipo-motore"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="fuoribordo">Fuoribordo</SelectItem>
-                        <SelectItem value="entrobordo">Entrobordo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label="Cavalli (HP)">
-                    <Input type="number" min="0" step="1" value={f.potenza_motore} onChange={(e) => update("potenza_motore", e.target.value)} data-testid="input-potenza-motore" />
-                  </Field>
-                  <Field label="Litri olio motore">
-                    <Input type="number" min="0" step="0.1" value={f.litri_olio_motore} onChange={(e) => update("litri_olio_motore", e.target.value)} data-testid="input-litri-olio" />
-                  </Field>
-                  <Field label="Litri olio piede">
-                    <Input type="number" min="0" step="0.1" value={f.litri_olio_piede} onChange={(e) => update("litri_olio_piede", e.target.value)} data-testid="input-litri-olio-piede" />
-                  </Field>
-                  <Field label="N° candele">
-                    <Input type="number" min="0" step="1" value={f.numero_candele} onChange={(e) => update("numero_candele", e.target.value)} data-testid="input-numero-candele" />
-                  </Field>
-                  <Field label="N° termostati">
-                    <Input type="number" min="0" step="1" value={f.numero_termostati} onChange={(e) => update("numero_termostati", e.target.value)} data-testid="input-numero-termostati" />
-                  </Field>
-                </div>
-                <div className="text-[11px] text-muted-foreground mt-2">
-                  Fuoribordo: manodopera a scaglioni HP (2-15 · 16-40 · 41-150 · &gt;150). Entrobordo: tariffa unica valida per qualsiasi HP. Olio motore calcolato al litro. I ricambi si moltiplicano per il numero indicato.
-                </div>
-              </>
-            )}
-
-            {/* Servizi opzionali - SEMPRE visibili, anche senza motore */}
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <ToggleRow
-                label="Antivegetativa"
-                description="Applica il costo antivegetativa"
-                checked={!!f.antivegetativa_attiva}
-                onChange={(v) => update("antivegetativa_attiva", v)}
-                testId="switch-antivegetativa"
-              />
-              <ToggleRow
-                label="Scafo sporco"
-                description="Applica la maggiorazione scafo sporco"
-                checked={!!f.scafo_sporco_attivo}
-                onChange={(v) => update("scafo_sporco_attivo", v)}
-                testId="switch-scafo-sporco"
-              />
-              <ToggleRow
-                label="Copertura"
-                description={f.tipo_sosta === "dentro" ? "Non applicabile con sosta al coperto" : "Applica il costo copertura (€ / metro)"}
-                checked={!!f.copertura_attiva}
-                onChange={(v) => update("copertura_attiva", v)}
-                testId="switch-copertura"
-                disabled={f.tipo_sosta === "dentro"}
-              />
-              {f.primo_motore_attivo !== false && (
-                <ToggleRow
-                  label={f.secondo_motore ? "Girante 1° motore" : "Sostituzione girante"}
-                  description="Includi ricambio girante"
-                  checked={!!f.girante_attivo}
-                  onChange={(v) => update("girante_attivo", v)}
-                  testId="switch-girante"
-                />
-              )}
-              {f.primo_motore_attivo !== false && (
-                <ToggleRow
-                  label={f.secondo_motore ? "Filtro olio 1° motore" : "Filtro olio"}
-                  description="Includi ricambio filtro olio"
-                  checked={!!f.filtro_olio_attivo}
-                  onChange={(v) => update("filtro_olio_attivo", v)}
-                  testId="switch-filtro-olio"
-                />
-              )}
-              {f.primo_motore_attivo !== false && (
-                <ToggleRow
-                  label={f.secondo_motore ? "Kit anodi interni 1° motore" : "Kit anodi interni"}
-                  description="Includi kit anodi interni"
-                  checked={!!f.anodi_interni_attivo}
-                  onChange={(v) => update("anodi_interni_attivo", v)}
-                  testId="switch-anodi-interni"
-                />
-              )}
-              {f.primo_motore_attivo !== false && (
-                <ToggleRow
-                  label={f.secondo_motore ? "Kit anodi esterni 1° motore" : "Kit anodi esterni"}
-                  description="Includi kit anodi esterni"
-                  checked={!!f.anodi_esterni_attivo}
-                  onChange={(v) => update("anodi_esterni_attivo", v)}
-                  testId="switch-anodi-esterni"
-                />
-              )}
-              {f.primo_motore_attivo !== false && (
-                <ToggleRow
-                  label={f.secondo_motore ? "Olio piede 1° motore" : "Olio piede"}
-                  description="Includi olio piede (calcolato al litro)"
-                  checked={!!f.olio_piede_attivo}
-                  onChange={(v) => update("olio_piede_attivo", v)}
-                  testId="switch-olio-piede"
-                />
-              )}
-              {f.primo_motore_attivo !== false && (
-                <ToggleRow
-                  label={f.secondo_motore ? "Ingrassaggio 1° motore" : "Ingrassaggio"}
-                  description="Includi ingrassaggio completo"
-                  checked={!!f.ingrassaggio_attivo}
-                  onChange={(v) => update("ingrassaggio_attivo", v)}
-                  testId="switch-ingrassaggio"
-                />
-              )}
-              <ToggleRow
-                label="Lavaggio inizio stagione"
-                description="Includi lavaggio a inizio stagione"
-                checked={!!f.lavaggio_inizio_attivo}
-                onChange={(v) => update("lavaggio_inizio_attivo", v)}
-                testId="switch-lavaggio-inizio"
-              />
-              <ToggleRow
-                label="Lavaggio fine stagione"
-                description="Includi lavaggio a fine stagione"
-                checked={!!f.lavaggio_fine_attivo}
-                onChange={(v) => update("lavaggio_fine_attivo", v)}
-                testId="switch-lavaggio-fine"
-              />
-              <ToggleRow
-                label="Alaggio e varo"
-                description="Richiesta alaggio + varo (sempre calcolati quando attivo)"
-                checked={!!f.alaggio_varo_attivo}
-                onChange={(v) => update("alaggio_varo_attivo", v)}
-                testId="switch-alaggio-varo"
-              />
-            </div>
-            {!f.antivegetativa_attiva && !f.scafo_sporco_attivo && (
-              <div className="mt-2 text-[11px] text-muted-foreground bg-muted/40 border border-border rounded-md p-2" data-testid="info-no-antiveg">
-                Antivegetativa disattivata. Attiva "Scafo sporco" se serve applicare la maggiorazione.
-              </div>
-            )}
-
-            {/* Secondo motore */}
-            <div className="mt-4 p-4 rounded-md border border-border bg-muted/20">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <Label className="text-sm font-medium">Secondo motore</Label>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Attiva se la barca ha un secondo motore. I ricambi vengono calcolati separatamente.
-                  </p>
-                </div>
-                <Switch checked={!!f.secondo_motore} onCheckedChange={(v) => update("secondo_motore", v)} data-testid="switch-secondo-motore" />
-              </div>
-              {f.secondo_motore && (
-                <div className="pt-3 border-t border-border/60 space-y-3">
-                  <div className="label-mini">2° Motore</div>
-                  <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                    <Field label="Tipo 2° motore">
-                      <Select value={f.tipo_motore_2 || "fuoribordo"} onValueChange={(v) => update("tipo_motore_2", v)}>
-                        <SelectTrigger data-testid="select-tipo-motore-2"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="fuoribordo">Fuoribordo</SelectItem>
-                          <SelectItem value="entrobordo">Entrobordo</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field label="Cavalli 2° motore">
-                      <Input type="number" min="0" step="1" value={f.potenza_motore_2} onChange={(e) => update("potenza_motore_2", e.target.value)} data-testid="input-potenza-motore-2" />
-                    </Field>
-                    <Field label="Litri olio 2°">
-                      <Input type="number" min="0" step="0.1" value={f.litri_olio_motore_2} onChange={(e) => update("litri_olio_motore_2", e.target.value)} data-testid="input-litri-olio-2" />
-                    </Field>
-                    <Field label="Lt olio piede 2°">
-                      <Input type="number" min="0" step="0.1" value={f.litri_olio_piede_2} onChange={(e) => update("litri_olio_piede_2", e.target.value)} data-testid="input-litri-olio-piede-2" />
-                    </Field>
-                    <Field label="N° candele 2°">
-                      <Input type="number" min="0" step="1" value={f.numero_candele_2} onChange={(e) => update("numero_candele_2", e.target.value)} data-testid="input-numero-candele-2" />
-                    </Field>
-                    <Field label="N° termostati 2°">
-                      <Input type="number" min="0" step="1" value={f.numero_termostati_2} onChange={(e) => update("numero_termostati_2", e.target.value)} data-testid="input-numero-termostati-2" />
-                    </Field>
-                  </div>
-                  <ToggleRow
-                    label="Girante 2° motore"
-                    description="Includi ricambio girante per il 2° motore"
-                    checked={!!f.girante_2_attivo}
-                    onChange={(v) => update("girante_2_attivo", v)}
-                    testId="switch-girante-2"
-                  />
-                  <ToggleRow
-                    label="Filtro olio 2° motore"
-                    description="Includi ricambio filtro olio del 2° motore"
-                    checked={!!f.filtro_olio_2_attivo}
-                    onChange={(v) => update("filtro_olio_2_attivo", v)}
-                    testId="switch-filtro-olio-2"
-                  />
-                  <ToggleRow
-                    label="Kit anodi interni 2° motore"
-                    description="Includi kit anodi interni per il 2° motore"
-                    checked={!!f.anodi_interni_2_attivo}
-                    onChange={(v) => update("anodi_interni_2_attivo", v)}
-                    testId="switch-anodi-interni-2"
-                  />
-                  <ToggleRow
-                    label="Kit anodi esterni 2° motore"
-                    description="Includi kit anodi esterni per il 2° motore"
-                    checked={!!f.anodi_esterni_2_attivo}
-                    onChange={(v) => update("anodi_esterni_2_attivo", v)}
-                    testId="switch-anodi-esterni-2"
-                  />
-                  <ToggleRow
-                    label="Olio piede 2° motore"
-                    description="Includi olio piede per il 2° motore (al litro)"
-                    checked={!!f.olio_piede_2_attivo}
-                    onChange={(v) => update("olio_piede_2_attivo", v)}
-                    testId="switch-olio-piede-2"
-                  />
-                  <ToggleRow
-                    label="Ingrassaggio 2° motore"
-                    description="Includi ingrassaggio completo per il 2° motore"
-                    checked={!!f.ingrassaggio_2_attivo}
-                    onChange={(v) => update("ingrassaggio_2_attivo", v)}
-                    testId="switch-ingrassaggio-2"
-                  />
-                </div>
-              )}
-            </div>
-          </section>
+          {/* Motore + servizi opzionali + secondo motore (component esterno) */}
+          <MotoreSection f={f} update={update} />
 
           <Separator />
 
@@ -869,94 +573,12 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
 
           <Separator />
 
-          {/* Lavorazioni extra */}
-          <section data-testid="section-lavorazioni-extra">
-            <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
-              <div>
-                <div className="flex items-center gap-1.5 label-mini mb-0.5">
-                  <Wrench className="w-3 h-3" /> Lavorazioni extra
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Aggiungi lavorazioni personalizzate con prezzo (max {MAX_EXTRA}). Sono incluse nel totale e nel PDF preventivo.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => { setMagPickerId(""); setMagPickerQty(1); setMagPickerQuery(""); setMagPickerOpen(true); }}
-                  disabled={(f.lavorazioni_extra || []).length >= MAX_EXTRA}
-                  data-testid="btn-add-from-magazzino"
-                >
-                  <Package className="w-4 h-4 mr-1 text-primary" /> Da magazzino
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addExtra}
-                  disabled={(f.lavorazioni_extra || []).length >= MAX_EXTRA}
-                  data-testid="btn-add-extra"
-                >
-                  <Plus className="w-4 h-4 mr-1" /> Aggiungi voce
-                </Button>
-              </div>
-            </div>
-
-            {(f.lavorazioni_extra || []).length === 0 ? (
-              <div className="text-xs text-muted-foreground bg-muted/40 rounded-md p-3 border border-dashed border-border text-center" data-testid="extra-empty">
-                Nessuna lavorazione extra. Clicca su "Aggiungi voce" per crearne una.
-              </div>
-            ) : (
-              <div className="space-y-2" data-testid="extra-list">
-                {(f.lavorazioni_extra || []).map((it, idx) => (
-                  <div key={idx} className="grid grid-cols-12 gap-2 items-center" data-testid={`extra-row-${idx}`}>
-                    <div className="col-span-7">
-                      <Input
-                        placeholder="Descrizione (es. Riparazione elica)"
-                        value={it?.descrizione ?? ""}
-                        onChange={(e) => updateExtra(idx, "descrizione", e.target.value)}
-                        data-testid={`extra-desc-${idx}`}
-                      />
-                    </div>
-                    <div className="col-span-4 relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span>
-                      <Input
-                        type="number" step="0.01" min="0"
-                        placeholder="0,00"
-                        value={it?.prezzo ?? ""}
-                        onChange={(e) => updateExtra(idx, "prezzo", e.target.value)}
-                        className="pl-10 font-mono-num"
-                        data-testid={`extra-prezzo-${idx}`}
-                      />
-                    </div>
-                    <div className="col-span-1 flex justify-end">
-                      <Button
-                        type="button" size="icon" variant="ghost"
-                        onClick={() => removeExtra(idx)}
-                        data-testid={`extra-remove-${idx}`}
-                        title="Rimuovi voce"
-                      >
-                        <X className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {(f.lavorazioni_extra || []).length > 0 && (
-              <div className="mt-3 flex items-center justify-between text-sm bg-muted/40 border border-border rounded-md px-3 py-2">
-                <span className="text-muted-foreground">
-                  {(f.lavorazioni_extra || []).length} / {MAX_EXTRA} voci
-                </span>
-                <span className="font-semibold" data-testid="extra-totale">
-                  Subtotale extra: <span className="font-mono-num text-primary">{fmtEuro(totaleExtra)}</span>
-                </span>
-              </div>
-            )}
-          </section>
+          {/* Lavorazioni extra (component esterno) */}
+          <LavorazioniExtraSection
+            f={f}
+            update={update}
+            onOpenMagPicker={() => setMagPickerOpen(true)}
+          />
 
           <Separator />
 
@@ -1009,153 +631,13 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
         </SheetFooter>
       </SheetContent>
 
-      {/* Dialog: aggiungi articolo dal magazzino con quantità */}
-      <Dialog open={magPickerOpen} onOpenChange={setMagPickerOpen}>
-        <DialogContent className="max-w-md" data-testid="dialog-mag-picker">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Package className="w-4 h-4 text-primary" /> Aggiungi articolo dal magazzino
-            </DialogTitle>
-            <DialogDescription>
-              Verrà aggiunto come voce di lavorazione extra (descrizione + prezzo totale).
-              Lo stock non viene decrementato in fase di preventivo.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Articolo</Label>
-              {(() => {
-                const selected = articoliMag.find((x) => x.id === magPickerId);
-                if (selected) {
-                  return (
-                    <div className="mt-1.5 flex items-center gap-2 rounded-md border border-primary/40 bg-primary/5 p-2.5" data-testid="mag-picker-selected">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">
-                          {selected.codice && <span className="font-mono text-xs text-muted-foreground mr-1.5">[{selected.codice}]</span>}
-                          {selected.nome}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          {fmtEuro(selected.prezzo_listino)}/{selected.unita_misura || "pz"}
-                          {" · giacenza "}{selected.quantita} {selected.unita_misura || "pz"}
-                          {selected.categoria && <span className="ml-2">· {selected.categoria}</span>}
-                        </div>
-                      </div>
-                      <Button type="button" size="icon" variant="ghost" onClick={() => { setMagPickerId(""); setMagPickerQuery(""); }} data-testid="mag-picker-clear">
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  );
-                }
-                const q = magPickerQuery.trim().toLowerCase();
-                const filtered = q === ""
-                  ? articoliMag.slice(0, 30)
-                  : articoliMag.filter((a) =>
-                      [a.codice, a.nome, a.descrizione, a.categoria]
-                        .filter(Boolean).some((v) => String(v).toLowerCase().includes(q))
-                    ).slice(0, 50);
-                return (
-                  <div className="mt-1.5 space-y-2">
-                    <Input
-                      autoFocus
-                      value={magPickerQuery}
-                      onChange={(e) => setMagPickerQuery(e.target.value)}
-                      placeholder="Cerca per codice, nome, descrizione…"
-                      data-testid="mag-picker-search"
-                    />
-                    <div className="max-h-56 overflow-y-auto rounded-md border border-border divide-y divide-border/60" data-testid="mag-picker-list">
-                      {articoliMag.length === 0 && (
-                        <div className="px-3 py-3 text-xs text-muted-foreground text-center">Nessun articolo in magazzino</div>
-                      )}
-                      {articoliMag.length > 0 && filtered.length === 0 && (
-                        <div className="px-3 py-3 text-xs text-muted-foreground text-center">Nessun risultato per "{magPickerQuery}"</div>
-                      )}
-                      {filtered.map((a) => (
-                        <button
-                          type="button"
-                          key={a.id}
-                          onClick={() => setMagPickerId(a.id)}
-                          className="w-full text-left px-3 py-2 hover:bg-muted/60 transition-colors flex items-start gap-2 group"
-                          data-testid={`mag-picker-opt-${a.id}`}
-                        >
-                          <Package className="w-3.5 h-3.5 mt-0.5 text-muted-foreground group-hover:text-primary shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm">
-                              {a.codice && <span className="font-mono text-xs text-muted-foreground mr-1.5">[{a.codice}]</span>}
-                              <span className="font-medium">{a.nome}</span>
-                            </div>
-                            <div className="text-[11px] text-muted-foreground/80">
-                              {fmtEuro(a.prezzo_listino)}/{a.unita_misura || "pz"} · giac. {a.quantita}
-                              {a.categoria && <> · {a.categoria}</>}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                    {articoliMag.length > 30 && !q && (
-                      <div className="text-[10px] text-muted-foreground text-center">
-                        Digita per cercare tra {articoliMag.length} articoli…
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-
-            <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Quantità {magPickerId && (() => {
-                  const a = articoliMag.find((x) => x.id === magPickerId);
-                  return a ? <span className="text-[10px] text-muted-foreground normal-case font-normal">(giacenza: {a.quantita} {a.unita_misura || "pz"})</span> : null;
-                })()}
-              </Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={magPickerQty}
-                onChange={(e) => setMagPickerQty(e.target.value)}
-                className="mt-1.5 font-mono-num"
-                autoFocus={!!magPickerId}
-                data-testid="mag-picker-qty"
-              />
-            </div>
-
-            {magPickerId && (() => {
-              const a = articoliMag.find((x) => x.id === magPickerId);
-              if (!a) return null;
-              const q = Number(magPickerQty) || 0;
-              const totale = q * (Number(a.prezzo_listino) || 0);
-              return (
-                <div className="rounded-md bg-muted/40 border border-border p-3 text-sm space-y-0.5">
-                  <div className="text-xs text-muted-foreground">Anteprima riga preventivo</div>
-                  <div className="font-medium">
-                    {a.codice ? `[${a.codice}] ` : ""}{a.nome} × {q || 0} {a.unita_misura || "pz"}
-                  </div>
-                  <div className="flex justify-between items-baseline">
-                    <span className="text-xs text-muted-foreground font-mono-num">
-                      {q || 0} × {fmtEuro(a.prezzo_listino)}
-                    </span>
-                    <span className="font-mono-num font-semibold text-primary" data-testid="mag-picker-totale">{fmtEuro(totale)}</span>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setMagPickerOpen(false)}>Annulla</Button>
-            <Button
-              disabled={!magPickerId || !(Number(magPickerQty) > 0)}
-              onClick={() => { addExtraFromMagazzino(magPickerId, magPickerQty); setMagPickerOpen(false); }}
-              className="bg-primary hover:bg-primary/90"
-              data-testid="mag-picker-confirm"
-            >
-              <Plus className="w-4 h-4 mr-1" /> Aggiungi al preventivo
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Dialog: aggiungi articolo dal magazzino (component esterno) */}
+      <MagazzinoPickerDialog
+        open={magPickerOpen}
+        onOpenChange={setMagPickerOpen}
+        articoli={articoliMag}
+        onConfirm={addExtraFromMagazzino}
+      />
 
       <PdfPreviewOverlay
         open={previewOpen}
@@ -1164,55 +646,6 @@ export default function ClienteForm({ open, onOpenChange, cliente, onSaved, mode
         filename={previewName}
       />
     </Sheet>
-  );
-}
-
-function Field({ label, children }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</Label>
-      {children}
-    </div>
-  );
-}
-
-function CostField({ label, value, onChange, disabled, testId }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</Label>
-      <div className="relative">
-        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span>
-        <Input
-          type="number" step="0.01" min="0"
-          disabled={disabled}
-          value={value ?? 0}
-          onChange={(e) => onChange(e.target.value)}
-          className="pl-10 font-mono-num"
-          data-testid={`input-${testId}`}
-        />
-      </div>
-    </div>
-  );
-}
-
-function BreakdownRow({ label, value }) {
-  return (
-    <div className="flex justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-mono-num">{new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(Number(value) || 0)}</span>
-    </div>
-  );
-}
-
-function ToggleRow({ label, description, checked, onChange, testId, disabled }) {
-  return (
-    <div className={`flex items-center justify-between gap-2 p-3 rounded-md border border-border bg-muted/30 ${disabled ? "opacity-50" : ""}`}>
-      <div className="min-w-0">
-        <Label className="text-sm font-medium">{label}</Label>
-        <p className="text-[11px] text-muted-foreground mt-0.5">{description}</p>
-      </div>
-      <Switch checked={checked} onCheckedChange={onChange} disabled={disabled} data-testid={testId} />
-    </div>
   );
 }
 
