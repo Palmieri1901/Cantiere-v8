@@ -12,7 +12,11 @@ export default function ListinoConcessionarioButton() {
   const [sc2, setSc2] = useState(5);
 
   const openPdf = () => {
-    const params = new URLSearchParams({ sc1: String(Number(sc1) || 0), sc2: String(Number(sc2) || 0) });
+    const params = new URLSearchParams({
+      sc1: String(Number(sc1) || 0),
+      sc2: String(Number(sc2) || 0),
+      _t: String(Date.now()), // cache-buster
+    });
     window.open(`${API}/suzuki/listino-concessionario.pdf?${params.toString()}`, "_blank");
     setOpen(false);
   };

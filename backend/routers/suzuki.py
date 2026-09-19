@@ -504,14 +504,14 @@ async def _build_listino_pdf(concessionario: bool = False, sc1: float = 10.0, sc
             if concessionario:
                 pl = float(r.get("prezzo_listino") or 0)
                 pub = float(r.get("prezzo_pubblico") or 0)
-                # netto concessionario: costo effettivo Suzuki (stored sconto modello)
+                # Netto conc. = costo REALE per il concessionario (listino IVA escl. dopo eventuali sconti Suzuki stored)
                 s1_mod = float(r.get("sconto_perc_1") or 0)
                 s2_mod = float(r.get("sconto_perc_2") or 0)
                 netto_conc = pl * (1 - s1_mod/100) * (1 - s2_mod/100) if pl else 0
                 # % sconto listino: da pubblico IVA escl. al listino concessionario
                 pub_escl = pub / IVA_M if pub else 0
                 sconto_list_perc = ((pub_escl - pl) / pub_escl * 100) if pub_escl > 0 and pl > 0 else 0
-                # guadagno stimato applicando sc1+sc2 (query, editabili) sul prezzo pubblico IVA incl., meno netto concessionario
+                # Guadagno = netto vendita al cliente (sc1+sc2 editabili sul pubblico) − costo reale (netto conc.)
                 netto_vendita_incl = pub * (1 - sc1/100) * (1 - sc2/100) if pub else 0
                 netto_vendita_escl = netto_vendita_incl / IVA_M if netto_vendita_incl else 0
                 guadagno = netto_vendita_escl - netto_conc if pl and pub else 0
