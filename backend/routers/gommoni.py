@@ -441,7 +441,8 @@ async def update_preventivo(pid: str, payload: GommonePreventivoCreate):
     doc = await db.gommoni_preventivi.find_one({"id": pid}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Preventivo non trovato")
-    p = GommonePreventivo(**{**doc, **payload.model_dump(), "updated_at": datetime.now(timezone.utc)})
+    data = payload.model_dump(exclude_none=True)
+    p = GommonePreventivo(**{**doc, **data, "updated_at": datetime.now(timezone.utc)})
     await db.gommoni_preventivi.update_one({"id": pid}, {"$set": serialize(p)})
     return p
 
