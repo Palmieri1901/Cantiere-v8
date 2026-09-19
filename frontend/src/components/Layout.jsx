@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
-  { to: "/clienti", label: "Clienti", icon: Users, testId: "nav-clienti" },
+  { to: "/clienti", label: "Rimessaggio", icon: Users, testId: "nav-clienti" },
   { to: "/posti-barca", label: "Posti Barca", icon: Grid3x3, testId: "nav-posti-barca" },
   { to: "/magazzino", label: "Magazzino", icon: Package, testId: "nav-magazzino" },
   { to: "/tubolari", label: "Tubolari", icon: Ship, testId: "nav-tubolari" },
