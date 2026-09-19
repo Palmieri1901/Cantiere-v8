@@ -1,18 +1,40 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { X, Save } from "lucide-react";
+import { X, Save, Sparkles } from "lucide-react";
 import { Field, gommonePayload } from "./common";
 
 export default function GommoneDialog({ value, onClose, onSaved }) {
   const [form, setForm] = useState(value);
   const [saving, setSaving] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const fileRef = useRef(null);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const isNew = !form.id;
+
+  const scanScheda = async (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    setScanning(true);
+    try {
+      const buf = await f.arrayBuffer();
+      const b64 = btoa(new Uint8Array(buf).reduce((s, b) => s + String.fromCharCode(b), ""));
+      const r = await api.post("/gommoni/import-ai-scheda", { file_base64: b64, file_name: f.name });
+      const c = r.data.caratteristiche || {};
+      setForm((prev) => {
+        const next = { ...prev };
+        for (const [k, v] of Object.entries(c)) if (k in next && v !== "" && v !== 0 && v != null) next[k] = v;
+        return next;
+      });
+      toast.success(`${Object.keys(c).length} caratteristiche rilevate — controlla e salva`);
+    } catch (err) { toast.error(err.response?.data?.detail || "Errore rilevamento AI"); }
+    finally { setScanning(false); }
+  };
 
   const save = async () => {
     if (!form.modello?.trim()) { toast.error("Nome modello obbligatorio"); return; }
@@ -39,6 +61,14 @@ export default function GommoneDialog({ value, onClose, onSaved }) {
           <DialogTitle>{isNew ? "Nuovo gommone GEB" : "Modifica gommone"}</DialogTitle>
           <DialogDescription>Caratteristiche tecniche e prezzo pubblico (IVA inclusa).</DialogDescription>
         </DialogHeader>
+        <div className="flex items-center gap-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+          <Sparkles className="w-4 h-4 text-primary shrink-0" />
+          <div className="text-xs flex-1">Carica la <b>scheda tecnica</b> (PDF o foto): l'AI compila automaticamente le caratteristiche qui sotto.</div>
+          <input ref={fileRef} type="file" accept=".pdf,image/*" className="hidden" onChange={scanScheda} data-testid="in-scheda-ai" />
+          <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={scanning} data-testid="btn-scheda-ai">
+            <Sparkles className="w-3.5 h-3.5 mr-1.5" /> {scanning ? "Analisi in corso…" : "Rileva caratteristiche con AI"}
+          </Button>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-[65vh] overflow-y-auto pr-1">
           <div className="col-span-2"><Field label="Modello *"><Input value={form.modello || ""} onChange={(e) => set("modello", e.target.value)} placeholder="GEB 620 Open" data-testid="g-modello" /></Field></div>
           {num("prezzo_pubblico", "Prezzo pubblico € (IVA incl.)", "0.01", "g-prezzo")}

@@ -10,8 +10,8 @@ import { gommonePayload } from "./common";
 
 const COLS = [
   ["modello", "Modello", "text"], ["lunghezza_m", "Lungh. m", "number"], ["larghezza_m", "Largh. m", "number"],
-  ["diametro_tubolare_cm", "Ø cm", "number"], ["portata_persone", "Pers.", "number"], ["potenza_max_hp", "HP max", "number"],
-  ["peso_kg", "Peso kg", "number"], ["tessuto", "Tessuto", "text"], ["prezzo_pubblico", "Prezzo €", "number"],
+  ["diametro_tubolare_cm", "Ø cm", "number"], ["compartimenti", "Comp.", "number"], ["portata_persone", "Pers.", "number"], ["potenza_max_hp", "HP max", "number"],
+  ["peso_kg", "Peso kg", "number"], ["carena", "Carena", "text"], ["tessuto", "Tessuto", "text"], ["dotazioni", "Dotazioni", "text"], ["prezzo_pubblico", "Prezzo €", "number"],
 ];
 
 export default function ImportAIGommoniDialog({ open, onClose, onSaved }) {
@@ -49,7 +49,7 @@ export default function ImportAIGommoniDialog({ open, onClose, onSaved }) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
-      <DialogContent className="max-w-6xl" data-testid="dialog-import-gommoni">
+      <DialogContent className="max-w-[95vw] xl:max-w-7xl" data-testid="dialog-import-gommoni">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Sparkles className="w-5 h-5 text-primary" /> Rilevamento listino gommoni con AI</DialogTitle>
           <DialogDescription>Carica listino o schede tecniche (PDF o immagine). L'AI estrae modelli, caratteristiche e prezzi: rivedi e conferma prima di salvare.</DialogDescription>
@@ -73,7 +73,7 @@ export default function ImportAIGommoniDialog({ open, onClose, onSaved }) {
                     {rows.map((r, i) => (
                       <tr key={i} className="border-t border-border/40">
                         {COLS.map(([k, , type]) => (
-                          <td key={k} className="p-1"><Input className={`h-7 text-xs ${type === "number" ? "text-right font-mono w-20" : "min-w-[120px]"}`} type={type} step="0.01" value={r[k] ?? ""} onChange={(e) => updateRow(i, k, e.target.value)} /></td>
+                          <td key={k} className="p-1"><Input className={`h-7 text-xs ${type === "number" ? "text-right font-mono w-16" : k === "dotazioni" ? "min-w-[220px]" : "min-w-[110px]"}`} type={type} step="0.01" value={r[k] ?? ""} onChange={(e) => updateRow(i, k, e.target.value)} /></td>
                         ))}
                         <td className="p-1 text-center"><button onClick={() => setRows((rs) => rs.filter((_, idx) => idx !== i))} className="text-destructive hover:opacity-70"><Trash2 className="w-3.5 h-3.5" /></button></td>
                       </tr>

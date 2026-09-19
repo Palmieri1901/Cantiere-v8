@@ -939,6 +939,8 @@ class GommoneModello(BaseModel):
     note: Optional[str] = ""
     prezzo_pubblico: float = 0                    # € IVA inclusa
     ordine: Optional[int] = 0
+    omologazione_file_id: Optional[str] = ""      # GridFS id del PDF di omologazione
+    omologazione_nome: Optional[str] = ""
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

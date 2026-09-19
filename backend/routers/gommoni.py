@@ -5,8 +5,10 @@ import os
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
+from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
 from database import db
 from helpers import serialize
@@ -65,9 +67,71 @@ async def update_modello(mid: str, payload: GommoneModelloCreate):
 
 @router.delete("/modelli/{mid}")
 async def delete_modello(mid: str):
+    doc = await db.gommoni_modelli.find_one({"id": mid}, {"_id": 0, "omologazione_file_id": 1})
     res = await db.gommoni_modelli.delete_one({"id": mid})
     if res.deleted_count == 0:
         raise HTTPException(404, "Modello non trovato")
+    if doc and doc.get("omologazione_file_id"):
+        await _delete_gridfs(doc["omologazione_file_id"])
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# OMOLOGAZIONE PDF (GridFS)
+# ---------------------------------------------------------------------------
+def _bucket() -> AsyncIOMotorGridFSBucket:
+    return AsyncIOMotorGridFSBucket(db, bucket_name="gommoni_omologazioni")
+
+
+async def _delete_gridfs(fid: str):
+    try:
+        await _bucket().delete(ObjectId(fid))
+    except Exception:
+        pass
+
+
+@router.post("/modelli/{mid}/omologazione")
+async def upload_omologazione(mid: str, file: UploadFile = File(...)):
+    doc = await db.gommoni_modelli.find_one({"id": mid}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Modello non trovato")
+    data = await file.read()
+    if data[:4] != b"%PDF":
+        raise HTTPException(400, "Il file deve essere un PDF")
+    if len(data) > 20 * 1024 * 1024:
+        raise HTTPException(400, "File troppo grande (max 20 MB)")
+    if doc.get("omologazione_file_id"):
+        await _delete_gridfs(doc["omologazione_file_id"])
+    fid = await _bucket().upload_from_stream(file.filename or "omologazione.pdf", data, metadata={"modello_id": mid})
+    await db.gommoni_modelli.update_one({"id": mid}, {"$set": {
+        "omologazione_file_id": str(fid), "omologazione_nome": file.filename or "omologazione.pdf",
+        "updated_at": datetime.now(timezone.utc)}})
+    return {"ok": True, "file_id": str(fid), "nome": file.filename}
+
+
+@router.get("/modelli/{mid}/omologazione.pdf")
+async def get_omologazione(mid: str):
+    doc = await db.gommoni_modelli.find_one({"id": mid}, {"_id": 0})
+    if not doc or not doc.get("omologazione_file_id"):
+        raise HTTPException(404, "Omologazione non caricata")
+    try:
+        stream = await _bucket().open_download_stream(ObjectId(doc["omologazione_file_id"]))
+        data = await stream.read()
+    except Exception:
+        raise HTTPException(404, "File non trovato")
+    nome = (doc.get("omologazione_nome") or "omologazione.pdf").replace('"', "")
+    return StreamingResponse(io.BytesIO(data), media_type="application/pdf",
+                             headers={"Content-Disposition": f'inline; filename="{nome}"'})
+
+
+@router.delete("/modelli/{mid}/omologazione")
+async def delete_omologazione(mid: str):
+    doc = await db.gommoni_modelli.find_one({"id": mid}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Modello non trovato")
+    if doc.get("omologazione_file_id"):
+        await _delete_gridfs(doc["omologazione_file_id"])
+    await db.gommoni_modelli.update_one({"id": mid}, {"$set": {"omologazione_file_id": "", "omologazione_nome": ""}})
     return {"ok": True}
 
 
@@ -136,7 +200,7 @@ async def save_sconti(payload: GommoneSconti):
 # ---------------------------------------------------------------------------
 _IMPORT_PROMPT = (
     "Sei un assistente che analizza listini e schede tecniche di GOMMONI (battelli pneumatici) in italiano.\n"
-    "Estrai la lista di TUTTI i modelli visibili nella pagina fornita.\n"
+    "Estrai la lista di TUTTI i modelli visibili nella pagina fornita, con TUTTE le caratteristiche tecniche riportate.\n"
     "Rispondi SOLO con un array JSON, ogni elemento con le chiavi:\n"
     '  "modello": nome del gommone (stringa)\n'
     '  "lunghezza_m": lunghezza fuori tutto in metri (numero)\n'
@@ -146,11 +210,11 @@ _IMPORT_PROMPT = (
     '  "portata_persone": persone trasportabili (intero)\n'
     '  "potenza_max_hp": potenza massima motore in HP (numero)\n'
     '  "peso_kg": peso in kg (numero)\n'
-    '  "carena": tipo di carena (stringa)\n'
-    '  "tessuto": tessuto tubolare es. PVC, Hypalon/Neoprene (stringa)\n'
-    '  "dotazioni": dotazioni di serie (stringa breve)\n'
-    '  "prezzo_pubblico": prezzo al pubblico in euro IVA inclusa (numero)\n'
-    '  "note": eventuali note (stringa breve)\n'
+    '  "carena": tipo di carena, categoria di progettazione CE, lunghezza interna se presenti (stringa)\n'
+    '  "tessuto": tessuto tubolare es. PVC, Hypalon/Neoprene con grammatura (stringa)\n'
+    '  "dotazioni": elenco COMPLETO delle dotazioni di serie e delle caratteristiche descrittive (stringa, separate da virgola)\n'
+    '  "prezzo_pubblico": prezzo al pubblico in euro IVA inclusa (numero, 0 se assente)\n'
+    '  "note": altre informazioni tecniche utili non rientranti nelle chiavi precedenti (stringa)\n'
     "Se un dato non è presente, usa stringa vuota o 0.\n"
     "NON aggiungere testo prima o dopo il JSON. NON usare fenced code block."
 )
@@ -185,6 +249,25 @@ async def _run_vision(images_b64: List[str]) -> List[dict]:
 
 @router.post("/import-ai")
 async def import_ai(payload: SuzukiImportRequest):
+    rows = await _import_rows(payload)
+    return {"count": len(rows), "modelli": rows}
+
+
+@router.post("/import-ai-scheda")
+async def import_ai_scheda(payload: SuzukiImportRequest):
+    """Analizza la scheda tecnica di UN gommone e ritorna le caratteristiche (per compilare il form)."""
+    rows = await _import_rows(payload)
+    if not rows:
+        raise HTTPException(400, "Nessuna caratteristica riconosciuta nel file")
+    merged: dict = {}
+    for r in rows:
+        for k, v in r.items():
+            if v not in ("", 0, None) and k not in merged:
+                merged[k] = v
+    return {"caratteristiche": merged}
+
+
+async def _import_rows(payload: SuzukiImportRequest) -> List[dict]:
     if not payload.file_base64:
         raise HTTPException(400, "File mancante")
     raw = payload.file_base64.split(",", 1)[-1] if "," in payload.file_base64 else payload.file_base64
@@ -198,8 +281,7 @@ async def import_ai(payload: SuzukiImportRequest):
             raise HTTPException(400, "PDF vuoto o non leggibile")
     else:
         images = [raw]
-    rows = await _run_vision(images)
-    return {"count": len(rows), "modelli": rows}
+    return await _run_vision(images)
 
 
 # ---------------------------------------------------------------------------
