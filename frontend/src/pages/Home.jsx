@@ -111,16 +111,11 @@ export default function Home() {
           )}
 
           <div className="mt-10 flex flex-wrap gap-3">
-            <Button asChild size="lg" className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 h-12 px-6" data-testid="cta-dashboard">
-              <Link to="/dashboard">
-                Panoramica
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="h-12 px-6 border-foreground/20 hover:bg-foreground/5" data-testid="cta-clienti">
+            <Button asChild size="lg" className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 h-12 px-6" data-testid="cta-clienti">
               <Link to="/clienti">
                 <Anchor className="w-4 h-4 mr-2" />
                 Rimessaggio
+                <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="h-12 px-6 border-foreground/20 hover:bg-foreground/5" data-testid="cta-magazzino">

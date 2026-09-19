@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, Link, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, Grid3x3, Settings2, Sailboat, Building2, Home as HomeIcon, FileBarChart, FileSignature, LogOut, User, Package, Ship } from "lucide-react";
+import { LayoutDashboard, Users, Grid3x3, Settings2, Sailboat, Building2, Home as HomeIcon, FileBarChart, FileSignature, LogOut, User, Package, Ship, ChevronDown, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -8,17 +8,83 @@ import YearSelector from "@/components/YearSelector";
 import { Button } from "@/components/ui/button";
 
 const nav = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
-  { to: "/clienti", label: "Rimessaggio", icon: Users, testId: "nav-clienti" },
-  { to: "/posti-barca", label: "Posti Barca", icon: Grid3x3, testId: "nav-posti-barca" },
+  {
+    label: "Rimessaggio",
+    icon: Users,
+    testId: "nav-rimessaggio",
+    children: [
+      { to: "/clienti", label: "Elenco clienti", icon: List, testId: "nav-clienti" },
+      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
+      { to: "/posti-barca", label: "Posti Barca", icon: Grid3x3, testId: "nav-posti-barca" },
+      { to: "/report", label: "Report rimessaggio", icon: FileBarChart, testId: "nav-report" },
+      { to: "/contratti", label: "Contratti", icon: FileSignature, testId: "nav-contratti" },
+      { to: "/tariffe", label: "Tariffe", icon: Settings2, testId: "nav-tariffe" },
+    ],
+  },
   { to: "/magazzino", label: "Magazzino", icon: Package, testId: "nav-magazzino" },
   { to: "/tubolari", label: "Tubolari", icon: Ship, testId: "nav-tubolari" },
   { to: "/suzuki", label: "Suzuki", icon: Sailboat, testId: "nav-suzuki" },
-  { to: "/report", label: "Report rimessaggio", icon: FileBarChart, testId: "nav-report" },
-  { to: "/contratti", label: "Contratti", icon: FileSignature, testId: "nav-contratti" },
-  { to: "/tariffe", label: "Tariffe", icon: Settings2, testId: "nav-tariffe" },
   { to: "/impostazioni", label: "Impostazioni", icon: Building2, testId: "nav-impostazioni" },
 ];
+
+// Flatten per la barra mobile
+const mobileFlat = [
+  { to: "/", label: "Home", icon: HomeIcon, testId: "nav-home-mobile" },
+  { to: "/clienti", label: "Rimessaggio", icon: Users, testId: "nav-clienti-mobile" },
+  { to: "/magazzino", label: "Magazzino", icon: Package, testId: "nav-magazzino-mobile" },
+  { to: "/tubolari", label: "Tubolari", icon: Ship, testId: "nav-tubolari-mobile" },
+  { to: "/suzuki", label: "Suzuki", icon: Sailboat, testId: "nav-suzuki-mobile" },
+];
+
+function NavGroup({ item, currentPath }) {
+  const anyChildActive = item.children.some((c) => currentPath === c.to || currentPath.startsWith(c.to + "/"));
+  const [open, setOpen] = useState(anyChildActive);
+  useEffect(() => { if (anyChildActive) setOpen(true); }, [anyChildActive]);
+
+  const Icon = item.icon;
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        data-testid={item.testId}
+        aria-expanded={open}
+        className={cn(
+          "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors",
+          anyChildActive ? "text-primary font-semibold" : "text-foreground/70 hover:bg-muted hover:text-foreground"
+        )}
+      >
+        <Icon className="w-4 h-4" strokeWidth={2} />
+        <span className="flex-1 text-left">{item.label}</span>
+        <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", open ? "rotate-180" : "")} />
+      </button>
+      {open && (
+        <div className="mt-1 ml-3 pl-3 border-l border-border/60 space-y-0.5">
+          {item.children.map((c) => {
+            const CIcon = c.icon;
+            return (
+              <NavLink
+                key={c.to}
+                to={c.to}
+                data-testid={c.testId}
+                className={({ isActive }) => cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                  isActive
+                    ? "bg-primary/10 text-primary font-semibold"
+                    : "text-foreground/70 hover:bg-muted hover:text-foreground"
+                )}
+              >
+                {CIcon && <CIcon className="w-3.5 h-3.5" strokeWidth={2} />}
+                {c.label}
+              </NavLink>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Layout() {
   const loc = useLocation();
@@ -56,7 +122,7 @@ export default function Layout() {
             </div>
           </div>
         </Link>
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           <YearSelector />
           <div className="pt-2" />
           <NavLink to="/" end data-testid="nav-home" className={({ isActive }) => cn(
@@ -67,20 +133,21 @@ export default function Layout() {
             Home
           </NavLink>
           {nav.map((n) => {
+            if (n.children) {
+              return <NavGroup key={n.label} item={n} currentPath={loc.pathname} />;
+            }
             const Icon = n.icon;
             return (
               <NavLink
                 key={n.to}
                 to={n.to}
                 data-testid={n.testId}
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors",
-                    isActive
-                      ? "bg-primary/10 text-primary font-semibold"
-                      : "text-foreground/70 hover:bg-muted hover:text-foreground"
-                  )
-                }
+                className={({ isActive }) => cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors",
+                  isActive
+                    ? "bg-primary/10 text-primary font-semibold"
+                    : "text-foreground/70 hover:bg-muted hover:text-foreground"
+                )}
               >
                 <Icon className="w-4 h-4" strokeWidth={2} />
                 {n.label}
@@ -121,7 +188,7 @@ export default function Layout() {
       {/* Mobile top nav */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border/60 z-30">
         <div className="grid grid-cols-5">
-          {[{ to: "/", label: "Home", icon: HomeIcon, testId: "nav-home-mobile" }, ...nav.slice(0, 4)].map((n) => {
+          {mobileFlat.map((n) => {
             const Icon = n.icon;
             const active = loc.pathname === n.to || (n.to !== "/" && loc.pathname.startsWith(n.to));
             return (
@@ -129,7 +196,7 @@ export default function Layout() {
                 key={n.to}
                 to={n.to}
                 end={n.to === "/"}
-                data-testid={`${n.testId}-mobile`}
+                data-testid={n.testId}
                 className={cn(
                   "flex flex-col items-center gap-1 py-2.5 text-[10px]",
                   active ? "text-primary" : "text-muted-foreground"
