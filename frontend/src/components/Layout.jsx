@@ -14,7 +14,7 @@ const nav = [
   { to: "/magazzino", label: "Magazzino", icon: Package, testId: "nav-magazzino" },
   { to: "/tubolari", label: "Tubolari", icon: Ship, testId: "nav-tubolari" },
   { to: "/suzuki", label: "Suzuki", icon: Sailboat, testId: "nav-suzuki" },
-  { to: "/report", label: "Report", icon: FileBarChart, testId: "nav-report" },
+  { to: "/report", label: "Report rimessaggio", icon: FileBarChart, testId: "nav-report" },
   { to: "/contratti", label: "Contratti", icon: FileSignature, testId: "nav-contratti" },
   { to: "/tariffe", label: "Tariffe", icon: Settings2, testId: "nav-tariffe" },
   { to: "/impostazioni", label: "Impostazioni", icon: Building2, testId: "nav-impostazioni" },
