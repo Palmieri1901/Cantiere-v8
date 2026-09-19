@@ -1,9 +1,8 @@
 # PRD — Portomare: Gestione Cantiere Nautico
 
 ## Changelog
-- **2026-02-16** — Preventivo Suzuki: aggiunto prefisso "Spettabile" sopra il nome cliente. Le condizioni in fondo al PDF (4 righe: validità, consegna/garanzia, montaggio, pagamento) sono ora **editabili** via dialog "Condizioni preventivo" (tab Preventivi). Nuovi endpoint `GET/PUT /api/suzuki/condizioni-preventivo` + `POST /api/suzuki/condizioni-preventivo/reset`. Storage MongoDB in `suzuki_settings`.
-- **2026-02-15** — Colonna "Prezzo in offerta" nel Listino Pubblico + campo editabile sul Modello (vedi voce precedente).
-- **2026-02-15** — Doppio listino Suzuki (Pubblico blu + Concessionario rosso) con colonna "Listino IVA escl." rimossa dal pubblico.
+- **2026-02-16** — Refactoring **Magazzino.jsx** (2411 righe) spezzato in cartella `pages/magazzino/` con 12 file (max 500 righe). Nessun file monolitico → niente più errori di parsing AST negli edit. Testato: tutti i tab navigano, tutti i data-testid presenti.
+- **2026-02-16** — Preventivo Suzuki: nuovo campo **cavetteria** editabile + condizioni preventivo modificabili + "Spettabile".
 
 
 
