@@ -151,7 +151,8 @@ export default function PreventivoDialog({ value, modelli, onClose, onSaved }) {
                   <Field label="Peso (kg)"><Input type="number" step="0.1" value={form.peso_kg || ""} onChange={(e) => set("peso_kg", e.target.value)} /></Field>
                   <Field label="Gambo"><Input value={form.gambo || ""} onChange={(e) => set("gambo", e.target.value)} /></Field>
                   <Field label="Trim"><Input value={form.trim || ""} onChange={(e) => set("trim", e.target.value)} /></Field>
-                  <Field label="Avviamento"><Input value={form.avviamento || ""} onChange={(e) => set("avviamento", e.target.value)} /></Field>
+                  <Field label="Avviamento"><Input value={form.avviamento || ""} onChange={(e) => set("avviamento", e.target.value)} data-testid="p-avviamento" /></Field>
+                  <Field label="Comandi"><Input value={form.comandi || ""} onChange={(e) => set("comandi", e.target.value)} data-testid="p-comandi" /></Field>
                   <Field label="Alternatore (A)"><Input type="number" step="1" value={form.alternatore_A || ""} onChange={(e) => set("alternatore_A", e.target.value)} /></Field>
                   <Field label="Carburante"><Input value={form.carburante || ""} onChange={(e) => set("carburante", e.target.value)} /></Field>
                 </div>

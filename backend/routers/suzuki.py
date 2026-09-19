@@ -1241,7 +1241,7 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
     def _has_snapshot(pv: SuzukiPreventivo) -> bool:
         return any([
             pv.cilindri, pv.cilindrata_cc, pv.alimentazione, pv.peso_kg,
-            pv.avviamento, pv.gambo, pv.trim, pv.alternatore_A, pv.carburante,
+            pv.avviamento, pv.gambo, pv.trim, pv.comandi, pv.alternatore_A, pv.carburante,
         ])
 
     tech = {
@@ -1252,6 +1252,7 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
         "avviamento": p.avviamento or "",
         "gambo": p.gambo or "",
         "trim": p.trim or "",
+        "comandi": p.comandi or "",
         "alternatore_A": p.alternatore_A or 0,
         "carburante": p.carburante or "",
     }
@@ -1305,10 +1306,13 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
         cell("Gambo", tech["gambo"] or "—"),
         cell("Trim", tech["trim"] or "—"),
         cell("Avviamento", tech["avviamento"] or "—"),
+        cell("Comandi", tech["comandi"] or "—"),
         cell("Alternatore", fmt_n(tech["alternatore_A"], "A")),
         cell("Carburante", tech["carburante"] or "—"),
+        "",
+        "",
     ]
-    grid_rows = [grid_cells[i:i+3] for i in range(0, 9, 3)]
+    grid_rows = [grid_cells[i:i+3] for i in range(0, 12, 3)]
     tgrid = Table(grid_rows, colWidths=[60.66*mm, 60.66*mm, 60.66*mm])
     tgrid.setStyle(TableStyle([
         ("BOX", (0,0), (-1,-1), 0.4, BORDER),

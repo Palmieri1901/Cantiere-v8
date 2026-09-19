@@ -4,6 +4,7 @@ Contiene: sigla modello, HP, prezzo concessionario IVA escl., prezzo pubblico IV
 gambo, e (dove disponibili dalla scheda "Gamma & Specifiche") cilindrata L,
 disposizione cilindri, alimentazione, peso kg, carburante.
 """
+import re
 from typing import List, Dict, Any
 
 # Specifiche tecniche di famiglia (accorpate per potenza / famiglia)
@@ -104,6 +105,28 @@ LISTINO_2025_2026: List[Dict[str, Any]] = [
 ]
 
 
+def derive_specs(sigla: str, hp: float) -> Dict[str, str]:
+    """Deriva trim, avviamento e comandi dalla nomenclatura Suzuki
+    (E=avviamento elettrico, R=comando a distanza, T=Power Trim & Tilt, H/barra=barra)."""
+    s = sigla.upper()
+    base = s.split(" ")[0]
+    m = re.match(r"DF[\d.]+[ABC]?(.*)", base)
+    flags = m.group(1) if m else ""
+    barra = "BARRA" in s or "H" in flags
+    big = hp >= 40
+    has_t = "T" in flags or "Z" in flags or "P" in flags or "G" in flags
+    if big or has_t or "E" in flags or "R" in flags:
+        avviamento = "elettrico"
+    else:
+        avviamento = "manuale"
+    trim = "Power Trim & Tilt" if (big or has_t) else "manuale"
+    if barra or (not big and not has_t and "R" not in flags):
+        comandi = "da barra"
+    else:
+        comandi = "a distanza"
+    return {"trim": trim, "avviamento": avviamento, "comandi": comandi}
+
+
 def build_seed_rows() -> List[Dict[str, Any]]:
     """Restituisce la lista di dict pronti per essere serializzati come SuzukiModello."""
     out: List[Dict[str, Any]] = []
@@ -124,6 +147,7 @@ def build_seed_rows() -> List[Dict[str, Any]]:
             "gambo": gambo,
             "categoria": specs.get("categoria", ""),
             "carburante": specs.get("carburante", ""),
+            **derive_specs(sigla, float(hp)),
             "prezzo_listino": float(listino or 0),
             "prezzo_pubblico": float(pubblico or 0),
             "sconto_perc_1": 0,
