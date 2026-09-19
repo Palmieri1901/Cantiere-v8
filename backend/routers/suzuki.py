@@ -784,13 +784,15 @@ def _calc_totale(p: SuzukiPreventivo) -> dict:
     dopo_s2 = dopo_s1 * (1 - s2 / 100)
     netto = round(dopo_s2, 2)
     montaggio = float(p.montaggio or 0)
-    totale = round(netto + montaggio, 2)
+    cavetteria = float(p.cavetteria or 0)
+    totale = round(netto + montaggio + cavetteria, 2)
     return {
         "prezzo_listino": listino,
         "importo_sconto_1": round(listino - dopo_s1, 2),
         "importo_sconto_2": round(dopo_s1 - dopo_s2, 2),
         "netto_motore": netto,
         "montaggio": montaggio,
+        "cavetteria": cavetteria,
         "totale_iva_esclusa": totale,
     }
 
@@ -1119,6 +1121,9 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
     if calc["montaggio"] > 0:
         rows.append([Paragraph("Montaggio, messa in acqua e collaudo", st_row),
                      Paragraph("+ " + _fmt_eur(calc["montaggio"]), st_row_bold)])
+    if calc["cavetteria"] > 0:
+        rows.append([Paragraph("Cavetteria e accessori di installazione", st_row),
+                     Paragraph("+ " + _fmt_eur(calc["cavetteria"]), st_row_bold)])
     tcalc = Table(rows, colWidths=[140*mm, 42*mm])
     tcalc.setStyle(TableStyle([
         ("BOX", (0,0), (-1,-1), 0.4, BORDER),

@@ -839,6 +839,7 @@ class SuzukiPreventivo(BaseModel):
     sconto_perc_1: float = 0
     sconto_perc_2: float = 0
     montaggio: Optional[float] = 0
+    cavetteria: Optional[float] = 0
     note: Optional[str] = ""
     stato: Optional[str] = "bozza"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -870,6 +871,7 @@ class SuzukiPreventivoCreate(BaseModel):
     sconto_perc_1: Optional[float] = 0
     sconto_perc_2: Optional[float] = 0
     montaggio: Optional[float] = 0
+    cavetteria: Optional[float] = 0
     note: Optional[str] = ""
     stato: Optional[str] = "bozza"
 

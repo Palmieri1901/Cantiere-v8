@@ -24,7 +24,7 @@ const EMPTY_PREV = {
   modello_id: "", codice: "", modello: "", potenza_hp: 0, specifiche: "",
   cilindri: "", cilindrata_cc: 0, alimentazione: "", peso_kg: 0, avviamento: "",
   gambo: "", trim: "", comandi: "", alternatore_A: 0, carburante: "",
-  prezzo_listino: 0, sconto_perc_1: 0, sconto_perc_2: 0, montaggio: 0,
+  prezzo_listino: 0, sconto_perc_1: 0, sconto_perc_2: 0, montaggio: 0, cavetteria: 0,
   note: "", stato: "bozza",
   data: new Date().toISOString().slice(0, 10),
 };
@@ -535,8 +535,9 @@ function PreventivoDialog({ value, modelli, onClose, onSaved }) {
     const dopo1 = listino * (1 - s1 / 100);
     const dopo2 = dopo1 * (1 - s2 / 100);
     const montaggio = Number(form.montaggio || 0);
-    return { listino, s1_amt: listino - dopo1, s2_amt: dopo1 - dopo2, netto: dopo2, montaggio, totale: dopo2 + montaggio };
-  }, [form.prezzo_listino, form.sconto_perc_1, form.sconto_perc_2, form.montaggio]);
+    const cavetteria = Number(form.cavetteria || 0);
+    return { listino, s1_amt: listino - dopo1, s2_amt: dopo1 - dopo2, netto: dopo2, montaggio, cavetteria, totale: dopo2 + montaggio + cavetteria };
+  }, [form.prezzo_listino, form.sconto_perc_1, form.sconto_perc_2, form.montaggio, form.cavetteria]);
 
   const genAnteprima = async () => {
     if (!form.cliente_nome?.trim() || !form.modello?.trim()) {
@@ -544,7 +545,7 @@ function PreventivoDialog({ value, modelli, onClose, onSaved }) {
     }
     setPreviewLoading(true);
     try {
-      const payload = { ...form, prezzo_listino: Number(form.prezzo_listino) || 0, potenza_hp: Number(form.potenza_hp) || 0, sconto_perc_1: Number(form.sconto_perc_1) || 0, sconto_perc_2: Number(form.sconto_perc_2) || 0, montaggio: Number(form.montaggio) || 0 };
+      const payload = { ...form, prezzo_listino: Number(form.prezzo_listino) || 0, potenza_hp: Number(form.potenza_hp) || 0, sconto_perc_1: Number(form.sconto_perc_1) || 0, sconto_perc_2: Number(form.sconto_perc_2) || 0, montaggio: Number(form.montaggio) || 0, cavetteria: Number(form.cavetteria) || 0 };
       const res = await api.post("/suzuki/preventivi/preview-pdf", payload, { responseType: "blob" });
       const blob = new Blob([res.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
@@ -558,7 +559,7 @@ function PreventivoDialog({ value, modelli, onClose, onSaved }) {
     if (!form.cliente_nome?.trim() || !form.modello?.trim()) { toast.error("Cliente e modello obbligatori"); return; }
     setSaving(true);
     try {
-      const payload = { ...form, prezzo_listino: Number(form.prezzo_listino) || 0, potenza_hp: Number(form.potenza_hp) || 0, sconto_perc_1: Number(form.sconto_perc_1) || 0, sconto_perc_2: Number(form.sconto_perc_2) || 0, montaggio: Number(form.montaggio) || 0 };
+      const payload = { ...form, prezzo_listino: Number(form.prezzo_listino) || 0, potenza_hp: Number(form.potenza_hp) || 0, sconto_perc_1: Number(form.sconto_perc_1) || 0, sconto_perc_2: Number(form.sconto_perc_2) || 0, montaggio: Number(form.montaggio) || 0, cavetteria: Number(form.cavetteria) || 0 };
       if (form.id) await api.put(`/suzuki/preventivi/${form.id}`, payload);
       else await api.post("/suzuki/preventivi", payload);
       toast.success("Preventivo salvato");
@@ -622,11 +623,12 @@ function PreventivoDialog({ value, modelli, onClose, onSaved }) {
             {/* Prezzi */}
             <Card className="p-4">
               <div className="label-mini mb-2">Prezzi & sconti</div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <Field label="Prezzo listino € (IVA escl.) *"><Input type="number" step="0.01" value={form.prezzo_listino || ""} onChange={(e) => set("prezzo_listino", e.target.value)} data-testid="p-listino" /></Field>
                 <Field label="Sconto 1 (%)"><Input type="number" step="0.5" value={form.sconto_perc_1 || ""} onChange={(e) => set("sconto_perc_1", e.target.value)} data-testid="p-sc1" /></Field>
                 <Field label="Sconto 2 (%)"><Input type="number" step="0.5" value={form.sconto_perc_2 || ""} onChange={(e) => set("sconto_perc_2", e.target.value)} data-testid="p-sc2" /></Field>
                 <Field label="Montaggio € (IVA escl.)"><Input type="number" step="0.01" value={form.montaggio || ""} onChange={(e) => set("montaggio", e.target.value)} data-testid="p-montaggio" /></Field>
+                <Field label="Cavetteria € (IVA escl.)"><Input type="number" step="0.01" value={form.cavetteria || ""} onChange={(e) => set("cavetteria", e.target.value)} data-testid="p-cavetteria" /></Field>
               </div>
               <div className="mt-3 text-sm space-y-1 bg-muted/40 rounded-md p-3">
                 <div className="flex justify-between"><span>Listino</span><span className="font-mono-num">{fmt(calc.listino)}</span></div>
@@ -634,6 +636,7 @@ function PreventivoDialog({ value, modelli, onClose, onSaved }) {
                 {calc.s2_amt > 0 && <div className="flex justify-between text-muted-foreground"><span>Sconto 2 ({form.sconto_perc_2}%)</span><span className="font-mono-num">− {fmt(calc.s2_amt)}</span></div>}
                 <div className="flex justify-between font-semibold border-t pt-1"><span>Netto motore</span><span className="font-mono-num">{fmt(calc.netto)}</span></div>
                 {calc.montaggio > 0 && <div className="flex justify-between"><span>Montaggio</span><span className="font-mono-num">+ {fmt(calc.montaggio)}</span></div>}
+                {calc.cavetteria > 0 && <div className="flex justify-between"><span>Cavetteria</span><span className="font-mono-num">+ {fmt(calc.cavetteria)}</span></div>}
                 <div className="flex justify-between font-bold text-primary text-base border-t pt-1"><span>Totale + IVA</span><span className="font-mono-num" data-testid="p-totale">{fmt(calc.totale)}</span></div>
               </div>
             </Card>
