@@ -1,8 +1,9 @@
 # PRD — Portomare: Gestione Cantiere Nautico
 
 ## Changelog
-- **2026-02-15** — Doppio listino Suzuki: `GET /api/suzuki/listino.pdf` (Pubblico, blu navy, per clienti) e `GET /api/suzuki/listino-concessionario.pdf` (arancione, riservato, aggiunge colonne Sc.1 · Sc.2 · Netto conc.). Frontend: due bottoni distinti "Listino pubblico" + "Listino concessionario" nella tab Modelli.
-- **2026-02-15** — Legenda sigle motori Suzuki editabile stampata su tutti i PDF (vedi voci precedenti).
+- **2026-02-16** — Preventivo Suzuki: aggiunto prefisso "Spettabile" sopra il nome cliente. Le condizioni in fondo al PDF (4 righe: validità, consegna/garanzia, montaggio, pagamento) sono ora **editabili** via dialog "Condizioni preventivo" (tab Preventivi). Nuovi endpoint `GET/PUT /api/suzuki/condizioni-preventivo` + `POST /api/suzuki/condizioni-preventivo/reset`. Storage MongoDB in `suzuki_settings`.
+- **2026-02-15** — Colonna "Prezzo in offerta" nel Listino Pubblico + campo editabile sul Modello (vedi voce precedente).
+- **2026-02-15** — Doppio listino Suzuki (Pubblico blu + Concessionario rosso) con colonna "Listino IVA escl." rimossa dal pubblico.
 
 
 

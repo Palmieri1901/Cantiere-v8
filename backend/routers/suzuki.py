@@ -11,6 +11,7 @@ from typing import List, Optional, Dict
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse, FileResponse
+from pydantic import BaseModel
 
 from database import db
 from helpers import serialize
@@ -173,6 +174,59 @@ async def reset_legenda_defaults():
         voce = SuzukiLegendaVoce(**v)
         await db.suzuki_legenda.insert_one(serialize(voce))
     return {"ok": True, "count": len(DEFAULT_LEGENDA)}
+
+
+# ---------------------------------------------------------------------------
+# CONDIZIONI PREVENTIVO (testo modificabile in fondo al PDF preventivo)
+# ---------------------------------------------------------------------------
+DEFAULT_CONDIZIONI_PREVENTIVO = [
+    "Preventivo valido 30 giorni salvo esaurimento scorte.",
+    "Consegna e montaggio da concordare. Garanzia ufficiale Suzuki secondo condizioni di casa madre.",
+    "Il montaggio comprende collaudo in acqua e primo tagliando come da programma di manutenzione.",
+    "Il pagamento avviene: 30% all'ordine, saldo alla consegna del motore.",
+]
+
+
+async def _get_condizioni_preventivo() -> List[str]:
+    doc = await db.suzuki_settings.find_one({"id": "condizioni_preventivo"}, {"_id": 0})
+    if not doc:
+        await db.suzuki_settings.insert_one({
+            "id": "condizioni_preventivo",
+            "righe": DEFAULT_CONDIZIONI_PREVENTIVO,
+            "updated_at": datetime.now(timezone.utc),
+        })
+        return list(DEFAULT_CONDIZIONI_PREVENTIVO)
+    return list(doc.get("righe") or DEFAULT_CONDIZIONI_PREVENTIVO)
+
+
+class _CondizioniPayload(BaseModel):
+    righe: List[str]
+
+
+@router.get("/condizioni-preventivo")
+async def get_condizioni_preventivo():
+    return {"righe": await _get_condizioni_preventivo()}
+
+
+@router.put("/condizioni-preventivo")
+async def set_condizioni_preventivo(payload: _CondizioniPayload):
+    righe = [r.strip() for r in payload.righe if r and r.strip()]
+    await db.suzuki_settings.update_one(
+        {"id": "condizioni_preventivo"},
+        {"$set": {"righe": righe, "updated_at": datetime.now(timezone.utc)}},
+        upsert=True,
+    )
+    return {"ok": True, "righe": righe}
+
+
+@router.post("/condizioni-preventivo/reset")
+async def reset_condizioni_preventivo():
+    await db.suzuki_settings.update_one(
+        {"id": "condizioni_preventivo"},
+        {"$set": {"righe": list(DEFAULT_CONDIZIONI_PREVENTIVO), "updated_at": datetime.now(timezone.utc)}},
+        upsert=True,
+    )
+    return {"ok": True, "righe": list(DEFAULT_CONDIZIONI_PREVENTIVO)}
 
 
 async def _legenda_flowables(avail_width_mm: float = 182, compact: bool = False):
@@ -937,7 +991,10 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
     story.append(HRFlowable(width="100%", thickness=0.8, color=BORDER, spaceBefore=0, spaceAfter=6))
 
     # CLIENTE
-    cliente_lines = [Paragraph(f"<b>{p.cliente_nome or '—'}</b>", st_val)]
+    cliente_lines = [
+        Paragraph("Spettabile", ParagraphStyle("sp", parent=styles["Normal"], fontSize=8.5, textColor=TEXT_MUTED, leading=10)),
+        Paragraph(f"<b>{p.cliente_nome or '—'}</b>", st_val),
+    ]
     if p.cliente_telefono:
         cliente_lines.append(Paragraph(f"Tel. {p.cliente_telefono}", st_row))
     if p.cliente_email:
@@ -1105,13 +1162,8 @@ async def _build_pdf(p: SuzukiPreventivo) -> bytes:
         story.append(f)
 
     # FOOTER — condizioni + firma
-    condizioni = [
-        "Preventivo valido 30 giorni salvo esaurimento scorte.",
-        "Consegna e montaggio da concordare. Garanzia ufficiale Suzuki secondo condizioni di casa madre.",
-        "Il montaggio comprende collaudo in acqua e primo tagliando come da programma di manutenzione.",
-        "Il pagamento avviene: 30% all'ordine, saldo alla consegna del motore.",
-    ]
-    cond_paras = [Paragraph(t, st_footer) for t in condizioni]
+    condizioni = await _get_condizioni_preventivo()
+    cond_paras = [Paragraph(t, st_footer) for t in condizioni if t and t.strip()]
     firma_cell = [
         Paragraph("Il titolare", ParagraphStyle("fl", parent=styles["Normal"], fontSize=9, textColor=TEXT_MUTED, alignment=TA_CENTER)),
         Spacer(1, 22),
