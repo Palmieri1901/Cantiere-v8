@@ -26,6 +26,8 @@ import RicarichiCategoriaDialog from "./RicarichiCategoriaDialog";
 import ComponiOrdineDialog from "./ComponiOrdineDialog";
 
 export default function ArticoliTab() {
+  const [invDateOpen, setInvDateOpen] = useState(false);
+  const [invDate, setInvDate] = useState(new Date().toISOString().slice(0, 10));
   const [articoli, setArticoli] = useState([]);
   const [fornitori, setFornitori] = useState([]);
   const [categorie, setCategorie] = useState([]);
@@ -322,10 +324,8 @@ export default function ArticoliTab() {
             <Button variant="outline" onClick={() => setComponiOpen(true)} data-testid="btn-componi-ordine">
               <ShoppingCart className="w-4 h-4 mr-1.5" /> Componi ordine
             </Button>
-            <Button asChild variant="outline" data-testid="btn-inventario-pdf">
-              <a href={`${API}/magazzino/inventario.pdf`} download>
-                <FileDown className="w-4 h-4 mr-1.5" /> Inventario PDF
-              </a>
+            <Button variant="outline" onClick={() => setInvDateOpen(true)} data-testid="btn-inventario-pdf">
+              <FileDown className="w-4 h-4 mr-1.5" /> Inventario PDF
             </Button>
             <Button asChild variant="outline" data-testid="btn-inventario-xlsx">
               <a href={`${API}/magazzino/inventario.xlsx`} download>
@@ -480,6 +480,23 @@ export default function ArticoliTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={invDateOpen} onOpenChange={setInvDateOpen}>
+        <DialogContent className="max-w-sm" data-testid="dialog-inventario-data">
+          <DialogHeader>
+            <DialogTitle>Data inventario</DialogTitle>
+            <DialogDescription>Indica la data di riferimento da stampare sul PDF dell'inventario.</DialogDescription>
+          </DialogHeader>
+          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Inventario al</Label>
+          <Input type="date" value={invDate} onChange={(e) => setInvDate(e.target.value)} data-testid="in-inventario-data" />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInvDateOpen(false)}>Annulla</Button>
+            <Button className="bg-primary" disabled={!invDate} onClick={() => { window.open(`${API}/magazzino/inventario.pdf?data=${invDate}`, "_blank"); setInvDateOpen(false); }} data-testid="btn-inventario-pdf-confirm">
+              <FileDown className="w-4 h-4 mr-1.5" /> Esporta PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -1073,13 +1073,18 @@ async def ordine_fornitore_pdf(fornitore_id: Optional[str] = None):
 
 
 @router.get("/inventario.pdf")
-async def inventario_pdf():
-    """Export inventario in PDF A4 (Codice, Fornitore, Nome, U.M., Quantità, Prezzo acquisto, Valore giacenza)."""
+async def inventario_pdf(data: str = ""):
+    """Export inventario in PDF A4. `data` (YYYY-MM-DD) è la data di riferimento scelta dall'utente."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib.units import mm
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+
+    try:
+        data_rif = datetime.fromisoformat(data[:10]).strftime("%d/%m/%Y") if data else ""
+    except ValueError:
+        raise HTTPException(400, "Data non valida (usa YYYY-MM-DD)")
 
     articoli = await db.articoli.find({}, {"_id": 0}).sort("nome", 1).to_list(5000)
     fornitori = await db.fornitori.find({}, {"_id": 0}).to_list(1000)
@@ -1094,7 +1099,8 @@ async def inventario_pdf():
     nome_cantiere = cantiere.get("nome") or "Portomare"
     story.append(Paragraph(f"<b>{nome_cantiere}</b>", styles["Title"]))
     story.append(Paragraph("Inventario magazzino", styles["Heading3"]))
-    story.append(Paragraph(datetime.now().strftime("Aggiornato al %d/%m/%Y"), styles["Normal"]))
+    if data_rif:
+        story.append(Paragraph(f"Inventario al {data_rif}", styles["Normal"]))
     story.append(Spacer(1, 8))
 
     headers = ["Codice", "Forn.", "Nome", "U.M.", "Q.tà", "P.acq. €", "Valore €"]
