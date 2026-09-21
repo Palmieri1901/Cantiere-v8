@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, API } from "@/lib/api";
+import { salvaBackupInCartella } from "@/lib/backupFolder";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sailboat, MapPin, Phone, Mail, Clock, ArrowRight, Anchor, Building2, Globe, Database, Download, Upload, AlertTriangle, FileText, FileSpreadsheet, Settings, Zap, Package, Ship, LifeBuoy, Truck } from "lucide-react";
@@ -20,6 +21,23 @@ export default function Home() {
   const restoreRef = useRef(null);
   const [restoreData, setRestoreData] = useState(null);
   const [restoring, setRestoring] = useState(false);
+  const [backingUp, setBackingUp] = useState(false);
+
+  const doBackup = async () => {
+    setBackingUp(true);
+    try {
+      const r = await salvaBackupInCartella();
+      if (r.mode === "folder") {
+        toast.success(`Backup salvato in "${r.folder}" · ${r.kept} copie conservate${r.deleted ? ` · ${r.deleted} vecchie eliminate` : ""}`);
+      } else {
+        toast.success(`Backup salvato: ${r.filename}`);
+        if (r.mode === "download") toast.info("Il browser non permette di scegliere la cartella: file scaricato nella cartella Download.");
+      }
+    } catch (e) {
+      if (e?.name === "AbortError") return;
+      toast.error(e?.response?.data?.detail || e?.message || "Errore durante il backup");
+    } finally { setBackingUp(false); }
+  };
   const [openPreventivo, setOpenPreventivo] = useState(false);
   const [openExcel, setOpenExcel] = useState(false);
   const currentYear = new Date().getFullYear();
@@ -289,15 +307,14 @@ export default function Home() {
               <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
                 Scarica un file di backup con <b>tutto l'archivio di ogni settore</b>: Rimessaggio (clienti, lavori, tariffe, cantiere),
                 Magazzino, Tubolari, Suzuki, Gommoni GEB (con PDF omologazione), DDT e rubrica indirizzi. Conservalo come
-                archivio o ripristinalo in caso di problemi.
+                archivio o ripristinalo in caso di problemi. Al salvataggio ti verrà chiesta la <b>cartella</b> di destinazione:
+                vengono conservate al massimo <b>3 copie</b>, le più vecchie si eliminano automaticamente.
               </p>
             </div>
             <div className="flex gap-2 shrink-0">
-              <Button asChild variant="outline" size="lg" data-testid="btn-home-backup-download">
-                <a href={`${API}/backup`} download>
-                  <Download className="w-4 h-4 mr-2" />
-                  Salva backup
-                </a>
+              <Button variant="outline" size="lg" onClick={doBackup} disabled={backingUp} data-testid="btn-home-backup-download">
+                <Download className="w-4 h-4 mr-2" />
+                {backingUp ? "Salvataggio…" : "Salva backup"}
               </Button>
               <input ref={restoreRef} type="file" accept="application/json,.json" hidden onChange={onRestoreSelected} data-testid="input-home-restore-file" />
               <Button variant="outline" size="lg" onClick={() => restoreRef.current?.click()} data-testid="btn-home-restore-open">
