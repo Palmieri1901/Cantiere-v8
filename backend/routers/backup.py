@@ -49,6 +49,23 @@ async def _dump_gridfs(bucket_name: str) -> List[dict]:
     return out
 
 
+@router.get("/backup/ultimo")
+async def ultimo_backup():
+    """Data dell'ultimo backup scaricato e giorni trascorsi (None se mai eseguito)."""
+    doc = await db.app_settings.find_one({"id": "backup_info"}, {"_id": 0}) or {}
+    ts = doc.get("ultimo_backup")
+    giorni = None
+    if ts:
+        try:
+            dt = datetime.fromisoformat(ts)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            giorni = (datetime.now(timezone.utc) - dt).days
+        except ValueError:
+            ts = None
+    return {"ultimo_backup": ts, "giorni": giorni, "scaduto": ts is None or (giorni or 0) >= 7}
+
+
 @router.get("/backup")
 async def backup_data():
     """Esporta TUTTE le collezioni (tranne credenziali) + file GridFS in un unico JSON."""
@@ -68,6 +85,7 @@ async def backup_data():
         "files": files,
     }
     body = _json.dumps(payload, ensure_ascii=False, default=str)
+    await db.app_settings.update_one({"id": "backup_info"}, {"$set": {"ultimo_backup": payload["generated_at"]}}, upsert=True)
     filename = f"backup_geb_completo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     return StreamingResponse(iter([body]), media_type="application/json",
                              headers={"Content-Disposition": f"attachment; filename={filename}"})

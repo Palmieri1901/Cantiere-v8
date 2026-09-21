@@ -22,6 +22,7 @@ export default function Home() {
   const [restoreData, setRestoreData] = useState(null);
   const [restoring, setRestoring] = useState(false);
   const [backingUp, setBackingUp] = useState(false);
+  const [backupInfo, setBackupInfo] = useState(null);
 
   const doBackup = async () => {
     setBackingUp(true);
@@ -33,6 +34,7 @@ export default function Home() {
         toast.success(`Backup salvato: ${r.filename}`);
         if (r.mode === "download") toast.info("Il browser non permette di scegliere la cartella: file scaricato nella cartella Download.");
       }
+      api.get("/backup/ultimo").then((x) => setBackupInfo(x.data)).catch(() => {});
     } catch (e) {
       if (e?.name === "AbortError") return;
       toast.error(e?.response?.data?.detail || e?.message || "Errore durante il backup");
@@ -46,6 +48,7 @@ export default function Home() {
 
   const load = () => {
     api.get("/cantiere").then((r) => setC(r.data));
+    api.get("/backup/ultimo").then((r) => setBackupInfo(r.data)).catch(() => {});
   };
 
   useEffect(() => { load(); }, []);
@@ -297,6 +300,22 @@ export default function Home() {
 
       {/* Backup & Ripristino */}
       <div className="max-w-6xl mx-auto px-6 md:px-10 pb-14">
+        {backupInfo?.scaduto && (
+          <div className="mb-4 flex items-start gap-3 rounded-lg border-2 border-amber-400 bg-amber-50 px-4 py-3 text-amber-900" data-testid="backup-reminder">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
+            <div className="flex-1 text-sm">
+              <div className="font-semibold">Promemoria backup</div>
+              <div>
+                {backupInfo.ultimo_backup
+                  ? <>L'ultimo backup risale a <b>{backupInfo.giorni} giorni</b> fa ({new Date(backupInfo.ultimo_backup).toLocaleDateString("it-IT")}). Ti consigliamo di salvarne uno nuovo.</>
+                  : <>Non è mai stato eseguito un backup. Salva subito una copia di sicurezza di tutti i dati.</>}
+              </div>
+            </div>
+            <Button size="sm" onClick={doBackup} disabled={backingUp} className="bg-amber-600 hover:bg-amber-700 text-white shrink-0" data-testid="btn-backup-reminder">
+              <Download className="w-4 h-4 mr-1.5" /> Salva backup ora
+            </Button>
+          </div>
+        )}
         <Card className="p-6" data-testid="home-backup">
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div className="min-w-0">
@@ -304,6 +323,11 @@ export default function Home() {
                 <Database className="w-3.5 h-3.5" /> Backup dati
               </div>
               <h3 className="font-display text-xl font-semibold">Backup completo & Ripristino</h3>
+              {backupInfo?.ultimo_backup && !backupInfo.scaduto && (
+                <div className="text-xs text-emerald-700 mt-1" data-testid="backup-last-ok">
+                  Ultimo backup: {new Date(backupInfo.ultimo_backup).toLocaleString("it-IT")} ({backupInfo.giorni === 0 ? "oggi" : `${backupInfo.giorni} giorni fa`})
+                </div>
+              )}
               <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
                 Scarica un file di backup con <b>tutto l'archivio di ogni settore</b>: Rimessaggio (clienti, lavori, tariffe, cantiere),
                 Magazzino, Tubolari, Suzuki, Gommoni GEB (con PDF omologazione), DDT e rubrica indirizzi. Conservalo come
