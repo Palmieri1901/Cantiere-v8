@@ -1,0 +1,26 @@
+{
+  "summary": "End-to-end testing of nuovo modulo DDT & Foglio di destinazione. Backend: 12/12 pytest passati (rubrica CRUD, DDT CRUD, numerazione automatica per anno, duplicati 400, filtri anno/q, prossimo-numero, /anni, update senza data, PDF ddt/foglio, preview-pdf/preview-foglio, regressione /gommoni/preventivi). Frontend: login sola password, Home cta-ddt->/ddt, tab-ddt/tab-rubrica, creazione indirizzo con dialog-indirizzo, creazione DDT con dialog-ddt, RubricaPicker (ces-rubrica compila ces-nome), toggle ddt-idem mostra dest-*, ddt-add-riga + descrizione editabile, note destinazione, entrambe le anteprime PDF (overlay iframe rilevato), salvataggio DDT con numerazione 2/2026 automatica, filtro anno + ricerca funzionanti. Regressione: /gommoni e /suzuki caricano correttamente.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "DialogContent (DDT/Rubrica)", "issues": ["Warning React: Missing Description/aria-describedby su DialogContent (a11y, non bloccante)"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_ddt.py", "/app/test_reports/pytest/ddt_results.xml"],
+  "action_items": ["(Opzionale) Aggiungere <DialogDescription> ai DialogContent per rimuovere il warning di accessibilità Radix."],
+  "critical_code_review_comments": [
+    "routers/ddt.py: buon uso di serialize() ed esclusione _id nelle query. Numerazione per anno gestita correttamente (find sort numero desc).",
+    "PUT /ddt/{id}: merge con doc esistente permette update senza campo data — funziona come richiesto.",
+    "preview-foglio-destinazione: costruisce Ddt senza garantire anno/data; per anteprima puro va bene ma la logica differisce da preview-pdf che le forza — coerenza minore.",
+    "models.py: DdtDestinatario usato come default mutabile per cessionario/destinazione — Pydantic v2 lo gestisce, ma è pattern da evitare in futuro (Field(default_factory=...))."
+  ],
+  "updated_files": ["/app/backend/tests/test_ddt.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "password: admin (login solo password)",
+  "seed_data_creation": "Nessuno lasciato: creato TEST_RUBRICA_X (rimosso), TEST_UI_ADDR (rimosso), DDT 2/2026 di test (rimosso). Preservati DDT 1/2026 e indirizzo CASSANI WALTER del main agent.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "test_ddt.py copre rubrica, DDT CRUD, PDF e preview. Per rieseguire: REACT_APP_BACKEND_URL=<url> pytest backend/tests/test_ddt.py -o addopts=. Nota: pytest.ini di /app/backend/pytest.ini forza xdist; usare -o addopts= per disabilitarlo. Frontend: usa data-testid ces-rubrica select (option index 1 = primo indirizzo), ddt-idem checkbox, ddt-riga-desc-0."
+}
