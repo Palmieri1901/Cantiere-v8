@@ -1,6 +1,7 @@
 # PRD — Portomare: Gestione Cantiere Nautico
 
 ## Changelog
+- **2026-06** — **Lista di scelta accessori di serie**: `GET/PUT /api/gommoni/dotazioni-serie` (`gommoni_settings{id:"dotazioni_serie"}.voci`, ordinata, dedup). Nel dialog gommone: select "Scegli dalla lista…" + campo nuova voce (che si aggiunge anche alla lista) + "Gestisci lista di scelta" per eliminare voci solo dalla lista (non dai modelli). Precaricate 13 voci tipiche.
 - **2026-06** — **Accessori di serie = lista propria per modello**: `GommoneModello.accessori_serie: List[str]` (testo libero, aggiungi/rimuovi a chip, suggerimenti da altri modelli via datalist), del tutto separata dagli accessori optional; rimosso `accessori_serie_ids` (dati migrati). Preventivo copia i nomi; PDF scheda e preventivo li stampano.
 - **2026-06** — **Accessori di serie per modello**: `GommoneModello.accessori_serie_ids` (checklist nel dialog modello, filtrata per serie con prezzo per taglia); snapshot `GommonePreventivo.accessori_serie` (nomi) compilato alla scelta del gommone, mostrato nel form (riquadro verde), escluso dal menu optional, stampato nel PDF preventivo e nella scheda caratteristiche.
 - **2026-06** — **Preventivo gommone – voci motore**: aggiunti campi `cavetteria` e `batteria` (oltre a `montaggio`) su `GommonePreventivo(Create)`; form con 3 voci separate "Montaggio e collaudo", "Cavetterie e comandi", "Batteria"; riepilogo UI, PDF (sezione MOTORIZZAZIONE con "Totale motorizzazione") e totale lista includono le nuove voci.

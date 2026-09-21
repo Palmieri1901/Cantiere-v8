@@ -214,6 +214,30 @@ async def save_sconti(payload: GommoneSconti):
 
 
 # ---------------------------------------------------------------------------
+# LISTA DOTAZIONI DI SERIE (catalogo voci selezionabili, separato dagli optional)
+# ---------------------------------------------------------------------------
+@router.get("/dotazioni-serie")
+async def get_dotazioni_serie():
+    doc = await db.gommoni_settings.find_one({"id": "dotazioni_serie"}, {"_id": 0}) or {}
+    return {"voci": doc.get("voci", [])}
+
+
+@router.put("/dotazioni-serie")
+async def save_dotazioni_serie(payload: dict):
+    voci = payload.get("voci")
+    if not isinstance(voci, list):
+        raise HTTPException(400, "voci deve essere una lista")
+    clean: List[str] = []
+    for v in voci:
+        s = str(v or "").strip()
+        if s and s.lower() not in [c.lower() for c in clean]:
+            clean.append(s)
+    clean.sort(key=str.lower)
+    await db.gommoni_settings.update_one({"id": "dotazioni_serie"}, {"$set": {"voci": clean, "updated_at": datetime.now(timezone.utc)}}, upsert=True)
+    return {"voci": clean}
+
+
+# ---------------------------------------------------------------------------
 # IMPORT AI
 # ---------------------------------------------------------------------------
 _IMPORT_PROMPT = (
