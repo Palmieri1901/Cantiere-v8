@@ -13,7 +13,7 @@ const totale = (p) => {
   const netto = (p.prezzo_gommone || 0) * (1 - (p.sconto_perc || 0) / 100);
   const acc = (p.accessori || []).reduce((s, a) => s + (a.prezzo || 0) * (a.quantita || 1), 0);
   const mot = (p.motore_prezzo || 0) * (1 - (p.motore_sconto_perc || 0) / 100);
-  return netto + acc + mot + (p.montaggio || 0);
+  return netto + acc + mot + (p.montaggio || 0) + (p.cavetteria || 0) + (p.batteria || 0);
 };
 
 export default function PreventiviGommoniTab() {

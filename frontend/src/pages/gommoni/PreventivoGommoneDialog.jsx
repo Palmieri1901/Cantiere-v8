@@ -56,12 +56,14 @@ export default function PreventivoGommoneDialog({ value, gommoni, accessori, mot
     const acc = (form.accessori || []).reduce((s, a) => s + numOrZero(a.prezzo) * (numOrZero(a.quantita) || 1), 0);
     const motore = numOrZero(form.motore_prezzo) * (1 - numOrZero(form.motore_sconto_perc) / 100);
     const montaggio = numOrZero(form.montaggio);
-    return { pub, sconto, netto: pub - sconto, acc, motore, montaggio, totale: pub - sconto + acc + motore + montaggio };
+    const cavetteria = numOrZero(form.cavetteria);
+    const batteria = numOrZero(form.batteria);
+    return { pub, sconto, netto: pub - sconto, acc, motore, montaggio, cavetteria, batteria, totale: pub - sconto + acc + motore + montaggio + cavetteria + batteria };
   }, [form]);
 
   const payload = () => ({
     ...form, prezzo_gommone: numOrZero(form.prezzo_gommone), sconto_perc: numOrZero(form.sconto_perc),
-    motore_prezzo: numOrZero(form.motore_prezzo), motore_sconto_perc: numOrZero(form.motore_sconto_perc), montaggio: numOrZero(form.montaggio),
+    motore_prezzo: numOrZero(form.motore_prezzo), motore_sconto_perc: numOrZero(form.motore_sconto_perc), montaggio: numOrZero(form.montaggio), cavetteria: numOrZero(form.cavetteria), batteria: numOrZero(form.batteria),
     lunghezza_m: numOrZero(form.lunghezza_m), larghezza_m: numOrZero(form.larghezza_m), diametro_tubolare_cm: numOrZero(form.diametro_tubolare_cm),
     compartimenti: Math.round(numOrZero(form.compartimenti)), portata_persone: Math.round(numOrZero(form.portata_persone)),
     potenza_max_hp: numOrZero(form.potenza_max_hp), peso_kg: numOrZero(form.peso_kg), lunghezza_interna_cm: numOrZero(form.lunghezza_interna_cm), potenza_min_hp: numOrZero(form.potenza_min_hp),
@@ -170,7 +172,7 @@ export default function PreventivoGommoneDialog({ value, gommoni, accessori, mot
 
           <Card className="p-4">
             <div className="label-mini mb-2">Motore Suzuki (opzionale)</div>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Field label="Dal catalogo Suzuki">
                 <Select value="" onChange={(e) => pickMotore(e.target.value)} testid="pg-select-motore">
                   <option value="">— seleziona —</option>
@@ -180,7 +182,9 @@ export default function PreventivoGommoneDialog({ value, gommoni, accessori, mot
               <Field label="Motore"><Input value={form.motore_modello || ""} onChange={(e) => set("motore_modello", e.target.value)} data-testid="pg-motore" /></Field>
               <Field label="Prezzo € (IVA incl.)"><Input type="number" step="0.01" value={form.motore_prezzo || ""} onChange={(e) => set("motore_prezzo", e.target.value)} /></Field>
               <Field label="Sconto motore (%)"><Input type="number" step="0.5" value={form.motore_sconto_perc || ""} onChange={(e) => set("motore_sconto_perc", e.target.value)} /></Field>
-              <Field label="Montaggio € (IVA incl.)"><Input type="number" step="0.01" value={form.montaggio || ""} onChange={(e) => set("montaggio", e.target.value)} /></Field>
+              <Field label="Montaggio e collaudo € (IVA incl.)"><Input type="number" step="0.01" value={form.montaggio || ""} onChange={(e) => set("montaggio", e.target.value)} data-testid="pg-montaggio" /></Field>
+              <Field label="Cavetterie e comandi € (IVA incl.)"><Input type="number" step="0.01" value={form.cavetteria || ""} onChange={(e) => set("cavetteria", e.target.value)} data-testid="pg-cavetteria" /></Field>
+              <Field label="Batteria € (IVA incl.)"><Input type="number" step="0.01" value={form.batteria || ""} onChange={(e) => set("batteria", e.target.value)} data-testid="pg-batteria" /></Field>
             </div>
           </Card>
 
@@ -190,7 +194,9 @@ export default function PreventivoGommoneDialog({ value, gommoni, accessori, mot
             <div className="flex justify-between font-semibold border-t pt-1"><span>Netto gommone</span><span className="font-mono-num">{fmt(calc.netto)}</span></div>
             {calc.acc > 0 && <div className="flex justify-between"><span>Accessori</span><span className="font-mono-num">+ {fmt(calc.acc)}</span></div>}
             {calc.motore > 0 && <div className="flex justify-between"><span>Motore</span><span className="font-mono-num">+ {fmt(calc.motore)}</span></div>}
-            {calc.montaggio > 0 && <div className="flex justify-between"><span>Montaggio</span><span className="font-mono-num">+ {fmt(calc.montaggio)}</span></div>}
+            {calc.montaggio > 0 && <div className="flex justify-between"><span>Montaggio e collaudo</span><span className="font-mono-num">+ {fmt(calc.montaggio)}</span></div>}
+            {calc.cavetteria > 0 && <div className="flex justify-between"><span>Cavetterie e comandi</span><span className="font-mono-num">+ {fmt(calc.cavetteria)}</span></div>}
+            {calc.batteria > 0 && <div className="flex justify-between"><span>Batteria</span><span className="font-mono-num">+ {fmt(calc.batteria)}</span></div>}
             <div className="flex justify-between font-bold text-primary text-base border-t pt-1"><span>Totale IVA inclusa</span><span className="font-mono-num" data-testid="pg-totale">{fmt(calc.totale)}</span></div>
           </div>
           <Field label="Note"><Textarea value={form.note || ""} onChange={(e) => set("note", e.target.value)} rows={2} /></Field>

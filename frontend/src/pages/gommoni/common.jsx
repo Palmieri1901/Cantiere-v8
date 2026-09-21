@@ -46,7 +46,7 @@ export const EMPTY_PREV_GOMMONE = {
   gommone_id: "", modello: "", lunghezza_m: 0, larghezza_m: 0, diametro_tubolare_cm: 0,
   compartimenti: 0, portata_persone: 0, potenza_max_hp: 0, peso_kg: 0, carena: "", tessuto: "", lunghezza_interna_cm: 0, categoria_ce: "", potenza_min_hp: 0, specchio: "",
   dotazioni: "", prezzo_gommone: 0, sconto_perc: 0, accessori: [],
-  motore_modello: "", motore_prezzo: 0, motore_sconto_perc: 0, montaggio: 0,
+  motore_modello: "", motore_prezzo: 0, motore_sconto_perc: 0, montaggio: 0, cavetteria: 0, batteria: 0,
   note: "", stato: "bozza", data: new Date().toISOString().slice(0, 10),
 };
 

@@ -1051,6 +1051,8 @@ class GommonePreventivo(BaseModel):
     motore_prezzo: Optional[float] = 0
     motore_sconto_perc: Optional[float] = 0
     montaggio: Optional[float] = 0
+    cavetteria: Optional[float] = 0
+    batteria: Optional[float] = 0
     note: Optional[str] = ""
     stato: Optional[str] = "bozza"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -1087,6 +1089,8 @@ class GommonePreventivoCreate(BaseModel):
     motore_prezzo: Optional[float] = 0
     motore_sconto_perc: Optional[float] = 0
     montaggio: Optional[float] = 0
+    cavetteria: Optional[float] = 0
+    batteria: Optional[float] = 0
     note: Optional[str] = ""
     stato: Optional[str] = "bozza"
 

@@ -592,9 +592,12 @@ def _calc(p: GommonePreventivo) -> dict:
     msc = float(p.motore_sconto_perc or 0)
     motore_netto = round(motore * (1 - msc/100), 2)
     montaggio = float(p.montaggio or 0)
-    totale = round(netto_gommone + accessori + motore_netto + montaggio, 2)
+    cavetteria = float(p.cavetteria or 0)
+    batteria = float(p.batteria or 0)
+    totale = round(netto_gommone + accessori + motore_netto + montaggio + cavetteria + batteria, 2)
     return {"pubblico": pub, "sconto": sconto, "netto_gommone": netto_gommone, "accessori": accessori,
-            "motore": motore, "motore_netto": motore_netto, "montaggio": montaggio, "totale": totale}
+            "motore": motore, "motore_netto": motore_netto, "montaggio": montaggio, "cavetteria": cavetteria,
+            "batteria": batteria, "totale": totale}
 
 
 async def _next_numero() -> str:
@@ -773,7 +776,7 @@ async def _build_preventivo_pdf(p: GommonePreventivo) -> bytes:
         story.append(money_table(rows))
         story.append(Spacer(1, 8))
 
-    if p.motore_modello or calc["motore"] > 0 or calc["montaggio"] > 0:
+    if p.motore_modello or calc["motore"] > 0 or calc["montaggio"] > 0 or calc["cavetteria"] > 0 or calc["batteria"] > 0:
         story.append(section("MOTORIZZAZIONE"))
         rows = []
         if p.motore_modello or calc["motore"] > 0:
@@ -781,7 +784,13 @@ async def _build_preventivo_pdf(p: GommonePreventivo) -> bytes:
         if p.motore_sconto_perc:
             rows.append([Paragraph(f"Sconto motore <b>{p.motore_sconto_perc:g}%</b>", st_row), Paragraph("− " + _fmt_eur(calc["motore"] - calc["motore_netto"]), st_row_b)])
         if calc["montaggio"] > 0:
-            rows.append([Paragraph("Montaggio, collaudo e cavetteria", st_row), Paragraph("+ " + _fmt_eur(calc["montaggio"]), st_row_b)])
+            rows.append([Paragraph("Montaggio e collaudo", st_row), Paragraph("+ " + _fmt_eur(calc["montaggio"]), st_row_b)])
+        if calc["cavetteria"] > 0:
+            rows.append([Paragraph("Cavetterie e comandi", st_row), Paragraph("+ " + _fmt_eur(calc["cavetteria"]), st_row_b)])
+        if calc["batteria"] > 0:
+            rows.append([Paragraph("Batteria", st_row), Paragraph("+ " + _fmt_eur(calc["batteria"]), st_row_b)])
+        tot_mot = calc["motore_netto"] + calc["montaggio"] + calc["cavetteria"] + calc["batteria"]
+        rows.append([Paragraph("<b>Totale motorizzazione</b>", st_row), Paragraph(_fmt_eur(tot_mot), st_row_b)])
         story.append(money_table(rows))
         story.append(Spacer(1, 8))
 
