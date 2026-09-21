@@ -543,6 +543,7 @@ async def caratteristiche_pdf(modello_id: str = ""):
     story = []
     titolo = f"GOMMONE GEB — {docs[0].get('modello', '')} · Scheda tecnica" if modello_id else "GOMMONI GEB — Caratteristiche tecniche"
     _pdf_header(story, titolo, "GEB di Palmieri Sandro · Costruzione gommoni a marchio proprio", NAVY, styles)
+    acc_by_id = {a["id"]: a for a in await db.gommoni_accessori.find({}, {"_id": 0, "id": 1, "nome": 1}).to_list(2000)}
 
     def cell(l, v):
         return [Paragraph(l.upper(), st_lab), Paragraph(v or "—", st_val)]
@@ -565,6 +566,10 @@ async def caratteristiche_pdf(modello_id: str = ""):
             ("TOPPADDING", (0,0), (-1,-1), 3), ("BOTTOMPADDING", (0,0), (-1,-1), 3),
         ]))
         block.append(tg)
+        nomi_serie = [acc_by_id[i]["nome"] for i in (r.get("accessori_serie_ids") or []) if i in acc_by_id]
+        if nomi_serie:
+            block.append(Spacer(1, 3))
+            block.append(Paragraph(f"<b>Accessori di serie:</b> {', '.join(nomi_serie)}", st_txt))
         if r.get("dotazioni"):
             block.append(Spacer(1, 3))
             block.append(Paragraph(f"<b>Dotazioni di serie:</b> {r['dotazioni']}", st_txt))
@@ -754,6 +759,9 @@ async def _build_preventivo_pdf(p: GommonePreventivo) -> bytes:
                             ("ROWBACKGROUNDS", (0,0), (-1,-1), [colors.white, LIGHT]), ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
                             ("LEFTPADDING", (0,0), (-1,-1), 8), ("TOPPADDING", (0,0), (-1,-1), 4), ("BOTTOMPADDING", (0,0), (-1,-1), 4)]))
     story.append(tg)
+    if p.accessori_serie:
+        story.append(Spacer(1, 3))
+        story.append(Paragraph(f"<b>Accessori di serie (inclusi):</b> {', '.join(p.accessori_serie)}", st_row))
     if p.dotazioni:
         story.append(Spacer(1, 3))
         story.append(Paragraph(f"<b>Dotazioni di serie:</b> {p.dotazioni}", st_row))

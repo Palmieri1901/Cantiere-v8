@@ -1,6 +1,7 @@
 # PRD — Portomare: Gestione Cantiere Nautico
 
 ## Changelog
+- **2026-06** — **Accessori di serie per modello**: `GommoneModello.accessori_serie_ids` (checklist nel dialog modello, filtrata per serie con prezzo per taglia); snapshot `GommonePreventivo.accessori_serie` (nomi) compilato alla scelta del gommone, mostrato nel form (riquadro verde), escluso dal menu optional, stampato nel PDF preventivo e nella scheda caratteristiche.
 - **2026-06** — **Preventivo gommone – voci motore**: aggiunti campi `cavetteria` e `batteria` (oltre a `montaggio`) su `GommonePreventivo(Create)`; form con 3 voci separate "Montaggio e collaudo", "Cavetterie e comandi", "Batteria"; riepilogo UI, PDF (sezione MOTORIZZAZIONE con "Totale motorizzazione") e totale lista includono le nuove voci.
 - **2026-06** — **Scheda tecnica singolo gommone**: `GET /api/gommoni/caratteristiche.pdf?modello_id=` genera il PDF del solo modello (titolo "GOMMONE GEB — <modello> · Scheda tecnica"); icona PDF per riga nel catalogo (`btn-scheda-gommone-{id}`).
 - **2026-06** — **PDF accessori per serie**: `GET /api/gommoni/accessori.pdf?serie=Job|Sirio|Tsunami&iva=escl|incl` (layout come i listini GEB originali, nota IVA e piè di pagina). Tab Accessori: selettore IVA + pulsanti PDF Job/Sirio/Tsunami. Tabella accessori estratta in `_accessori_tables()` condivisa col listino pubblico.

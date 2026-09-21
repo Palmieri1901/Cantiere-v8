@@ -1,20 +1,26 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { X, Save, Sparkles } from "lucide-react";
-import { Field, gommonePayload } from "./common";
+import { X, Save, Sparkles, Package } from "lucide-react";
+import { Field, gommonePayload, fmt, parseModello, prezzoAccessorio } from "./common";
 
 export default function GommoneDialog({ value, onClose, onSaved }) {
-  const [form, setForm] = useState(value);
+  const [form, setForm] = useState({ ...value, accessori_serie_ids: value.accessori_serie_ids || [] });
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [accessori, setAccessori] = useState([]);
   const fileRef = useRef(null);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const isNew = !form.id;
+  useEffect(() => { api.get("/gommoni/accessori").then((r) => setAccessori(r.data)).catch(() => {}); }, []);
+  const { taglia, serie } = parseModello(form.modello || "");
+  const accDisponibili = accessori.filter((a) => (!a.serie || !serie || a.serie === serie));
+  const toggleSerie = (id, on) => setForm((f) => ({ ...f, accessori_serie_ids: on ? [...f.accessori_serie_ids, id] : f.accessori_serie_ids.filter((x) => x !== id) }));
 
   const scanScheda = async (e) => {
     const f = e.target.files?.[0];
@@ -86,7 +92,25 @@ export default function GommoneDialog({ value, onClose, onSaved }) {
           <Field label="Categoria CE"><Input value={form.categoria_ce || ""} onChange={(e) => set("categoria_ce", e.target.value)} placeholder="C" /></Field>
           <Field label="Specchio di poppa"><Input value={form.specchio || ""} onChange={(e) => set("specchio", e.target.value)} placeholder="L / XL / XXL" /></Field>
           <div className="col-span-2 md:col-span-4"><Field label="Materiale / tessuto tubolare"><Input value={form.tessuto || ""} onChange={(e) => set("tessuto", e.target.value)} placeholder="H (Hypalon) / PVC" /></Field></div>
-          <div className="col-span-2 md:col-span-4"><Field label="Dotazioni di serie"><Textarea value={form.dotazioni || ""} onChange={(e) => set("dotazioni", e.target.value)} rows={3} data-testid="g-dotazioni" /></Field></div>
+          <div className="col-span-2 md:col-span-4"><Field label="Dotazioni di serie (testo libero)"><Textarea value={form.dotazioni || ""} onChange={(e) => set("dotazioni", e.target.value)} rows={2} data-testid="g-dotazioni" /></Field></div>
+          <div className="col-span-2 md:col-span-4">
+            <div className="label-mini mb-1.5 flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Accessori di serie (dalla lista accessori{serie ? ` · serie ${serie}` : ""}) — <span className="text-primary">{form.accessori_serie_ids.length} selezionati</span></div>
+            {accDisponibili.length === 0 ? <div className="text-xs text-muted-foreground">Nessun accessorio in lista{serie ? ` per la serie ${serie}` : ""}. Inseriscili nella tab Accessori optional.</div> : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-1 max-h-48 overflow-y-auto rounded-md border p-2" data-testid="g-accessori-serie">
+                {accDisponibili.map((a) => {
+                  const on = form.accessori_serie_ids.includes(a.id);
+                  const p = taglia ? prezzoAccessorio(a, taglia) : a.prezzo;
+                  return (
+                    <label key={a.id} className={`flex items-center gap-2 text-xs rounded px-1.5 py-1 cursor-pointer ${on ? "bg-emerald-50" : "hover:bg-muted/40"}`}>
+                      <Checkbox checked={on} onCheckedChange={(v) => toggleSerie(a.id, !!v)} data-testid={`g-acc-serie-${a.id}`} />
+                      <span className="flex-1">{a.nome}{a.specifiche ? <span className="text-muted-foreground"> · {a.specifiche}</span> : ""}</span>
+                      <span className="font-mono-num text-muted-foreground">{p === 0 ? "di serie" : p ? `${fmt(p)} +IVA` : "—"}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           <div className="col-span-2 md:col-span-4"><Field label="Note"><Textarea value={form.note || ""} onChange={(e) => set("note", e.target.value)} rows={2} /></Field></div>
         </div>
         <DialogFooter>

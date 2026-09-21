@@ -29,6 +29,7 @@ export default function PreventivoGommoneDialog({ value, gommoni, accessori, mot
       diametro_tubolare_cm: g.diametro_tubolare_cm, compartimenti: g.compartimenti, portata_persone: g.portata_persone,
       potenza_max_hp: g.potenza_max_hp, peso_kg: g.peso_kg, carena: g.carena, tessuto: g.tessuto, dotazioni: g.dotazioni, lunghezza_interna_cm: g.lunghezza_interna_cm, categoria_ce: g.categoria_ce, potenza_min_hp: g.potenza_min_hp, specchio: g.specchio,
       prezzo_gommone: g.prezzo_pubblico || 0,
+      accessori_serie: (g.accessori_serie_ids || []).map((id) => accessori.find((a) => a.id === id)?.nome).filter(Boolean),
     }));
   };
   const pickTipo = (t) => setForm((f) => ({ ...f, tipo_cliente: t, sconto_perc: Number(sconti?.[t]) || 0 }));
@@ -38,7 +39,7 @@ export default function PreventivoGommoneDialog({ value, gommoni, accessori, mot
     setForm((f) => ({ ...f, motore_modello: `Suzuki ${m.modello}`, motore_prezzo: m.prezzo_offerta || m.prezzo_pubblico || 0 }));
   };
   const { taglia, serie } = parseModello(form.modello || "");
-  const accessoriDisponibili = accessori.filter((a) => (!a.serie || !serie || a.serie === serie) && (!taglia || prezzoAccessorio(a, taglia) !== null));
+  const accessoriDisponibili = accessori.filter((a) => (!a.serie || !serie || a.serie === serie) && (!taglia || prezzoAccessorio(a, taglia) !== null) && !(form.accessori_serie || []).includes(a.nome));
   const addAccessorio = (aid) => {
     const a = accessori.find((x) => x.id === aid);
     if (!a) return;
@@ -139,6 +140,11 @@ export default function PreventivoGommoneDialog({ value, gommoni, accessori, mot
               <Field label="Carena"><Input value={form.carena || ""} onChange={(e) => set("carena", e.target.value)} /></Field>
               <div className="col-span-2"><Field label="Tessuto"><Input value={form.tessuto || ""} onChange={(e) => set("tessuto", e.target.value)} /></Field></div>
               <div className="col-span-2 md:col-span-4"><Field label="Dotazioni di serie"><Textarea rows={2} value={form.dotazioni || ""} onChange={(e) => set("dotazioni", e.target.value)} /></Field></div>
+              {(form.accessori_serie || []).length > 0 && (
+                <div className="col-span-2 md:col-span-4 text-xs rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2" data-testid="pg-accessori-serie">
+                  <b className="text-emerald-800">Accessori di serie inclusi:</b> {form.accessori_serie.join(", ")}
+                </div>
+              )}
             </div>
           </Card>
 

@@ -939,6 +939,7 @@ class GommoneModello(BaseModel):
     categoria_ce: Optional[str] = ""
     potenza_min_hp: Optional[float] = 0
     specchio: Optional[str] = ""
+    accessori_serie_ids: List[str] = []
     dotazioni: Optional[str] = ""
     note: Optional[str] = ""
     prezzo_pubblico: float = 0                    # € IVA inclusa
@@ -966,6 +967,7 @@ class GommoneModelloCreate(BaseModel):
     categoria_ce: Optional[str] = ""
     potenza_min_hp: Optional[float] = 0
     specchio: Optional[str] = ""
+    accessori_serie_ids: List[str] = []
     dotazioni: Optional[str] = ""
     note: Optional[str] = ""
     prezzo_pubblico: Optional[float] = 0
@@ -1042,6 +1044,7 @@ class GommonePreventivo(BaseModel):
     categoria_ce: Optional[str] = ""
     potenza_min_hp: Optional[float] = 0
     specchio: Optional[str] = ""
+    accessori_serie: List[str] = []
     dotazioni: Optional[str] = ""
     prezzo_gommone: float = 0                     # € IVA incl. pubblico
     sconto_perc: float = 0
@@ -1081,6 +1084,7 @@ class GommonePreventivoCreate(BaseModel):
     categoria_ce: Optional[str] = ""
     potenza_min_hp: Optional[float] = 0
     specchio: Optional[str] = ""
+    accessori_serie: List[str] = []
     dotazioni: Optional[str] = ""
     prezzo_gommone: float = 0
     sconto_perc: Optional[float] = 0

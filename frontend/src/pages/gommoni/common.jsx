@@ -9,7 +9,7 @@ export const CATEGORIE = [
 export const EMPTY_GOMMONE = {
   modello: "", lunghezza_m: 0, larghezza_m: 0, diametro_tubolare_cm: 0, compartimenti: 0,
   portata_persone: 0, potenza_max_hp: 0, peso_kg: 0, carena: "", tessuto: "", lunghezza_interna_cm: 0, categoria_ce: "", potenza_min_hp: 0, specchio: "", dotazioni: "",
-  note: "", prezzo_pubblico: 0, ordine: 0,
+  note: "", prezzo_pubblico: 0, ordine: 0, accessori_serie_ids: [],
 };
 
 export const EMPTY_ACCESSORIO = { nome: "", descrizione: "", categoria: "", serie: "", specifiche: "", prezzo: 0, prezzi_per_modello: {}, di_serie: [] };
@@ -45,7 +45,7 @@ export const EMPTY_PREV_GOMMONE = {
   cliente_nome: "", cliente_telefono: "", cliente_email: "", tipo_cliente: "privati",
   gommone_id: "", modello: "", lunghezza_m: 0, larghezza_m: 0, diametro_tubolare_cm: 0,
   compartimenti: 0, portata_persone: 0, potenza_max_hp: 0, peso_kg: 0, carena: "", tessuto: "", lunghezza_interna_cm: 0, categoria_ce: "", potenza_min_hp: 0, specchio: "",
-  dotazioni: "", prezzo_gommone: 0, sconto_perc: 0, accessori: [],
+  dotazioni: "", prezzo_gommone: 0, sconto_perc: 0, accessori: [], accessori_serie: [],
   motore_modello: "", motore_prezzo: 0, motore_sconto_perc: 0, montaggio: 0, cavetteria: 0, batteria: 0,
   note: "", stato: "bozza", data: new Date().toISOString().slice(0, 10),
 };
