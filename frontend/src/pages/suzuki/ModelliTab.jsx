@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { api, API } from "@/lib/api";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -45,7 +46,7 @@ export default function ModelliTab() {
   }, [items, q]);
 
   const remove = async (id) => {
-    if (!window.confirm("Eliminare questo modello?")) return;
+    if (!await confirmDialog("Eliminare questo modello?")) return;
     await api.delete(`/suzuki/modelli/${id}`);
     toast.success("Modello eliminato");
     load();

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -48,7 +49,7 @@ export default function PreventiviGommoniTab() {
     } catch (e) { toast.error(e.response?.data?.detail || "Errore PDF"); }
   };
   const remove = async (id) => {
-    if (!window.confirm("Eliminare questo preventivo?")) return;
+    if (!await confirmDialog("Eliminare questo preventivo?")) return;
     await api.delete(`/gommoni/preventivi/${id}`); toast.success("Preventivo eliminato"); load();
   };
   const newPrev = () => setEditing({ ...EMPTY_PREV_GOMMONE, sconto_perc: Number(sconti.privati) || 0 });

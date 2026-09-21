@@ -1,6 +1,7 @@
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
+import { ConfirmHost } from "@/components/ConfirmDialog";
 import { YearProvider } from "@/lib/year";
 import { AuthProvider } from "@/lib/auth";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -71,6 +72,7 @@ function App() {
         </YearProvider>
       </AuthProvider>
       <Toaster position="top-right" richColors />
+      <ConfirmHost />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { api, API } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,7 @@ export default function DocumentoButton({ modello, tipo, onChanged }) {
   };
 
   const remove = async () => {
-    if (!window.confirm(`Rimuovere il PDF di ${cfg.label.toLowerCase()}?`)) return;
+    if (!await confirmDialog(`Rimuovere il PDF di ${cfg.label.toLowerCase()}?`)) return;
     await api.delete(`/gommoni/modelli/${modello.id}/doc/${tipo}`);
     toast.success(`${cfg.label} rimossa`); onChanged?.();
   };

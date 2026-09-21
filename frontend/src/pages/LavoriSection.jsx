@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { api, fmtEuro } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -152,7 +153,7 @@ export default function LavoriSection({ clienteId }) {
     const conferma = nArt > 0
       ? `Eliminare questo lavoro?\nVerranno ripristinate le giacenze di ${nArt} articoli in magazzino.`
       : "Eliminare questo lavoro?";
-    if (!window.confirm(conferma)) return;
+    if (!await confirmDialog(conferma)) return;
     try {
       const r = await api.delete(`/lavori/${id}`);
       const ripr = r.data?.giacenze_ripristinate || 0;

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { api, API } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -90,8 +91,8 @@ export default function ListinoConcessionarioEditor({ open, onClose }) {
     });
   };
 
-  const applyDefaultsToAll = () => {
-    if (!window.confirm("Reimpostare tutte le righe ai valori di default?")) return;
+  const applyDefaultsToAll = async () => {
+    if (!await confirmDialog("Reimpostare tutte le righe ai valori di default?")) return;
     setOverrides({});
     toast.success("Tutte le righe azzerate ai default");
   };

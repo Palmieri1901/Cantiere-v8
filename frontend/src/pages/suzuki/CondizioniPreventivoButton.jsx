@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ export default function CondizioniPreventivoButton() {
   };
 
   const reset = async () => {
-    if (!window.confirm("Ripristinare le condizioni originali?")) return;
+    if (!await confirmDialog("Ripristinare le condizioni originali?")) return;
     try {
       const r = await api.post("/suzuki/condizioni-preventivo/reset");
       setText((r.data.righe || []).join("\n"));

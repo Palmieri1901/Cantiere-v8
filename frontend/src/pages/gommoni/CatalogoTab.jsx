@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { api, API } from "@/lib/api";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -26,7 +27,7 @@ export default function CatalogoTab() {
   useEffect(() => { load(); }, []);
 
   const remove = async (id) => {
-    if (!window.confirm("Eliminare questo gommone?")) return;
+    if (!await confirmDialog("Eliminare questo gommone?")) return;
     await api.delete(`/gommoni/modelli/${id}`);
     toast.success("Gommone eliminato"); load();
   };

@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { api, API } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,7 @@ export default function LogoPdfButton() {
   };
 
   const reset = async () => {
-    if (!window.confirm("Rimuovere il logo? I PDF verranno stampati senza intestazione grafica.")) return;
+    if (!await confirmDialog("Rimuovere il logo? I PDF verranno stampati senza intestazione grafica.")) return;
     try {
       await api.delete("/suzuki/logo");
       toast.success("Logo rimosso");

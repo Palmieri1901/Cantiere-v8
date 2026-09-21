@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -24,14 +25,14 @@ export default function LegendaTab() {
   useEffect(() => { load(); }, []);
 
   const remove = async (id) => {
-    if (!window.confirm("Eliminare questa voce?")) return;
+    if (!await confirmDialog("Eliminare questa voce?")) return;
     await api.delete(`/suzuki/legenda/${id}`);
     toast.success("Voce eliminata");
     load();
   };
 
   const resetDefaults = async () => {
-    if (!window.confirm("Ripristinare la legenda originale? Tutte le modifiche verranno perse.")) return;
+    if (!await confirmDialog("Ripristinare la legenda originale? Tutte le modifiche verranno perse.")) return;
     try {
       const r = await api.post("/suzuki/legenda/reset-defaults");
       toast.success(`Legenda ripristinata (${r.data.count} voci).`);

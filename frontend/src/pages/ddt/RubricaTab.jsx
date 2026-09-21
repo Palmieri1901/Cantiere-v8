@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -45,7 +46,7 @@ function IndirizzoDialog({ value, onClose, onSaved }) {
 export default function RubricaTab({ indirizzi, onReload }) {
   const [editing, setEditing] = useState(null);
   const remove = async (id) => {
-    if (!window.confirm("Eliminare questo indirizzo?")) return;
+    if (!await confirmDialog("Eliminare questo indirizzo?")) return;
     await api.delete(`/ddt/indirizzi/${id}`); toast.success("Indirizzo eliminato"); onReload();
   };
   return (

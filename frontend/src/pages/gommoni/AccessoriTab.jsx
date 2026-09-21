@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -88,7 +89,7 @@ export default function AccessoriTab() {
   useEffect(() => { load(); }, []);
   const taglieBySerie = useMemo(() => taglieDaModelli(modelli), [modelli]);
   const remove = async (id) => {
-    if (!window.confirm("Eliminare questo accessorio?")) return;
+    if (!await confirmDialog("Eliminare questo accessorio?")) return;
     await api.delete(`/gommoni/accessori/${id}`); toast.success("Accessorio eliminato"); load();
   };
   const groups = useMemo(() => {

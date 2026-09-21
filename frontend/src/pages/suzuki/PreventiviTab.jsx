@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -44,7 +45,7 @@ export default function PreventiviTab() {
   };
 
   const remove = async (id) => {
-    if (!window.confirm("Eliminare questo preventivo?")) return;
+    if (!await confirmDialog("Eliminare questo preventivo?")) return;
     await api.delete(`/suzuki/preventivi/${id}`);
     toast.success("Preventivo eliminato"); load();
   };

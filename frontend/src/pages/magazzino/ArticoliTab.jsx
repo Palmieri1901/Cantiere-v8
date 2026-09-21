@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { api, API, fmtEuro } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -154,7 +155,7 @@ export default function ArticoliTab() {
     if (!qt || qt <= 0) { toast.error("Inserisci una quantità positiva"); return; }
     const disponibile = Number(art.quantita || 0);
     if (qt > disponibile) {
-      if (!window.confirm(`Attenzione: giacenza attuale ${disponibile}. Vuoi comunque scaricare ${qt}?`)) return;
+      if (!await confirmDialog(`Attenzione: giacenza attuale ${disponibile}. Vuoi comunque scaricare ${qt}?`)) return;
     }
     setScaricoLoading((s) => ({ ...s, [art.id]: true }));
     try {

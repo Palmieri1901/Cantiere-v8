@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -34,7 +35,7 @@ export default function DdtTab({ indirizzi, onReloadRubrica }) {
     } catch (e) { toast.error(e.response?.data?.detail || "Errore PDF"); }
   };
   const remove = async (id) => {
-    if (!window.confirm("Eliminare questo DDT?")) return;
+    if (!await confirmDialog("Eliminare questo DDT?")) return;
     await api.delete(`/ddt/${id}`); toast.success("DDT eliminato"); load();
   };
 
