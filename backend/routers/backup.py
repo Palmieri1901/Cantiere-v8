@@ -1,125 +1,127 @@
-"""Backup completo JSON + restore da JSON — include TUTTI i dati aziendali:
-clienti, lavori, magazzino (articoli, fornitori, ricarichi, spese, movimenti),
-tariffe e informazioni del cantiere.
+"""Backup generale JSON + restore: include TUTTI i settori dell'app
+(rimessaggio, tariffe, cantiere, magazzino, tubolari, Suzuki, gommoni GEB con PDF omologazione, DDT e rubrica).
+Le credenziali (users, token) NON sono incluse.
 """
+import base64
 import json as _json
 from datetime import datetime, timezone
-from fastapi import APIRouter
+from typing import Dict, List
+
+from bson import ObjectId
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+from pydantic import BaseModel, ConfigDict
 
 from database import db
-from models import (
-    Cantiere, Cliente, Lavoro, RestoreRequest, Tariffe,
-    Articolo, Fornitore, RicaricoCategoria, SpesaAccessoria, MovimentoMagazzino,
-)
-from helpers import serialize
 
 router = APIRouter()
 
+BACKUP_VERSION = 3
+EXCLUDED = {"users", "password_reset_tokens"}
+GRIDFS_BUCKETS = {"gommoni_omologazioni": "PDF omologazione gommoni"}
 
-BACKUP_VERSION = 2
+SETTORI: Dict[str, List[str]] = {
+    "Cantiere e tariffe": ["cantiere", "tariffe", "app_settings"],
+    "Rimessaggio": ["clienti", "lavori"],
+    "Magazzino": ["articoli", "fornitori", "ricarichi_categoria", "spese_accessorie", "movimenti_magazzino"],
+    "Tubolari": ["tubolari_config", "preventivi_tubolari"],
+    "Suzuki": ["suzuki_modelli", "suzuki_preventivi", "suzuki_legenda", "suzuki_settings"],
+    "Gommoni GEB": ["gommoni_modelli", "gommoni_accessori", "gommoni_settings", "gommoni_preventivi"],
+    "DDT": ["ddt", "ddt_indirizzi"],
+}
+
+# collezioni "singleton" del vecchio formato v2 (dict invece di lista)
+_LEGACY_SINGLE = {"cantiere", "tariffe"}
+
+
+def _is_gridfs(name: str) -> bool:
+    return any(name.startswith(b + ".") for b in GRIDFS_BUCKETS)
+
+
+async def _dump_gridfs(bucket_name: str) -> List[dict]:
+    bucket = AsyncIOMotorGridFSBucket(db, bucket_name=bucket_name)
+    out = []
+    async for f in bucket.find({}):
+        stream = await bucket.open_download_stream(f._id)
+        data = await stream.read()
+        out.append({"_id": str(f._id), "filename": f.filename, "metadata": f.metadata or {}, "data_b64": base64.b64encode(data).decode("ascii")})
+    return out
 
 
 @router.get("/backup")
 async def backup_data():
-    """Esporta TUTTI i dati dell'app in un unico JSON scaricabile.
-    Include: cantiere, tariffe, clienti, lavori e tutto il modulo Magazzino
-    (articoli, fornitori, ricarichi categoria, spese accessorie, movimenti).
-    """
-    cantiere = await db.cantiere.find_one({"id": "default"}, {"_id": 0})
-    tariffe = await db.tariffe.find_one({"id": "default"}, {"_id": 0})
-    clienti = await db.clienti.find({}, {"_id": 0}).to_list(50000)
-    lavori = await db.lavori.find({}, {"_id": 0}).to_list(50000)
-    articoli = await db.articoli.find({}, {"_id": 0}).to_list(50000)
-    fornitori = await db.fornitori.find({}, {"_id": 0}).to_list(5000)
-    ricarichi_categoria = await db.ricarichi_categoria.find({}, {"_id": 0}).to_list(1000)
-    spese_accessorie = await db.spese_accessorie.find({}, {"_id": 0}).to_list(20000)
-    movimenti_magazzino = await db.movimenti_magazzino.find({}, {"_id": 0}).to_list(200000)
-
+    """Esporta TUTTE le collezioni (tranne credenziali) + file GridFS in un unico JSON."""
+    names = [n for n in await db.list_collection_names() if n not in EXCLUDED and not _is_gridfs(n)]
+    collections: Dict[str, list] = {}
+    for n in sorted(names):
+        collections[n] = await db[n].find({}, {"_id": 0}).to_list(500000)
+    files = {b: await _dump_gridfs(b) for b in GRIDFS_BUCKETS}
     payload = {
         "version": BACKUP_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "app": "Portomare Cantiere Nautico",
-        "cantiere": cantiere,
-        "tariffe": tariffe,
-        "clienti": clienti,
-        "lavori": lavori,
-        "articoli": articoli,
-        "fornitori": fornitori,
-        "ricarichi_categoria": ricarichi_categoria,
-        "spese_accessorie": spese_accessorie,
-        "movimenti_magazzino": movimenti_magazzino,
-        "counts": {
-            "clienti": len(clienti),
-            "lavori": len(lavori),
-            "articoli": len(articoli),
-            "fornitori": len(fornitori),
-            "ricarichi_categoria": len(ricarichi_categoria),
-            "spese_accessorie": len(spese_accessorie),
-            "movimenti_magazzino": len(movimenti_magazzino),
-        },
+        "app": "GEB Cantiere Nautico",
+        "settori": SETTORI,
+        "counts": {n: len(v) for n, v in collections.items()},
+        "files_counts": {b: len(v) for b, v in files.items()},
+        "collections": collections,
+        "files": files,
     }
-    body = _json.dumps(payload, ensure_ascii=False, indent=2, default=str)
-    filename = f"backup_portomare_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    return StreamingResponse(
-        iter([body]),
-        media_type="application/json",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
+    body = _json.dumps(payload, ensure_ascii=False, default=str)
+    filename = f"backup_geb_completo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    return StreamingResponse(iter([body]), media_type="application/json",
+                             headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 
-async def _restore_collection(collection_name: str, docs_input, model_cls, restored: dict, key: str):
-    """Helper: sovrascrive completamente una collection dopo aver validato ogni doc
-    contro il proprio modello Pydantic (scarta i doc non validi)."""
-    if docs_input is None:
-        return
-    await db[collection_name].delete_many({})
-    docs = []
-    for d in docs_input:
-        if not isinstance(d, dict):
+class RestorePayload(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    version: int | None = None
+    collections: Dict[str, list] | None = None
+    files: Dict[str, list] | None = None
+
+
+def _legacy_collections(payload: RestorePayload) -> Dict[str, list]:
+    """Converte un backup v1/v2 (chiavi top-level) nel formato collections."""
+    extra = payload.model_extra or {}
+    out: Dict[str, list] = {}
+    for k, v in extra.items():
+        if k in ("generated_at", "app", "counts", "settori", "files_counts"):
             continue
-        try:
-            obj = model_cls(**{k: v for k, v in d.items() if k in model_cls.model_fields})
-            docs.append(serialize(obj))
-        except Exception:
-            # Fallback grezzo: se il doc è già coerente, prova a inserirlo comunque
-            try:
-                docs.append({k: v for k, v in d.items() if not k.startswith("_")})
-            except Exception:
-                pass
-    if docs:
-        await db[collection_name].insert_many(docs)
-    restored[key] = len(docs)
+        if k in _LEGACY_SINGLE and isinstance(v, dict):
+            out[k] = [v]
+        elif isinstance(v, list):
+            out[k] = v
+    return out
 
 
 @router.post("/restore")
-async def restore_data(payload: RestoreRequest):
-    """Ripristina i dati dal backup JSON. Sovrascrive completamente ogni sezione
-    fornita nel file. Le sezioni assenti dal file NON vengono toccate."""
-    restored = {
-        "clienti": 0, "lavori": 0, "articoli": 0, "fornitori": 0,
-        "ricarichi_categoria": 0, "spese_accessorie": 0, "movimenti_magazzino": 0,
-        "tariffe": False, "cantiere": False,
-    }
-
-    if payload.cantiere is not None:
-        c = Cantiere(**{k: v for k, v in payload.cantiere.items() if k in Cantiere.model_fields})
-        await db.cantiere.delete_many({})
-        await db.cantiere.insert_one(serialize(c))
-        restored["cantiere"] = True
-
-    if payload.tariffe is not None:
-        t = Tariffe(**{k: v for k, v in payload.tariffe.items() if k in Tariffe.model_fields})
-        await db.tariffe.delete_many({})
-        await db.tariffe.insert_one(serialize(t))
-        restored["tariffe"] = True
-
-    await _restore_collection("clienti", payload.clienti, Cliente, restored, "clienti")
-    await _restore_collection("lavori", payload.lavori, Lavoro, restored, "lavori")
-    await _restore_collection("articoli", payload.articoli, Articolo, restored, "articoli")
-    await _restore_collection("fornitori", payload.fornitori, Fornitore, restored, "fornitori")
-    await _restore_collection("ricarichi_categoria", payload.ricarichi_categoria, RicaricoCategoria, restored, "ricarichi_categoria")
-    await _restore_collection("spese_accessorie", payload.spese_accessorie, SpesaAccessoria, restored, "spese_accessorie")
-    await _restore_collection("movimenti_magazzino", payload.movimenti_magazzino, MovimentoMagazzino, restored, "movimenti_magazzino")
-
+async def restore_data(payload: RestorePayload):
+    """Ripristina le collezioni presenti nel file (sovrascrivendole). Le collezioni assenti non vengono toccate."""
+    collections = payload.collections if payload.collections is not None else _legacy_collections(payload)
+    if not collections and not payload.files:
+        raise HTTPException(400, "File di backup non valido: nessuna sezione riconosciuta")
+    restored: Dict[str, int] = {}
+    for name, docs in collections.items():
+        if name in EXCLUDED or _is_gridfs(name) or not isinstance(docs, list):
+            continue
+        clean = [{k: v for k, v in d.items() if not k.startswith("_")} for d in docs if isinstance(d, dict)]
+        await db[name].delete_many({})
+        if clean:
+            await db[name].insert_many(clean)
+        restored[name] = len(clean)
+    for bucket_name, files in (payload.files or {}).items():
+        if bucket_name not in GRIDFS_BUCKETS or not isinstance(files, list):
+            continue
+        bucket = AsyncIOMotorGridFSBucket(db, bucket_name=bucket_name)
+        await db[f"{bucket_name}.files"].delete_many({})
+        await db[f"{bucket_name}.chunks"].delete_many({})
+        n = 0
+        for f in files:
+            try:
+                data = base64.b64decode(f.get("data_b64", ""))
+                await bucket.upload_from_stream_with_id(ObjectId(f["_id"]), f.get("filename") or "file", data, metadata=f.get("metadata") or {})
+                n += 1
+            except Exception:
+                continue
+        restored[f"{bucket_name} (file)"] = n
     return {"ok": True, "restored": restored}

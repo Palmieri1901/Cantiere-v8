@@ -40,8 +40,9 @@ export default function Home() {
       try {
         const data = JSON.parse(reader.result);
         // Un backup valido deve contenere almeno una sezione riconosciuta
-        const hasAny = ["clienti", "lavori", "tariffe", "cantiere", "articoli", "fornitori", "spese_accessorie", "movimenti_magazzino", "ricarichi_categoria"]
-          .some((k) => data[k] !== undefined && data[k] !== null);
+        const hasAny = (data.collections && Object.keys(data.collections).length > 0) ||
+          ["clienti", "lavori", "tariffe", "cantiere", "articoli", "fornitori", "spese_accessorie", "movimenti_magazzino", "ricarichi_categoria"]
+            .some((k) => data[k] !== undefined && data[k] !== null);
         if (!hasAny) {
           toast.error("File di backup non valido");
           return;
@@ -61,14 +62,7 @@ export default function Home() {
     try {
       const r = await api.post("/restore", restoreData);
       const rst = r.data.restored;
-      const parts = [];
-      if (rst.clienti) parts.push(`${rst.clienti} clienti`);
-      if (rst.lavori) parts.push(`${rst.lavori} lavori`);
-      if (rst.articoli) parts.push(`${rst.articoli} articoli`);
-      if (rst.fornitori) parts.push(`${rst.fornitori} fornitori`);
-      if (rst.spese_accessorie) parts.push(`${rst.spese_accessorie} spese`);
-      if (rst.movimenti_magazzino) parts.push(`${rst.movimenti_magazzino} movimenti`);
-      if (rst.ricarichi_categoria) parts.push(`${rst.ricarichi_categoria} ricarichi`);
+      const parts = Object.entries(rst).filter(([, n]) => n).map(([k, n]) => `${n} ${k.replace(/_/g, " ")}`);
       toast.success(`Ripristinati: ${parts.join(" · ") || "impostazioni"}`);
       setRestoreData(null);
       load();
@@ -293,8 +287,8 @@ export default function Home() {
               </div>
               <h3 className="font-display text-xl font-semibold">Backup completo & Ripristino</h3>
               <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-                Scarica un file di backup con <b>tutto l'archivio</b>: clienti, lavori, tariffe, informazioni cantiere e
-                l'intero modulo Magazzino (articoli, fornitori, ricarichi, spese accessorie e movimenti). Conservalo come
+                Scarica un file di backup con <b>tutto l'archivio di ogni settore</b>: Rimessaggio (clienti, lavori, tariffe, cantiere),
+                Magazzino, Tubolari, Suzuki, Gommoni GEB (con PDF omologazione), DDT e rubrica indirizzi. Conservalo come
                 archivio o ripristinalo in caso di problemi.
               </p>
             </div>
@@ -325,6 +319,15 @@ export default function Home() {
             <AlertDialogDescription>
               <div className="space-y-2 mt-2">
                 <div>Il backup contiene:</div>
+                {restoreData?.collections ? (
+                  <ul className="list-disc pl-5 text-sm space-y-1 max-h-48 overflow-y-auto" data-testid="restore-summary">
+                    {Object.entries(restoreData.settori || {}).map(([settore, colls]) => {
+                      const n = colls.reduce((s, c) => s + (restoreData.collections[c]?.length || 0), 0);
+                      return <li key={settore}><b>{settore}</b>: {n} record</li>;
+                    })}
+                    {Object.entries(restoreData.files_counts || {}).map(([b, n]) => <li key={b}>File {b.replace(/_/g, " ")}: <b>{n}</b></li>)}
+                  </ul>
+                ) : (
                 <ul className="list-disc pl-5 text-sm space-y-1">
                   <li><b>{restoreData?.clienti?.length || 0}</b> clienti</li>
                   <li><b>{restoreData?.lavori?.length || 0}</b> lavori</li>
@@ -336,6 +339,7 @@ export default function Home() {
                   <li>Tariffe: <b>{restoreData?.tariffe ? "sì" : "no"}</b></li>
                   <li>Cantiere: <b>{restoreData?.cantiere ? "sì" : "no"}</b></li>
                 </ul>
+                )}
                 <div className="text-destructive mt-3 text-sm font-medium">
                   ⚠️ Tutti i dati attuali verranno sovrascritti. L'operazione non è reversibile.
                 </div>
