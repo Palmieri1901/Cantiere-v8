@@ -18,6 +18,7 @@ import Magazzino from "@/pages/Magazzino";
 import Tubolari from "@/pages/Tubolari";
 import Suzuki from "@/pages/Suzuki";
 import Gommoni from "@/pages/Gommoni";
+import Ddt from "@/pages/Ddt";
 import Login from "@/pages/Login";
 import RecuperoPin from "@/pages/RecuperoPin";
 
@@ -62,6 +63,7 @@ function App() {
                 <Route path="/tubolari" element={<Tubolari />} />
                 <Route path="/suzuki" element={<Suzuki />} />
                 <Route path="/gommoni" element={<Gommoni />} />
+                <Route path="/ddt" element={<Ddt />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Routes>

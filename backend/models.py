@@ -1063,3 +1063,96 @@ class GommonePreventivoCreate(BaseModel):
     montaggio: Optional[float] = 0
     note: Optional[str] = ""
     stato: Optional[str] = "bozza"
+
+
+# ---------------------------------------------------------------------------
+# DDT & FOGLIO DI DESTINAZIONE
+# ---------------------------------------------------------------------------
+class DdtIndirizzo(BaseModel):
+    """Indirizzo in rubrica, richiamabile per cessionario / destinazione."""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    nome: str
+    indirizzo: Optional[str] = ""
+    cap: Optional[str] = ""
+    citta: Optional[str] = ""
+    provincia: Optional[str] = ""
+    telefono: Optional[str] = ""
+    codice_cliente: Optional[str] = ""
+    note: Optional[str] = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class DdtIndirizzoCreate(BaseModel):
+    nome: str
+    indirizzo: Optional[str] = ""
+    cap: Optional[str] = ""
+    citta: Optional[str] = ""
+    provincia: Optional[str] = ""
+    telefono: Optional[str] = ""
+    codice_cliente: Optional[str] = ""
+    note: Optional[str] = ""
+
+
+class DdtRiga(BaseModel):
+    quantita: float = 1
+    descrizione: str = ""
+    prezzo_unitario: float = 0
+
+
+class DdtDestinatario(BaseModel):
+    nome: str = ""
+    indirizzo: str = ""
+    cap: str = ""
+    citta: str = ""
+    provincia: str = ""
+    telefono: str = ""
+
+
+class Ddt(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    numero: int = 0
+    anno: int = Field(default_factory=lambda: datetime.now().year)
+    data: str = Field(default_factory=lambda: datetime.now(timezone.utc).date().isoformat())
+    codice_cliente: Optional[str] = ""
+    rif_ordine: Optional[str] = ""
+    condizioni_pagamento: Optional[str] = ""
+    cessionario: DdtDestinatario = DdtDestinatario()
+    destinazione_idem: bool = True
+    destinazione: DdtDestinatario = DdtDestinatario()
+    righe: List[DdtRiga] = []
+    causale: Optional[str] = "RIPARAZIONE"
+    porto: Optional[str] = "franco"
+    colli: Optional[int] = 1
+    peso: Optional[str] = ""
+    data_ora_trasporto: Optional[str] = ""
+    vettore: Optional[str] = ""
+    aspetto_beni: Optional[str] = "a vista"
+    note: Optional[str] = ""
+    note_destinazione: Optional[str] = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class DdtCreate(BaseModel):
+    numero: Optional[int] = None
+    anno: Optional[int] = None
+    data: Optional[str] = None
+    codice_cliente: Optional[str] = ""
+    rif_ordine: Optional[str] = ""
+    condizioni_pagamento: Optional[str] = ""
+    cessionario: DdtDestinatario = DdtDestinatario()
+    destinazione_idem: bool = True
+    destinazione: DdtDestinatario = DdtDestinatario()
+    righe: List[DdtRiga] = []
+    causale: Optional[str] = "RIPARAZIONE"
+    porto: Optional[str] = "franco"
+    colli: Optional[int] = 1
+    peso: Optional[str] = ""
+    data_ora_trasporto: Optional[str] = ""
+    vettore: Optional[str] = ""
+    aspetto_beni: Optional[str] = "a vista"
+    note: Optional[str] = ""
+    note_destinazione: Optional[str] = ""

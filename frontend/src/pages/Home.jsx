@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api, API } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sailboat, MapPin, Phone, Mail, Clock, ArrowRight, Anchor, Building2, Globe, Database, Download, Upload, AlertTriangle, FileText, FileSpreadsheet, Settings, Zap, Package, Ship, LifeBuoy } from "lucide-react";
+import { Sailboat, MapPin, Phone, Mail, Clock, ArrowRight, Anchor, Building2, Globe, Database, Download, Upload, AlertTriangle, FileText, FileSpreadsheet, Settings, Zap, Package, Ship, LifeBuoy, Truck } from "lucide-react";
 import { toast } from "sonner";
 import ClienteForm from "@/pages/ClienteForm";
 import {
@@ -140,6 +140,12 @@ export default function Home() {
               <Link to="/gommoni">
                 <LifeBuoy className="w-4 h-4 mr-2" />
                 Gommoni GEB
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="h-12 px-6 border-foreground/20 hover:bg-foreground/5" data-testid="cta-ddt">
+              <Link to="/ddt">
+                <Truck className="w-4 h-4 mr-2" />
+                DDT & Foglio destinazione
               </Link>
             </Button>
             <Button asChild variant="ghost" size="lg" className="h-12 px-4 text-muted-foreground hover:text-foreground" data-testid="cta-impostazioni">
