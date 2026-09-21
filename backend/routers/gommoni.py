@@ -412,44 +412,96 @@ async def _build_listino_pdf(categoria: Optional[str] = None):
     acc = await db.gommoni_accessori.find({}, {"_id": 0}).sort([("serie", 1), ("nome", 1)]).to_list(2000)
     if acc:
         iva_m = 1 + await _get_iva_perc() / 100
-        by_serie: Dict[str, list] = {}
-        for a in acc:
-            by_serie.setdefault(a.get("serie") or "Tutte le serie", []).append(a)
         story.append(Spacer(1, 10))
         story.append(Paragraph("<b>ACCESSORI OPTIONAL</b> <font size='8' color='grey'>(prezzi IVA inclusa; su richiesta forniti montati)</font>",
                                ParagraphStyle("cat", parent=styles["Heading3"], fontSize=11, textColor=NAVY, spaceAfter=4)))
-        for serie, items in by_serie.items():
-            taglie = sorted({t for a in items for t in list((a.get("prezzi_per_modello") or {}).keys()) + list(a.get("di_serie") or [])}, key=lambda x: (len(x), x))
-            story.append(Paragraph(f"<b>Serie {serie}</b>", ParagraphStyle("ser", parent=styles["Normal"], fontSize=9.5, textColor=NAVY, spaceBefore=6, spaceAfter=3)))
-            head_cols = ["Accessorio", "Specifiche"] + (taglie if taglie else ["Prezzo"])
-            adata = [[Paragraph(h, st_head) for h in head_cols]]
-            for a in items:
-                row = [a.get("nome", ""), a.get("specifiche") or a.get("descrizione") or "—"]
-                if taglie:
-                    for t in taglie:
-                        if t in (a.get("di_serie") or []):
-                            row.append("di serie")
-                        elif (a.get("prezzi_per_modello") or {}).get(t):
-                            row.append(_fmt_eur(a["prezzi_per_modello"][t] * iva_m))
-                        else:
-                            row.append("—")
-                else:
-                    row.append(_fmt_eur((a.get("prezzo") or 0) * iva_m))
-                adata.append(row)
-            n = len(head_cols) - 2
-            wt = (186*mm - 62*mm - 34*mm) / max(n, 1)
-            ta = Table(adata, colWidths=[62*mm, 34*mm] + [wt]*n, repeatRows=1)
-            ta.setStyle(TableStyle([
-                ("BACKGROUND", (0,0), (-1,0), NAVY), ("FONTSIZE", (0,0), (-1,-1), 7.5),
-                ("ALIGN", (2,1), (-1,-1), "RIGHT"), ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, LIGHT]),
-                ("GRID", (0,0), (-1,-1), 0.25, BORDER), ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-                ("TOPPADDING", (0,0), (-1,-1), 2.5), ("BOTTOMPADDING", (0,0), (-1,-1), 2.5),
-            ]))
-            story.append(ta)
+        _accessori_tables(story, acc, iva_m, styles, st_head, NAVY, LIGHT, BORDER, show_serie_title=True)
 
     doc.build(story)
     buf.seek(0)
     fn = f"listino_gommoni_geb_{categoria or 'pubblico'}.pdf"
+    return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{fn}"'})
+
+
+def _accessori_tables(story, acc, iva_m, styles, st_head, NAVY, LIGHT, BORDER, show_serie_title=True, font_size=7.5):
+    from reportlab.lib import colors
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Paragraph, Table, TableStyle
+
+    by_serie: Dict[str, list] = {}
+    for a in acc:
+        by_serie.setdefault(a.get("serie") or "Tutte le serie", []).append(a)
+    for serie, items in by_serie.items():
+        taglie = sorted({t for a in items for t in list((a.get("prezzi_per_modello") or {}).keys()) + list(a.get("di_serie") or [])}, key=lambda x: (len(x), x))
+        if show_serie_title:
+            story.append(Paragraph(f"<b>Serie {serie}</b>", ParagraphStyle("ser", parent=styles["Normal"], fontSize=9.5, textColor=NAVY, spaceBefore=6, spaceAfter=3)))
+        head_cols = ["Accessorio", "Specifiche"] + (taglie if taglie else ["Prezzo"])
+        adata = [[Paragraph(h, st_head) for h in head_cols]]
+        st_cell = ParagraphStyle("ac", parent=styles["Normal"], fontSize=font_size, leading=font_size + 1.5)
+        for a in items:
+            row = [Paragraph(a.get("nome", ""), st_cell), Paragraph(a.get("specifiche") or a.get("descrizione") or "—", st_cell)]
+            if taglie:
+                for t in taglie:
+                    if t in (a.get("di_serie") or []):
+                        row.append("di serie")
+                    elif (a.get("prezzi_per_modello") or {}).get(t):
+                        row.append(_fmt_eur(a["prezzi_per_modello"][t] * iva_m))
+                    else:
+                        row.append("—")
+            else:
+                row.append(_fmt_eur((a.get("prezzo") or 0) * iva_m))
+            adata.append(row)
+        n = len(head_cols) - 2
+        wt = (186*mm - 62*mm - 34*mm) / max(n, 1)
+        ta = Table(adata, colWidths=[62*mm, 34*mm] + [wt]*n, repeatRows=1)
+        ta.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), NAVY), ("FONTSIZE", (0,0), (-1,-1), font_size),
+            ("ALIGN", (2,1), (-1,-1), "RIGHT"), ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, LIGHT]),
+            ("GRID", (0,0), (-1,-1), 0.25, BORDER), ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+            ("TOPPADDING", (0,0), (-1,-1), 2.5), ("BOTTOMPADDING", (0,0), (-1,-1), 2.5),
+        ]))
+        story.append(ta)
+
+
+@router.get("/accessori.pdf")
+async def accessori_pdf(serie: str = "", iva: str = "escl"):
+    """Listino accessori per serie (Job/Sirio/Tsunami o tutte). iva=escl (come listino GEB) oppure incl."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+
+    query = {"serie": serie} if serie else {}
+    acc = await db.gommoni_accessori.find(query, {"_id": 0}).sort([("serie", 1), ("nome", 1)]).to_list(2000)
+    if not acc:
+        raise HTTPException(400, f"Nessun accessorio{f' per la serie {serie}' if serie else ''}.")
+    styles = getSampleStyleSheet()
+    NAVY = colors.HexColor("#0F2A47")
+    LIGHT = colors.HexColor("#F2F4F7")
+    BORDER = colors.HexColor("#D0D5DD")
+    st_head = ParagraphStyle("hd", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9.5, textColor=colors.white, alignment=TA_CENTER)
+    incl = iva == "incl"
+    iva_perc = await _get_iva_perc()
+    iva_m = (1 + iva_perc / 100) if incl else 1.0
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=12*mm, bottomMargin=12*mm)
+    story = []
+    titolo = f"Prezzi per accessori Gommoni serie {serie}" if serie else "Prezzi per accessori Gommoni GEB"
+    _pdf_header(story, titolo, "GEB di Palmieri Sandro · Via degli Artigiani, 1 · 57034 Marina di Campo I. d'Elba (LI)", NAVY, styles)
+    _accessori_tables(story, acc, iva_m, styles, st_head, NAVY, LIGHT, BORDER, show_serie_title=not serie, font_size=8.5)
+    story.append(Spacer(1, 10))
+    nota = f"I prezzi si intendono IVA {iva_perc:g}% inclusa." if incl else "I prezzi si intendono IVA esclusa."
+    story.append(Paragraph(f"<i>{nota} La G.E.B. si riserva il diritto di variare i prezzi e i modelli senza preavviso - il presente listino annulla i precedenti.</i>",
+                           ParagraphStyle("note", parent=styles["Normal"], fontSize=8, textColor=colors.grey, alignment=TA_CENTER)))
+    story.append(Paragraph("P.I. 01246000499 · cell. 3472600872 · www.gebnautica.it · info@gebnautica.it",
+                           ParagraphStyle("foot", parent=styles["Normal"], fontSize=7.5, textColor=colors.grey, alignment=TA_CENTER)))
+    doc.build(story)
+    buf.seek(0)
+    fn = f"accessori_geb_{(serie or 'tutte').lower()}_iva_{iva}.pdf"
     return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{fn}"'})
 
 
@@ -466,16 +518,18 @@ async def listino_cantiere_pdf(categoria: str = "privati"):
 
 
 @router.get("/caratteristiche.pdf")
-async def caratteristiche_pdf():
+async def caratteristiche_pdf(modello_id: str = ""):
+    """Scheda caratteristiche di tutti i gommoni o di un solo modello (?modello_id=)."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
 
-    docs = await db.gommoni_modelli.find({}, {"_id": 0}).sort([("ordine", 1), ("lunghezza_m", 1)]).to_list(1000)
+    query = {"id": modello_id} if modello_id else {}
+    docs = await db.gommoni_modelli.find(query, {"_id": 0}).sort([("ordine", 1), ("lunghezza_m", 1)]).to_list(1000)
     if not docs:
-        raise HTTPException(400, "Nessun gommone in catalogo.")
+        raise HTTPException(404 if modello_id else 400, "Modello non trovato" if modello_id else "Nessun gommone in catalogo.")
     styles = getSampleStyleSheet()
     NAVY = colors.HexColor("#0F2A47")
     LIGHT = colors.HexColor("#F2F4F7")
@@ -487,7 +541,8 @@ async def caratteristiche_pdf():
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=12*mm, bottomMargin=12*mm)
     story = []
-    _pdf_header(story, "GOMMONI GEB — Caratteristiche tecniche", "GEB di Palmieri Sandro · Costruzione gommoni a marchio proprio", NAVY, styles)
+    titolo = f"GOMMONE GEB — {docs[0].get('modello', '')} · Scheda tecnica" if modello_id else "GOMMONI GEB — Caratteristiche tecniche"
+    _pdf_header(story, titolo, "GEB di Palmieri Sandro · Costruzione gommoni a marchio proprio", NAVY, styles)
 
     def cell(l, v):
         return [Paragraph(l.upper(), st_lab), Paragraph(v or "—", st_val)]
@@ -520,7 +575,8 @@ async def caratteristiche_pdf():
 
     doc.build(story)
     buf.seek(0)
-    return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": 'inline; filename="caratteristiche_gommoni_geb.pdf"'})
+    fn = f"scheda_{docs[0].get('modello', 'gommone').replace(' ', '_')}.pdf" if modello_id else "caratteristiche_gommoni_geb.pdf"
+    return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{fn}"'})
 
 
 # ---------------------------------------------------------------------------

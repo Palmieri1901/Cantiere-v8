@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { confirmDialog } from "@/components/ConfirmDialog";
-import { api } from "@/lib/api";
+import { api, API } from "@/lib/api";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Save } from "lucide-react";
+import { Plus, Pencil, Trash2, Save, FileText } from "lucide-react";
 import { EMPTY_ACCESSORIO, Field, fmt, SERIE, taglieDaModelli, prezzoAccessorio } from "./common";
 
 function AccessorioDialog({ value, taglieBySerie, onClose, onSaved }) {
@@ -80,6 +80,7 @@ export default function AccessoriTab() {
   const [iva, setIva] = useState(22);
   const [editing, setEditing] = useState(null);
   const [serieFilter, setSerieFilter] = useState("");
+  const [pdfIva, setPdfIva] = useState("escl");
   const load = async () => {
     try {
       const [ra, rm, rc] = await Promise.all([api.get("/gommoni/accessori"), api.get("/gommoni/modelli"), api.get("/cantiere")]);
@@ -109,7 +110,19 @@ export default function AccessoriTab() {
           </select>
           <span className="text-xs text-muted-foreground ml-2">Prezzi listino IVA esclusa · tra parentesi IVA {iva}% inclusa</span>
         </div>
-        <Button onClick={() => setEditing({ ...EMPTY_ACCESSORIO, serie: serieFilter })} className="bg-primary" data-testid="btn-new-accessorio"><Plus className="w-4 h-4 mr-2" /> Nuovo accessorio</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">PDF</span>
+          <select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={pdfIva} onChange={(e) => setPdfIva(e.target.value)} data-testid="acc-pdf-iva">
+            <option value="escl">IVA esclusa</option>
+            <option value="incl">IVA inclusa</option>
+          </select>
+          {SERIE.map((s) => (
+            <Button key={s} variant="outline" size="sm" onClick={() => window.open(`${API}/gommoni/accessori.pdf?serie=${s}&iva=${pdfIva}&_t=${Date.now()}`, "_blank")} data-testid={`btn-pdf-accessori-${s}`}>
+              <FileText className="w-3.5 h-3.5 mr-1.5" /> {s}
+            </Button>
+          ))}
+          <Button onClick={() => setEditing({ ...EMPTY_ACCESSORIO, serie: serieFilter })} className="bg-primary" data-testid="btn-new-accessorio"><Plus className="w-4 h-4 mr-2" /> Nuovo accessorio</Button>
+        </div>
       </div>
       {Object.keys(groups).length === 0 && <Card className="p-10 text-center text-muted-foreground">Nessun accessorio optional.</Card>}
       {Object.entries(groups).map(([serie, list]) => {

@@ -66,7 +66,7 @@ export default function CatalogoTab() {
                 <th className="text-left px-4 py-3">Tessuto</th>
                 <th className="text-right px-4 py-3">Pubblico</th>
                 <th className="text-left px-4 py-3">Documenti PDF</th>
-                <th className="text-right px-4 py-3 w-24">Azioni</th>
+                <th className="text-right px-4 py-3 w-32">Azioni</th>
               </tr>
             </thead>
             <tbody>
@@ -87,6 +87,7 @@ export default function CatalogoTab() {
                   <td className="px-4 py-2.5"><div className="flex flex-col gap-1"><DocumentoButton modello={m} tipo="presentazione" onChanged={load} /><DocumentoButton modello={m} tipo="omologazione" onChanged={load} /></div></td>
                   <td className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Scheda tecnica PDF" onClick={() => window.open(`${API}/gommoni/caratteristiche.pdf?modello_id=${m.id}&_t=${Date.now()}`, "_blank")} data-testid={`btn-scheda-gommone-${m.id}`}><FileText className="w-3.5 h-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditing({ ...m })} data-testid={`btn-edit-gommone-${m.id}`}><Pencil className="w-3.5 h-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => remove(m.id)} data-testid={`btn-del-gommone-${m.id}`}><Trash2 className="w-3.5 h-3.5" /></Button>
                     </div>
