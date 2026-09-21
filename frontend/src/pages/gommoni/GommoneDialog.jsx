@@ -4,23 +4,30 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { X, Save, Sparkles, Package } from "lucide-react";
-import { Field, gommonePayload, fmt, parseModello, prezzoAccessorio } from "./common";
+import { X, Save, Sparkles, Package, Plus } from "lucide-react";
+import { Field, gommonePayload } from "./common";
 
 export default function GommoneDialog({ value, onClose, onSaved }) {
-  const [form, setForm] = useState({ ...value, accessori_serie_ids: value.accessori_serie_ids || [] });
+  const [form, setForm] = useState({ ...value, accessori_serie: value.accessori_serie || [] });
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [accessori, setAccessori] = useState([]);
+  const [suggerimenti, setSuggerimenti] = useState([]);
+  const [nuovoSerie, setNuovoSerie] = useState("");
   const fileRef = useRef(null);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const isNew = !form.id;
-  useEffect(() => { api.get("/gommoni/accessori").then((r) => setAccessori(r.data)).catch(() => {}); }, []);
-  const { taglia, serie } = parseModello(form.modello || "");
-  const accDisponibili = accessori.filter((a) => (!a.serie || !serie || a.serie === serie));
-  const toggleSerie = (id, on) => setForm((f) => ({ ...f, accessori_serie_ids: on ? [...f.accessori_serie_ids, id] : f.accessori_serie_ids.filter((x) => x !== id) }));
+  useEffect(() => {
+    api.get("/gommoni/modelli").then((r) => setSuggerimenti([...new Set(r.data.flatMap((m) => m.accessori_serie || []))].sort())).catch(() => {});
+  }, []);
+  const addSerie = () => {
+    const v = nuovoSerie.trim();
+    if (!v) return;
+    if (form.accessori_serie.some((x) => x.toLowerCase() === v.toLowerCase())) { toast.info("Già presente"); return; }
+    setForm((f) => ({ ...f, accessori_serie: [...f.accessori_serie, v] }));
+    setNuovoSerie("");
+  };
+  const delSerie = (i) => setForm((f) => ({ ...f, accessori_serie: f.accessori_serie.filter((_, idx) => idx !== i) }));
 
   const scanScheda = async (e) => {
     const f = e.target.files?.[0];
@@ -94,20 +101,20 @@ export default function GommoneDialog({ value, onClose, onSaved }) {
           <div className="col-span-2 md:col-span-4"><Field label="Materiale / tessuto tubolare"><Input value={form.tessuto || ""} onChange={(e) => set("tessuto", e.target.value)} placeholder="H (Hypalon) / PVC" /></Field></div>
           <div className="col-span-2 md:col-span-4"><Field label="Dotazioni di serie (testo libero)"><Textarea value={form.dotazioni || ""} onChange={(e) => set("dotazioni", e.target.value)} rows={2} data-testid="g-dotazioni" /></Field></div>
           <div className="col-span-2 md:col-span-4">
-            <div className="label-mini mb-1.5 flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Accessori di serie (dalla lista accessori{serie ? ` · serie ${serie}` : ""}) — <span className="text-primary">{form.accessori_serie_ids.length} selezionati</span></div>
-            {accDisponibili.length === 0 ? <div className="text-xs text-muted-foreground">Nessun accessorio in lista{serie ? ` per la serie ${serie}` : ""}. Inseriscili nella tab Accessori optional.</div> : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-1 max-h-48 overflow-y-auto rounded-md border p-2" data-testid="g-accessori-serie">
-                {accDisponibili.map((a) => {
-                  const on = form.accessori_serie_ids.includes(a.id);
-                  const p = taglia ? prezzoAccessorio(a, taglia) : a.prezzo;
-                  return (
-                    <label key={a.id} className={`flex items-center gap-2 text-xs rounded px-1.5 py-1 cursor-pointer ${on ? "bg-emerald-50" : "hover:bg-muted/40"}`}>
-                      <Checkbox checked={on} onCheckedChange={(v) => toggleSerie(a.id, !!v)} data-testid={`g-acc-serie-${a.id}`} />
-                      <span className="flex-1">{a.nome}{a.specifiche ? <span className="text-muted-foreground"> · {a.specifiche}</span> : ""}</span>
-                      <span className="font-mono-num text-muted-foreground">{p === 0 ? "di serie" : p ? `${fmt(p)} +IVA` : "—"}</span>
-                    </label>
-                  );
-                })}
+            <div className="label-mini mb-1.5 flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Accessori di serie — <span className="text-primary">{form.accessori_serie.length}</span></div>
+            <div className="flex gap-2 mb-2">
+              <Input list="accessori-serie-suggerimenti" value={nuovoSerie} onChange={(e) => setNuovoSerie(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSerie(); } }} placeholder="Es. Scaletta inox, Puntale VTR, Luci di navigazione…" className="h-8" data-testid="g-serie-input" />
+              <datalist id="accessori-serie-suggerimenti">{suggerimenti.map((s) => <option key={s} value={s} />)}</datalist>
+              <Button type="button" variant="outline" size="sm" className="h-8" onClick={addSerie} data-testid="g-serie-add"><Plus className="w-3.5 h-3.5 mr-1" /> Aggiungi</Button>
+            </div>
+            {form.accessori_serie.length === 0 ? <div className="text-xs text-muted-foreground">Nessun accessorio di serie inserito.</div> : (
+              <div className="flex flex-wrap gap-1.5" data-testid="g-accessori-serie">
+                {form.accessori_serie.map((s, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-2.5 py-1" data-testid={`g-serie-item-${i}`}>
+                    {s}
+                    <button type="button" onClick={() => delSerie(i)} className="hover:text-destructive" title="Rimuovi da questa lista" data-testid={`g-serie-del-${i}`}><X className="w-3 h-3" /></button>
+                  </span>
+                ))}
               </div>
             )}
           </div>

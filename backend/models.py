@@ -939,7 +939,7 @@ class GommoneModello(BaseModel):
     categoria_ce: Optional[str] = ""
     potenza_min_hp: Optional[float] = 0
     specchio: Optional[str] = ""
-    accessori_serie_ids: List[str] = []
+    accessori_serie: List[str] = []                # dotazioni di serie (lista propria, separata dagli optional)
     dotazioni: Optional[str] = ""
     note: Optional[str] = ""
     prezzo_pubblico: float = 0                    # € IVA inclusa
@@ -967,7 +967,7 @@ class GommoneModelloCreate(BaseModel):
     categoria_ce: Optional[str] = ""
     potenza_min_hp: Optional[float] = 0
     specchio: Optional[str] = ""
-    accessori_serie_ids: List[str] = []
+    accessori_serie: List[str] = []                # dotazioni di serie (lista propria, separata dagli optional)
     dotazioni: Optional[str] = ""
     note: Optional[str] = ""
     prezzo_pubblico: Optional[float] = 0

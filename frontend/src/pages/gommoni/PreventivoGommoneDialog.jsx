@@ -29,7 +29,7 @@ export default function PreventivoGommoneDialog({ value, gommoni, accessori, mot
       diametro_tubolare_cm: g.diametro_tubolare_cm, compartimenti: g.compartimenti, portata_persone: g.portata_persone,
       potenza_max_hp: g.potenza_max_hp, peso_kg: g.peso_kg, carena: g.carena, tessuto: g.tessuto, dotazioni: g.dotazioni, lunghezza_interna_cm: g.lunghezza_interna_cm, categoria_ce: g.categoria_ce, potenza_min_hp: g.potenza_min_hp, specchio: g.specchio,
       prezzo_gommone: g.prezzo_pubblico || 0,
-      accessori_serie: (g.accessori_serie_ids || []).map((id) => accessori.find((a) => a.id === id)?.nome).filter(Boolean),
+      accessori_serie: [...(g.accessori_serie || [])],
     }));
   };
   const pickTipo = (t) => setForm((f) => ({ ...f, tipo_cliente: t, sconto_perc: Number(sconti?.[t]) || 0 }));
