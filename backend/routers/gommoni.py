@@ -3,7 +3,7 @@ import base64
 import io
 import os
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
@@ -19,7 +19,7 @@ from models import (
 )
 from routers.suzuki import (
     _logo_flowable, _fmt_eur, _get_condizioni_preventivo,
-    _pdf_pages_to_images_b64, _extract_json_array,
+    _pdf_pages_to_images_b64, _extract_json_array, _get_iva_perc,
 )
 
 router = APIRouter(prefix="/gommoni", tags=["Gommoni"])
@@ -67,12 +67,13 @@ async def update_modello(mid: str, payload: GommoneModelloCreate):
 
 @router.delete("/modelli/{mid}")
 async def delete_modello(mid: str):
-    doc = await db.gommoni_modelli.find_one({"id": mid}, {"_id": 0, "omologazione_file_id": 1})
+    doc = await db.gommoni_modelli.find_one({"id": mid}, {"_id": 0, "omologazione_file_id": 1, "presentazione_file_id": 1})
     res = await db.gommoni_modelli.delete_one({"id": mid})
     if res.deleted_count == 0:
         raise HTTPException(404, "Modello non trovato")
-    if doc and doc.get("omologazione_file_id"):
-        await _delete_gridfs(doc["omologazione_file_id"])
+    for k in ("omologazione_file_id", "presentazione_file_id"):
+        if doc and doc.get(k):
+            await _delete_gridfs(doc[k])
     return {"ok": True}
 
 
@@ -90,49 +91,66 @@ async def _delete_gridfs(fid: str):
         pass
 
 
-@router.post("/modelli/{mid}/omologazione")
-async def upload_omologazione(mid: str, file: UploadFile = File(...)):
+DOC_TIPI = {"omologazione": "Omologazione", "presentazione": "Presentazione"}
+
+
+def _check_tipo(tipo: str):
+    if tipo not in DOC_TIPI:
+        raise HTTPException(400, "Tipo documento non valido")
+
+
+@router.post("/modelli/{mid}/doc/{tipo}")
+async def upload_doc(mid: str, tipo: str, file: UploadFile = File(...)):
+    _check_tipo(tipo)
     doc = await db.gommoni_modelli.find_one({"id": mid}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Modello non trovato")
     data = await file.read()
     if data[:4] != b"%PDF":
         raise HTTPException(400, "Il file deve essere un PDF")
-    if len(data) > 20 * 1024 * 1024:
-        raise HTTPException(400, "File troppo grande (max 20 MB)")
-    if doc.get("omologazione_file_id"):
-        await _delete_gridfs(doc["omologazione_file_id"])
-    fid = await _bucket().upload_from_stream(file.filename or "omologazione.pdf", data, metadata={"modello_id": mid})
+    if len(data) > 30 * 1024 * 1024:
+        raise HTTPException(400, "File troppo grande (max 30 MB)")
+    if doc.get(f"{tipo}_file_id"):
+        await _delete_gridfs(doc[f"{tipo}_file_id"])
+    fid = await _bucket().upload_from_stream(file.filename or f"{tipo}.pdf", data, metadata={"modello_id": mid, "tipo": tipo})
     await db.gommoni_modelli.update_one({"id": mid}, {"$set": {
-        "omologazione_file_id": str(fid), "omologazione_nome": file.filename or "omologazione.pdf",
+        f"{tipo}_file_id": str(fid), f"{tipo}_nome": file.filename or f"{tipo}.pdf",
         "updated_at": datetime.now(timezone.utc)}})
     return {"ok": True, "file_id": str(fid), "nome": file.filename}
 
 
-@router.get("/modelli/{mid}/omologazione.pdf")
-async def get_omologazione(mid: str):
+@router.get("/modelli/{mid}/doc/{tipo}.pdf")
+async def get_doc(mid: str, tipo: str):
+    _check_tipo(tipo)
     doc = await db.gommoni_modelli.find_one({"id": mid}, {"_id": 0})
-    if not doc or not doc.get("omologazione_file_id"):
-        raise HTTPException(404, "Omologazione non caricata")
+    if not doc or not doc.get(f"{tipo}_file_id"):
+        raise HTTPException(404, f"{DOC_TIPI[tipo]} non caricata")
     try:
-        stream = await _bucket().open_download_stream(ObjectId(doc["omologazione_file_id"]))
+        stream = await _bucket().open_download_stream(ObjectId(doc[f"{tipo}_file_id"]))
         data = await stream.read()
     except Exception:
         raise HTTPException(404, "File non trovato")
-    nome = (doc.get("omologazione_nome") or "omologazione.pdf").replace('"', "")
+    nome = (doc.get(f"{tipo}_nome") or f"{tipo}.pdf").replace('"', "")
     return StreamingResponse(io.BytesIO(data), media_type="application/pdf",
                              headers={"Content-Disposition": f'inline; filename="{nome}"'})
 
 
-@router.delete("/modelli/{mid}/omologazione")
-async def delete_omologazione(mid: str):
+@router.delete("/modelli/{mid}/doc/{tipo}")
+async def delete_doc(mid: str, tipo: str):
+    _check_tipo(tipo)
     doc = await db.gommoni_modelli.find_one({"id": mid}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Modello non trovato")
-    if doc.get("omologazione_file_id"):
-        await _delete_gridfs(doc["omologazione_file_id"])
-    await db.gommoni_modelli.update_one({"id": mid}, {"$set": {"omologazione_file_id": "", "omologazione_nome": ""}})
+    if doc.get(f"{tipo}_file_id"):
+        await _delete_gridfs(doc[f"{tipo}_file_id"])
+    await db.gommoni_modelli.update_one({"id": mid}, {"$set": {f"{tipo}_file_id": "", f"{tipo}_nome": ""}})
     return {"ok": True}
+
+
+# retro-compatibilità vecchi link omologazione
+@router.get("/modelli/{mid}/omologazione.pdf")
+async def get_omologazione_legacy(mid: str):
+    return await get_doc(mid, "omologazione")
 
 
 # ---------------------------------------------------------------------------
@@ -140,7 +158,7 @@ async def delete_omologazione(mid: str):
 # ---------------------------------------------------------------------------
 @router.get("/accessori", response_model=List[GommoneAccessorio])
 async def list_accessori():
-    docs = await db.gommoni_accessori.find({}, {"_id": 0}).sort([("categoria", 1), ("nome", 1)]).to_list(2000)
+    docs = await db.gommoni_accessori.find({}, {"_id": 0}).sort([("serie", 1), ("nome", 1)]).to_list(2000)
     return [GommoneAccessorio(**d) for d in docs]
 
 
@@ -391,21 +409,43 @@ async def _build_listino_pdf(categoria: Optional[str] = None):
     story.append(Paragraph("<i>Prezzi IVA inclusa, salvo variazioni. Gommoni costruiti da GEB di Palmieri Sandro. Accessori optional quotati a parte.</i>",
                            ParagraphStyle("note", parent=styles["Normal"], fontSize=8, textColor=colors.grey)))
 
-    acc = await db.gommoni_accessori.find({}, {"_id": 0}).sort([("categoria", 1), ("nome", 1)]).to_list(2000)
+    acc = await db.gommoni_accessori.find({}, {"_id": 0}).sort([("serie", 1), ("nome", 1)]).to_list(2000)
     if acc:
-        story.append(Spacer(1, 10))
-        story.append(Paragraph("<b>ACCESSORI OPTIONAL</b>", ParagraphStyle("cat", parent=styles["Heading3"], fontSize=11, textColor=NAVY, spaceAfter=4)))
-        adata = [[Paragraph(h, st_head) for h in ["Accessorio", "Categoria", "Descrizione", "Prezzo € (IVA incl.)"]]]
+        iva_m = 1 + await _get_iva_perc() / 100
+        by_serie: Dict[str, list] = {}
         for a in acc:
-            adata.append([a.get("nome", ""), a.get("categoria", "") or "—", a.get("descrizione", "") or "—", _fmt_eur(a.get("prezzo") or 0)])
-        ta = Table(adata, colWidths=[50*mm, 30*mm, 70*mm, 36*mm], repeatRows=1)
-        ta.setStyle(TableStyle([
-            ("BACKGROUND", (0,0), (-1,0), NAVY), ("FONTSIZE", (0,0), (-1,-1), 8.5),
-            ("ALIGN", (3,1), (3,-1), "RIGHT"), ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, LIGHT]),
-            ("GRID", (0,0), (-1,-1), 0.25, BORDER), ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-            ("TOPPADDING", (0,0), (-1,-1), 3), ("BOTTOMPADDING", (0,0), (-1,-1), 3),
-        ]))
-        story.append(ta)
+            by_serie.setdefault(a.get("serie") or "Tutte le serie", []).append(a)
+        story.append(Spacer(1, 10))
+        story.append(Paragraph("<b>ACCESSORI OPTIONAL</b> <font size='8' color='grey'>(prezzi IVA inclusa; su richiesta forniti montati)</font>",
+                               ParagraphStyle("cat", parent=styles["Heading3"], fontSize=11, textColor=NAVY, spaceAfter=4)))
+        for serie, items in by_serie.items():
+            taglie = sorted({t for a in items for t in list((a.get("prezzi_per_modello") or {}).keys()) + list(a.get("di_serie") or [])}, key=lambda x: (len(x), x))
+            story.append(Paragraph(f"<b>Serie {serie}</b>", ParagraphStyle("ser", parent=styles["Normal"], fontSize=9.5, textColor=NAVY, spaceBefore=6, spaceAfter=3)))
+            head_cols = ["Accessorio", "Specifiche"] + (taglie if taglie else ["Prezzo"])
+            adata = [[Paragraph(h, st_head) for h in head_cols]]
+            for a in items:
+                row = [a.get("nome", ""), a.get("specifiche") or a.get("descrizione") or "—"]
+                if taglie:
+                    for t in taglie:
+                        if t in (a.get("di_serie") or []):
+                            row.append("di serie")
+                        elif (a.get("prezzi_per_modello") or {}).get(t):
+                            row.append(_fmt_eur(a["prezzi_per_modello"][t] * iva_m))
+                        else:
+                            row.append("—")
+                else:
+                    row.append(_fmt_eur((a.get("prezzo") or 0) * iva_m))
+                adata.append(row)
+            n = len(head_cols) - 2
+            wt = (186*mm - 62*mm - 34*mm) / max(n, 1)
+            ta = Table(adata, colWidths=[62*mm, 34*mm] + [wt]*n, repeatRows=1)
+            ta.setStyle(TableStyle([
+                ("BACKGROUND", (0,0), (-1,0), NAVY), ("FONTSIZE", (0,0), (-1,-1), 7.5),
+                ("ALIGN", (2,1), (-1,-1), "RIGHT"), ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, LIGHT]),
+                ("GRID", (0,0), (-1,-1), 0.25, BORDER), ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+                ("TOPPADDING", (0,0), (-1,-1), 2.5), ("BOTTOMPADDING", (0,0), (-1,-1), 2.5),
+            ]))
+            story.append(ta)
 
     doc.build(story)
     buf.seek(0)

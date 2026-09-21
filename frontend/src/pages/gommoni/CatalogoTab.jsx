@@ -8,7 +8,7 @@ import { EMPTY_GOMMONE, fmt } from "./common";
 import GommoneDialog from "./GommoneDialog";
 import ScontiDialog from "./ScontiDialog";
 import ImportAIGommoniDialog from "./ImportAIGommoniDialog";
-import OmologazioneButton from "./OmologazioneButton";
+import DocumentoButton from "./DocumentoButton";
 
 export default function CatalogoTab() {
   const [items, setItems] = useState([]);
@@ -64,7 +64,7 @@ export default function CatalogoTab() {
                 <th className="text-right px-4 py-3">HP max</th>
                 <th className="text-left px-4 py-3">Tessuto</th>
                 <th className="text-right px-4 py-3">Pubblico</th>
-                <th className="text-left px-4 py-3">Omologazione</th>
+                <th className="text-left px-4 py-3">Documenti PDF</th>
                 <th className="text-right px-4 py-3 w-24">Azioni</th>
               </tr>
             </thead>
@@ -83,7 +83,7 @@ export default function CatalogoTab() {
                   <td className="px-4 py-2.5 text-right font-mono-num">{m.potenza_max_hp || "—"}</td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{m.tessuto || "—"}</td>
                   <td className="px-4 py-2.5 text-right font-mono-num font-semibold text-primary">{fmt(m.prezzo_pubblico)}</td>
-                  <td className="px-4 py-2.5"><OmologazioneButton modello={m} onChanged={load} /></td>
+                  <td className="px-4 py-2.5"><div className="flex flex-col gap-1"><DocumentoButton modello={m} tipo="presentazione" onChanged={load} /><DocumentoButton modello={m} tipo="omologazione" onChanged={load} /></div></td>
                   <td className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditing({ ...m })} data-testid={`btn-edit-gommone-${m.id}`}><Pencil className="w-3.5 h-3.5" /></Button>

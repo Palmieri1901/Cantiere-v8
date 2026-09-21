@@ -21,6 +21,7 @@ export default function PreventiviGommoniTab() {
   const [accessori, setAccessori] = useState([]);
   const [motori, setMotori] = useState([]);
   const [sconti, setSconti] = useState({});
+  const [iva, setIva] = useState(22);
   const [editing, setEditing] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -28,11 +29,11 @@ export default function PreventiviGommoniTab() {
 
   const load = async () => {
     try {
-      const [rp, rg, ra, rm, rs] = await Promise.all([
+      const [rp, rg, ra, rm, rs, rc] = await Promise.all([
         api.get("/gommoni/preventivi"), api.get("/gommoni/modelli"), api.get("/gommoni/accessori"),
-        api.get("/suzuki/modelli"), api.get("/gommoni/sconti"),
+        api.get("/suzuki/modelli"), api.get("/gommoni/sconti"), api.get("/cantiere"),
       ]);
-      setItems(rp.data); setGommoni(rg.data); setAccessori(ra.data); setMotori(rm.data); setSconti(rs.data);
+      setItems(rp.data); setGommoni(rg.data); setAccessori(ra.data); setMotori(rm.data); setSconti(rs.data); setIva(Number(rc.data?.iva_percentuale) || 22);
     } catch { toast.error("Errore caricamento"); }
   };
   useEffect(() => { load(); }, []);
@@ -89,7 +90,7 @@ export default function PreventiviGommoniTab() {
           </table>
         </div>
       </Card>
-      {editing && <PreventivoGommoneDialog value={editing} gommoni={gommoni} accessori={accessori} motori={motori} sconti={sconti} onClose={() => setEditing(null)} onSaved={load} />}
+      {editing && <PreventivoGommoneDialog value={editing} gommoni={gommoni} accessori={accessori} motori={motori} sconti={sconti} iva={iva} onClose={() => setEditing(null)} onSaved={load} />}
       <PdfPreviewOverlay open={previewOpen} onClose={() => setPreviewOpen(false)} url={previewUrl} filename={previewName} />
     </div>
   );

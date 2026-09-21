@@ -8,13 +8,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { FileText, Save, Plus, Trash2 } from "lucide-react";
 import { PdfPreviewOverlay } from "@/components/PdfPreviewOverlay";
-import { CATEGORIE, Field, fmt, numOrZero } from "./common";
+import { CATEGORIE, Field, fmt, numOrZero, parseModello, prezzoAccessorio } from "./common";
 
 const Select = ({ value, onChange, children, testid }) => (
   <select className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm" value={value} onChange={onChange} data-testid={testid}>{children}</select>
 );
 
-export default function PreventivoGommoneDialog({ value, gommoni, accessori, motori, sconti, onClose, onSaved }) {
+export default function PreventivoGommoneDialog({ value, gommoni, accessori, motori, sconti, iva = 22, onClose, onSaved }) {
   const [form, setForm] = useState(value);
   const [saving, setSaving] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -37,10 +37,15 @@ export default function PreventivoGommoneDialog({ value, gommoni, accessori, mot
     if (!m) { setForm((f) => ({ ...f, motore_modello: "", motore_prezzo: 0 })); return; }
     setForm((f) => ({ ...f, motore_modello: `Suzuki ${m.modello}`, motore_prezzo: m.prezzo_offerta || m.prezzo_pubblico || 0 }));
   };
+  const { taglia, serie } = parseModello(form.modello || "");
+  const accessoriDisponibili = accessori.filter((a) => (!a.serie || !serie || a.serie === serie) && (!taglia || prezzoAccessorio(a, taglia) !== null));
   const addAccessorio = (aid) => {
     const a = accessori.find((x) => x.id === aid);
     if (!a) return;
-    setForm((f) => ({ ...f, accessori: [...(f.accessori || []), { accessorio_id: a.id, nome: a.nome, prezzo: a.prezzo, quantita: 1 }] }));
+    const netto = taglia ? prezzoAccessorio(a, taglia) : (a.prezzo || 0);
+    const diSerie = netto === 0;
+    const prezzoIncl = diSerie ? 0 : Math.round((netto || 0) * (1 + iva / 100) * 100) / 100;
+    setForm((f) => ({ ...f, accessori: [...(f.accessori || []), { accessorio_id: a.id, nome: diSerie ? `${a.nome} (di serie)` : a.nome, prezzo: prezzoIncl, quantita: 1 }] }));
   };
   const updAcc = (i, k, v) => setForm((f) => ({ ...f, accessori: f.accessori.map((a, idx) => idx === i ? { ...a, [k]: v } : a) }));
   const delAcc = (i) => setForm((f) => ({ ...f, accessori: f.accessori.filter((_, idx) => idx !== i) }));
@@ -139,8 +144,11 @@ export default function PreventivoGommoneDialog({ value, gommoni, accessori, mot
             <div className="flex items-center justify-between mb-2">
               <div className="label-mini">Accessori optional</div>
               <Select value="" onChange={(e) => addAccessorio(e.target.value)} testid="pg-add-accessorio">
-                <option value="">+ Aggiungi accessorio…</option>
-                {accessori.map((a) => <option key={a.id} value={a.id}>{a.nome} — {fmt(a.prezzo)}</option>)}
+                <option value="">+ Aggiungi accessorio{serie ? ` (serie ${serie}${taglia ? ` · ${taglia}` : ""})` : ""}…</option>
+                {accessoriDisponibili.map((a) => {
+                  const n = taglia ? prezzoAccessorio(a, taglia) : a.prezzo;
+                  return <option key={a.id} value={a.id}>{a.nome} — {n === 0 ? "di serie" : `${fmt(n * (1 + iva / 100))} IVA incl.`}</option>;
+                })}
               </Select>
             </div>
             {(form.accessori || []).length === 0 ? <div className="text-xs text-muted-foreground">Nessun accessorio aggiunto.</div> : (

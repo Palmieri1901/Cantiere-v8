@@ -12,7 +12,34 @@ export const EMPTY_GOMMONE = {
   note: "", prezzo_pubblico: 0, ordine: 0,
 };
 
-export const EMPTY_ACCESSORIO = { nome: "", descrizione: "", categoria: "", prezzo: 0 };
+export const EMPTY_ACCESSORIO = { nome: "", descrizione: "", categoria: "", serie: "", specifiche: "", prezzo: 0, prezzi_per_modello: {}, di_serie: [] };
+
+export const SERIE = ["Job", "Sirio", "Tsunami"];
+
+// "GEB 620 Tsunami" -> { taglia: "620", serie: "Tsunami" }
+export const parseModello = (nome = "") => {
+  const taglia = (nome.match(/\b(\d{3})\b/) || [])[1] || "";
+  const serie = SERIE.find((s) => nome.toLowerCase().includes(s.toLowerCase())) || "";
+  return { taglia, serie };
+};
+
+export const taglieDaModelli = (modelli) => {
+  const out = {};
+  for (const m of modelli) {
+    const { taglia, serie } = parseModello(m.modello);
+    if (serie && taglia) (out[serie] ||= new Set()).add(taglia);
+  }
+  return Object.fromEntries(Object.entries(out).map(([s, set]) => [s, [...set].sort()]));
+};
+
+// prezzo IVA escl. per taglia: null = non disponibile, 0 = di serie
+export const prezzoAccessorio = (a, taglia) => {
+  if ((a.di_serie || []).includes(taglia)) return 0;
+  const p = (a.prezzi_per_modello || {})[taglia];
+  if (p != null && p > 0) return p;
+  if (Object.keys(a.prezzi_per_modello || {}).length === 0 && !(a.di_serie || []).length) return a.prezzo || null;
+  return null;
+};
 
 export const EMPTY_PREV_GOMMONE = {
   cliente_nome: "", cliente_telefono: "", cliente_email: "", tipo_cliente: "privati",

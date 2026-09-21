@@ -1,7 +1,7 @@
 """Pydantic models for the Cantiere Nautico API."""
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -945,6 +945,8 @@ class GommoneModello(BaseModel):
     ordine: Optional[int] = 0
     omologazione_file_id: Optional[str] = ""      # GridFS id del PDF di omologazione
     omologazione_nome: Optional[str] = ""
+    presentazione_file_id: Optional[str] = ""     # GridFS id del PDF di presentazione
+    presentazione_nome: Optional[str] = ""
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -975,13 +977,17 @@ class GommoneBulkCreate(BaseModel):
 
 
 class GommoneAccessorio(BaseModel):
-    """Accessorio optional per gommoni GEB."""
+    """Accessorio optional per gommoni GEB. Prezzi IVA ESCLUSA (listino GEB), per taglia (es. "620": 1000)."""
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     nome: str
     descrizione: Optional[str] = ""
     categoria: Optional[str] = ""
-    prezzo: float = 0                             # € IVA inclusa
+    serie: Optional[str] = ""                     # Job / Sirio / Tsunami / "" (tutte)
+    specifiche: Optional[str] = ""                # es. MONTATO
+    prezzo: float = 0                             # prezzo base IVA esclusa (se non specificato per taglia)
+    prezzi_per_modello: Dict[str, float] = {}     # taglia -> prezzo IVA esclusa
+    di_serie: List[str] = []                      # taglie in cui l'accessorio è incluso di serie
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -990,7 +996,11 @@ class GommoneAccessorioCreate(BaseModel):
     nome: str
     descrizione: Optional[str] = ""
     categoria: Optional[str] = ""
+    serie: Optional[str] = ""
+    specifiche: Optional[str] = ""
     prezzo: Optional[float] = 0
+    prezzi_per_modello: Dict[str, float] = {}
+    di_serie: List[str] = []
 
 
 class GommoneSconti(BaseModel):
