@@ -27,7 +27,7 @@ export default function PreventivoGommoneDialog({ value, gommoni, accessori, mot
     setForm((f) => ({
       ...f, gommone_id: gid, modello: g.modello, lunghezza_m: g.lunghezza_m, larghezza_m: g.larghezza_m,
       diametro_tubolare_cm: g.diametro_tubolare_cm, compartimenti: g.compartimenti, portata_persone: g.portata_persone,
-      potenza_max_hp: g.potenza_max_hp, peso_kg: g.peso_kg, carena: g.carena, tessuto: g.tessuto, dotazioni: g.dotazioni,
+      potenza_max_hp: g.potenza_max_hp, peso_kg: g.peso_kg, carena: g.carena, tessuto: g.tessuto, dotazioni: g.dotazioni, lunghezza_interna_cm: g.lunghezza_interna_cm, categoria_ce: g.categoria_ce, potenza_min_hp: g.potenza_min_hp, specchio: g.specchio,
       prezzo_gommone: g.prezzo_pubblico || 0,
     }));
   };
@@ -59,7 +59,7 @@ export default function PreventivoGommoneDialog({ value, gommoni, accessori, mot
     motore_prezzo: numOrZero(form.motore_prezzo), motore_sconto_perc: numOrZero(form.motore_sconto_perc), montaggio: numOrZero(form.montaggio),
     lunghezza_m: numOrZero(form.lunghezza_m), larghezza_m: numOrZero(form.larghezza_m), diametro_tubolare_cm: numOrZero(form.diametro_tubolare_cm),
     compartimenti: Math.round(numOrZero(form.compartimenti)), portata_persone: Math.round(numOrZero(form.portata_persone)),
-    potenza_max_hp: numOrZero(form.potenza_max_hp), peso_kg: numOrZero(form.peso_kg),
+    potenza_max_hp: numOrZero(form.potenza_max_hp), peso_kg: numOrZero(form.peso_kg), lunghezza_interna_cm: numOrZero(form.lunghezza_interna_cm), potenza_min_hp: numOrZero(form.potenza_min_hp),
     accessori: (form.accessori || []).map((a) => ({ ...a, prezzo: numOrZero(a.prezzo), quantita: Math.max(1, Math.round(numOrZero(a.quantita) || 1)) })),
   });
   const valid = () => { if (!form.cliente_nome?.trim() || !form.modello?.trim()) { toast.error("Cliente e modello obbligatori"); return false; } return true; };
@@ -124,6 +124,10 @@ export default function PreventivoGommoneDialog({ value, gommoni, accessori, mot
               <Field label="Compartimenti"><Input type="number" value={form.compartimenti || ""} onChange={(e) => set("compartimenti", e.target.value)} /></Field>
               <Field label="Portata persone"><Input type="number" value={form.portata_persone || ""} onChange={(e) => set("portata_persone", e.target.value)} /></Field>
               <Field label="Potenza max (HP)"><Input type="number" value={form.potenza_max_hp || ""} onChange={(e) => set("potenza_max_hp", e.target.value)} /></Field>
+              <Field label="Potenza min (HP)"><Input type="number" value={form.potenza_min_hp || ""} onChange={(e) => set("potenza_min_hp", e.target.value)} /></Field>
+              <Field label="Misura interna (cm)"><Input type="number" value={form.lunghezza_interna_cm || ""} onChange={(e) => set("lunghezza_interna_cm", e.target.value)} /></Field>
+              <Field label="Categoria CE"><Input value={form.categoria_ce || ""} onChange={(e) => set("categoria_ce", e.target.value)} /></Field>
+              <Field label="Specchio"><Input value={form.specchio || ""} onChange={(e) => set("specchio", e.target.value)} /></Field>
               <Field label="Peso (kg)"><Input type="number" value={form.peso_kg || ""} onChange={(e) => set("peso_kg", e.target.value)} /></Field>
               <Field label="Carena"><Input value={form.carena || ""} onChange={(e) => set("carena", e.target.value)} /></Field>
               <div className="col-span-2"><Field label="Tessuto"><Input value={form.tessuto || ""} onChange={(e) => set("tessuto", e.target.value)} /></Field></div>

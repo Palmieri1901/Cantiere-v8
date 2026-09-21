@@ -935,6 +935,10 @@ class GommoneModello(BaseModel):
     peso_kg: Optional[float] = 0
     carena: Optional[str] = ""
     tessuto: Optional[str] = ""
+    lunghezza_interna_cm: Optional[float] = 0
+    categoria_ce: Optional[str] = ""
+    potenza_min_hp: Optional[float] = 0
+    specchio: Optional[str] = ""
     dotazioni: Optional[str] = ""
     note: Optional[str] = ""
     prezzo_pubblico: float = 0                    # € IVA inclusa
@@ -956,6 +960,10 @@ class GommoneModelloCreate(BaseModel):
     peso_kg: Optional[float] = 0
     carena: Optional[str] = ""
     tessuto: Optional[str] = ""
+    lunghezza_interna_cm: Optional[float] = 0
+    categoria_ce: Optional[str] = ""
+    potenza_min_hp: Optional[float] = 0
+    specchio: Optional[str] = ""
     dotazioni: Optional[str] = ""
     note: Optional[str] = ""
     prezzo_pubblico: Optional[float] = 0
@@ -1020,6 +1028,10 @@ class GommonePreventivo(BaseModel):
     peso_kg: Optional[float] = 0
     carena: Optional[str] = ""
     tessuto: Optional[str] = ""
+    lunghezza_interna_cm: Optional[float] = 0
+    categoria_ce: Optional[str] = ""
+    potenza_min_hp: Optional[float] = 0
+    specchio: Optional[str] = ""
     dotazioni: Optional[str] = ""
     prezzo_gommone: float = 0                     # € IVA incl. pubblico
     sconto_perc: float = 0
@@ -1053,6 +1065,10 @@ class GommonePreventivoCreate(BaseModel):
     peso_kg: Optional[float] = 0
     carena: Optional[str] = ""
     tessuto: Optional[str] = ""
+    lunghezza_interna_cm: Optional[float] = 0
+    categoria_ce: Optional[str] = ""
+    potenza_min_hp: Optional[float] = 0
+    specchio: Optional[str] = ""
     dotazioni: Optional[str] = ""
     prezzo_gommone: float = 0
     sconto_perc: Optional[float] = 0

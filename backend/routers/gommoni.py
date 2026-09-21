@@ -211,7 +211,11 @@ _IMPORT_PROMPT = (
     '  "potenza_max_hp": potenza massima motore in HP (numero)\n'
     '  "peso_kg": peso in kg (numero)\n'
     '  "carena": tipo di carena, categoria di progettazione CE, lunghezza interna se presenti (stringa)\n'
-    '  "tessuto": tessuto tubolare es. PVC, Hypalon/Neoprene con grammatura (stringa)\n'
+    '  "tessuto": tessuto tubolare es. PVC, Hypalon/Neoprene (H) con grammatura (stringa)\n'
+    '  "lunghezza_interna_cm": misura interna in cm (numero)\n'
+    '  "categoria_ce": categoria di progettazione CE es. C, C/B (stringa)\n'
+    '  "potenza_min_hp": potenza minima motore in HP (numero)\n'
+    '  "specchio": gambo/specchio di poppa es. L, XL, XXL (stringa)\n'
     '  "dotazioni": elenco COMPLETO delle dotazioni di serie e delle caratteristiche descrittive (stringa, separate da virgola)\n'
     '  "prezzo_pubblico": prezzo al pubblico in euro IVA inclusa (numero, 0 se assente)\n'
     '  "note": altre informazioni tecniche utili non rientranti nelle chiavi precedenti (stringa)\n'
@@ -451,14 +455,15 @@ async def caratteristiche_pdf():
     for r in docs:
         block = [Paragraph(f"<b>{r.get('modello','')}</b>", ParagraphStyle("m", parent=styles["Heading3"], fontSize=12, textColor=NAVY, spaceBefore=6, spaceAfter=3))]
         cells = [
-            cell("Lunghezza", _fmt_n(r.get("lunghezza_m"), " m")), cell("Larghezza", _fmt_n(r.get("larghezza_m"), " m")),
-            cell("Ø tubolare", _fmt_n(r.get("diametro_tubolare_cm"), " cm")), cell("Compartimenti", _fmt_n(r.get("compartimenti"))),
-            cell("Portata persone", _fmt_n(r.get("portata_persone"))), cell("Potenza max", _fmt_n(r.get("potenza_max_hp"), " HP")),
-            cell("Peso", _fmt_n(r.get("peso_kg"), " kg")), cell("Carena", r.get("carena") or "—"),
-            cell("Tessuto", r.get("tessuto") or "—"), cell("Prezzo pubblico", _fmt_eur(r.get("prezzo_pubblico") or 0)),
+            cell("Misura esterna", f"{_fmt_n(r.get('lunghezza_m'), ' m')} × {_fmt_n(r.get('larghezza_m'), ' m')}"), cell("Misura interna", _fmt_n(r.get("lunghezza_interna_cm"), " cm")),
+            cell("Ø tubolare", _fmt_n(r.get("diametro_tubolare_cm"), " cm")), cell("Camere", _fmt_n(r.get("compartimenti"))),
+            cell("Portata persone", _fmt_n(r.get("portata_persone"))), cell("CV min – max", f"{_fmt_n(r.get('potenza_min_hp'))} – {_fmt_n(r.get('potenza_max_hp'))} HP"),
+            cell("Massa", _fmt_n(r.get("peso_kg"), " kg")), cell("Carena", r.get("carena") or "—"),
+            cell("Materiale tub.", r.get("tessuto") or "—"), cell("Categoria CE", r.get("categoria_ce") or "—"),
+            cell("Specchio", r.get("specchio") or "—"), cell("Prezzo pubblico", _fmt_eur(r.get("prezzo_pubblico") or 0)),
         ]
-        rows = [cells[i:i+5] for i in range(0, 10, 5)]
-        tg = Table(rows, colWidths=[37.2*mm]*5)
+        rows = [cells[i:i+4] for i in range(0, 12, 4)]
+        tg = Table(rows, colWidths=[46.5*mm]*4)
         tg.setStyle(TableStyle([
             ("BOX", (0,0), (-1,-1), 0.4, BORDER), ("INNERGRID", (0,0), (-1,-1), 0.25, BORDER),
             ("ROWBACKGROUNDS", (0,0), (-1,-1), [colors.white, LIGHT]), ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
@@ -640,10 +645,10 @@ async def _build_preventivo_pdf(p: GommonePreventivo) -> bytes:
     def cell(l, v):
         return [Paragraph(l.upper(), st_label), Paragraph(v or "—", st_val)]
     cells = [
-        cell("Modello", p.modello), cell("Lunghezza", _fmt_n(p.lunghezza_m, " m")), cell("Larghezza", _fmt_n(p.larghezza_m, " m")),
-        cell("Ø tubolare", _fmt_n(p.diametro_tubolare_cm, " cm")), cell("Compartimenti", _fmt_n(p.compartimenti)), cell("Portata persone", _fmt_n(p.portata_persone)),
-        cell("Potenza max", _fmt_n(p.potenza_max_hp, " HP")), cell("Peso", _fmt_n(p.peso_kg, " kg")), cell("Carena", p.carena or "—"),
-        cell("Tessuto", p.tessuto or "—"), "", "",
+        cell("Modello", p.modello), cell("Misura esterna", f"{_fmt_n(p.lunghezza_m, ' m')} × {_fmt_n(p.larghezza_m, ' m')}"), cell("Misura interna", _fmt_n(p.lunghezza_interna_cm, " cm")),
+        cell("Ø tubolare", _fmt_n(p.diametro_tubolare_cm, " cm")), cell("Camere", _fmt_n(p.compartimenti)), cell("Portata persone", _fmt_n(p.portata_persone)),
+        cell("CV min – max", f"{_fmt_n(p.potenza_min_hp)} – {_fmt_n(p.potenza_max_hp)} HP"), cell("Massa", _fmt_n(p.peso_kg, " kg")), cell("Carena", p.carena or "—"),
+        cell("Materiale tub.", p.tessuto or "—"), cell("Categoria CE", p.categoria_ce or "—"), cell("Specchio", p.specchio or "—"),
     ]
     tg = Table([cells[i:i+3] for i in range(0, 12, 3)], colWidths=[60.66*mm]*3)
     tg.setStyle(TableStyle([("BOX", (0,0), (-1,-1), 0.4, BORDER), ("INNERGRID", (0,0), (-1,-1), 0.25, BORDER),

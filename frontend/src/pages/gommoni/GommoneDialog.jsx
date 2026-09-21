@@ -80,8 +80,12 @@ export default function GommoneDialog({ value, onClose, onSaved }) {
           {num("portata_persone", "Portata persone", "1")}
           {num("potenza_max_hp", "Potenza max (HP)", "1")}
           {num("peso_kg", "Peso (kg)", "1")}
-          <Field label="Carena"><Input value={form.carena || ""} onChange={(e) => set("carena", e.target.value)} placeholder="V profonda" /></Field>
-          <div className="col-span-2 md:col-span-4"><Field label="Tessuto tubolare"><Input value={form.tessuto || ""} onChange={(e) => set("tessuto", e.target.value)} placeholder="Hypalon / PVC 1100 dtex" /></Field></div>
+          <Field label="Carena"><Input value={form.carena || ""} onChange={(e) => set("carena", e.target.value)} placeholder="VTR" /></Field>
+          {num("lunghezza_interna_cm", "Misura interna (cm)", "1")}
+          {num("potenza_min_hp", "Potenza min (HP)", "1")}
+          <Field label="Categoria CE"><Input value={form.categoria_ce || ""} onChange={(e) => set("categoria_ce", e.target.value)} placeholder="C" /></Field>
+          <Field label="Specchio di poppa"><Input value={form.specchio || ""} onChange={(e) => set("specchio", e.target.value)} placeholder="L / XL / XXL" /></Field>
+          <div className="col-span-2 md:col-span-4"><Field label="Materiale / tessuto tubolare"><Input value={form.tessuto || ""} onChange={(e) => set("tessuto", e.target.value)} placeholder="H (Hypalon) / PVC" /></Field></div>
           <div className="col-span-2 md:col-span-4"><Field label="Dotazioni di serie"><Textarea value={form.dotazioni || ""} onChange={(e) => set("dotazioni", e.target.value)} rows={3} data-testid="g-dotazioni" /></Field></div>
           <div className="col-span-2 md:col-span-4"><Field label="Note"><Textarea value={form.note || ""} onChange={(e) => set("note", e.target.value)} rows={2} /></Field></div>
         </div>

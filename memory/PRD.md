@@ -1,6 +1,7 @@
 # PRD — Portomare: Gestione Cantiere Nautico
 
 ## Changelog
+- **2026-06** — **Catalogo Gommoni GEB reale**: importati i 14 modelli da "CARATTERISTICHE GOMMONI G.E.B." (`backend/scripts/seed_gommoni_geb.py`, upsert per modello). Nuovi campi `lunghezza_interna_cm`, `categoria_ce`, `potenza_min_hp`, `specchio` su modelli/preventivi, form, PDF caratteristiche (griglia 3×4) e PDF preventivo, prompt AI.
 - **2026-06** — **Promemoria backup**: `GET /api/backup` registra `ultimo_backup` in `app_settings{id:"backup_info"}`; `GET /api/backup/ultimo` ritorna data, giorni trascorsi e `scaduto` (≥7 giorni o mai). Home mostra banner ambra con pulsante "Salva backup ora" quando scaduto, altrimenti riga verde "Ultimo backup: …".
 - **2026-06** — **Backup in cartella scelta con rotazione 3 copie**: `lib/backupFolder.js` usa `showDirectoryPicker` (Chrome/Edge) per chiedere la cartella, scrive `backup_geb_completo_<ts>.json` e cancella le copie più vecchie oltre 3; fallback a `showSaveFilePicker` o download classico su browser non supportati (Firefox/Safari).
 - **2026-06** — **Backup generale v3**: `GET /api/backup` esporta TUTTE le collezioni (escluse `users`/`password_reset_tokens`) + file GridFS (PDF omologazione) in un JSON con `collections`, `files`, `settori`, `counts`; `POST /api/restore` generico (sovrascrive solo le collezioni presenti, ripristina GridFS) e retro-compatibile con i vecchi backup v2 a chiavi top-level. Dialog ripristino Home mostra riepilogo per settore.
