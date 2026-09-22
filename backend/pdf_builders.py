@@ -548,3 +548,75 @@ def _build_preventivo_pdf(doc: dict, lavori_docs: list, cantiere_doc: dict, t_cu
     pdf.build(elems)
     buf.seek(0)
     return buf.getvalue()
+
+
+def build_conto_esterno_pdf(est: dict, lavori: list, cantiere_doc: dict, anno=None) -> bytes:
+    """Conto lavori per cliente esterno (solo nominativo): elenco interventi, articoli e totale."""
+    buf = io.BytesIO()
+    pdf = SimpleDocTemplate(buf, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=10*mm, bottomMargin=8*mm,
+                            title=f"Conto lavori {est.get('nome', '')}")
+    styles = getSampleStyleSheet()
+    NAVY = colors.HexColor("#0F1B3D")
+    TEAK = colors.HexColor("#B0562E")
+    SAND = colors.HexColor("#F3EFE7")
+    MUTED = colors.HexColor("#5B6478")
+    h2 = ParagraphStyle("h2", parent=styles["Heading2"], fontName="Helvetica-Bold", fontSize=9, textColor=TEAK, spaceBefore=6, spaceAfter=2, leading=11)
+    body = ParagraphStyle("body", parent=styles["Normal"], fontName="Helvetica", fontSize=9, textColor=NAVY, leading=11)
+    small = ParagraphStyle("small", parent=body, fontSize=7.5, textColor=MUTED, leading=9)
+    val = ParagraphStyle("val", parent=body, fontName="Helvetica-Bold", fontSize=11)
+
+    nome_cantiere = (cantiere_doc.get("nome") or "PORTOMARE").upper()
+    parts = [x for x in [cantiere_doc.get("indirizzo"), " ".join(filter(None, [cantiere_doc.get("cap"), cantiere_doc.get("citta")])), cantiere_doc.get("telefono"), cantiere_doc.get("email"), cantiere_doc.get("piva") and f"P.IVA {cantiere_doc.get('piva')}"] if x]
+    logo_cell = Paragraph(f"<b>{nome_cantiere}</b>", ParagraphStyle("brand", fontName="Helvetica-Bold", fontSize=18, textColor=NAVY))
+    logo_b64 = cantiere_doc.get("logo_base64") or ""
+    if logo_b64 and "," in logo_b64:
+        try:
+            logo_cell = RLImage(io.BytesIO(_b64.b64decode(logo_b64.split(",", 1)[1])), width=30*mm, height=18*mm, kind="proportional")
+        except Exception:
+            pass
+    periodo = f"Anno {anno}" if anno else "Tutti i lavori"
+    elems = [Table([[logo_cell, Paragraph(f"<para align=right><font color='#5B6478' size=8>CONTO LAVORI</font><br/><font size=13 color='#B0562E'><b>{periodo}</b></font><br/><font color='#5B6478' size=8>{date.today().strftime('%d/%m/%Y')}</font></para>", body)]], colWidths=[100*mm, 86*mm])]
+    elems[0].setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+    if parts:
+        elems.append(Paragraph(" · ".join(parts), small))
+    sep = Table([[""]], colWidths=[186*mm], rowHeights=[1.5])
+    sep.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), TEAK)]))
+    elems += [Spacer(1, 2*mm), sep, Spacer(1, 3*mm), Paragraph("CLIENTE", h2), Paragraph(f"<b>{est.get('nome', '')}</b>", val)]
+    contatti = " · ".join(x for x in [est.get("telefono"), est.get("note")] if x)
+    if contatti:
+        elems.append(Paragraph(contatti, small))
+
+    elems.append(Paragraph("DETTAGLIO LAVORI", h2))
+    rows = [["DATA", "LAVORO", "ORE", "IMPORTO"]]
+    totale = 0.0
+    ore_tot = 0.0
+    for l in lavori:
+        descr = (l.get("descrizione") or "").strip()
+        testo = f"<b>{l.get('tipo', '')}</b>" + (f" — {descr}" if descr else "")
+        if l.get("dipendente"):
+            testo += f"<br/><font size=7 color='#5B6478'>eseguito da {l['dipendente']}</font>"
+        if l.get("materiali"):
+            testo += f"<br/><font size=7 color='#5B6478'>Materiali: {l['materiali']}</font>"
+        for it in (l.get("articoli_magazzino") or []):
+            testo += f"<br/><font size=7 color='#5B6478'>· {it.get('nome', '')} × {it.get('quantita'):g} — {_euro(float(it.get('totale') or 0))}</font>"
+        ore = float(l.get("ore") or 0)
+        costo = float(l.get("costo") or 0)
+        totale += costo
+        ore_tot += ore
+        rows.append([l.get("data", ""), Paragraph(testo, body), f"{ore:g}" if ore else "—", _euro(costo)])
+    if len(rows) == 1:
+        rows.append(["—", Paragraph("Nessun lavoro registrato", body), "—", _euro(0)])
+    rows.append(["", Paragraph("<b>TOTALE</b>", body), f"{ore_tot:g}" if ore_tot else "", _euro(totale)])
+    tbl = Table(rows, colWidths=[22*mm, 112*mm, 14*mm, 38*mm], repeatRows=1)
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("ALIGN", (2, 0), (-1, -1), "RIGHT"), ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, SAND]),
+        ("BACKGROUND", (0, -1), (-1, -1), SAND), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("LINEABOVE", (0, -1), (-1, -1), 1, TEAK), ("GRID", (0, 0), (-1, -2), 0.25, colors.HexColor("#D9D4C7")),
+        ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    elems += [tbl, Spacer(1, 6*mm), Paragraph("Importi IVA esclusa salvo diversa indicazione. Documento non valido ai fini fiscali.", small)]
+    pdf.build(elems)
+    return buf.getvalue()

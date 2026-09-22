@@ -611,3 +611,6 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 ## 2026-06 – Lavorazioni esterne
 - Collezione `clienti_esterni` (solo nominativo, telefono, note) + `routers/esterni.py`; pagina /esterni con scheda lavori (riusa LavoriSection; POST /lavori accetta id esterno).
 - App dipendenti: se il cliente non è in archivio, pulsante "+ Nuovo cliente" (cliente_id null, cliente_nome, nuovo_cliente). In approvazione: scelta "Nuovo cliente esterno" (body esterno_nome → crea esterno e lavoro) oppure "Cliente già in archivio". I clienti esterni compaiono anche nella lista clienti dell app.
+
+## 2026-06 – Conto PDF lavorazioni esterne
+- GET /api/esterni/{id}/conto.pdf?anno= (inline) → `build_conto_esterno_pdf` in pdf_builders.py. Pagina /esterni: selettore anno/tutti, pulsante "Conto PDF" per riga e nel dialog scheda; anteprima con PdfPreviewOverlay prima del download.

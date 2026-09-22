@@ -1,11 +1,14 @@
 """Lavorazioni esterne: clienti non in archivio (solo nominativo) con i relativi lavori."""
+import io
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from database import db
+from pdf_builders import build_conto_esterno_pdf
 
 router = APIRouter()
 
@@ -65,3 +68,19 @@ async def delete_esterno(eid: str):
         raise HTTPException(400, f"Elimina prima i {n} lavori collegati")
     await db.clienti_esterni.delete_one({"id": eid})
     return {"ok": True}
+
+
+@router.get("/esterni/{eid}/conto.pdf")
+async def conto_pdf(eid: str, anno: Optional[int] = None):
+    """Conto lavori del cliente esterno (tutti i lavori o solo quelli dell'anno indicato)."""
+    est = await db.clienti_esterni.find_one({"id": eid}, {"_id": 0})
+    if not est:
+        raise HTTPException(404, "Cliente esterno non trovato")
+    q = {"cliente_id": eid}
+    if anno:
+        q["data"] = {"$regex": f"^{anno}"}
+    lavori = await db.lavori.find(q, {"_id": 0}).sort("data", 1).to_list(2000)
+    cantiere = await db.cantiere.find_one({"id": "default"}, {"_id": 0}) or {}
+    pdf = build_conto_esterno_pdf(est, lavori, cantiere, anno)
+    fname = f"Conto_{est['nome'].replace(' ', '_')}{f'_{anno}' if anno else ''}.pdf"
+    return StreamingResponse(io.BytesIO(pdf), media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{fname}"'})
