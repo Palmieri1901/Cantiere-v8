@@ -1,4 +1,5 @@
 """Endpoints CRUD lavori (storico strutturato) + integrazione magazzino."""
+import re
 from datetime import datetime
 from typing import List
 from fastapi import APIRouter, HTTPException
@@ -65,7 +66,17 @@ async def _scarica_articoli_magazzino(articoli: list, cliente: dict, lavoro_id: 
 
 @router.get("/clienti/{cliente_id}/lavori", response_model=List[Lavoro])
 async def list_lavori(cliente_id: str):
-    docs = await db.lavori.find({"cliente_id": cliente_id}, {"_id": 0}).sort("data", -1).to_list(1000)
+    # Lo storico è della persona: unisco i lavori di tutte le schede annuali con stesso cognome+nome
+    ids = [cliente_id]
+    c = await db.clienti.find_one({"id": cliente_id}, {"_id": 0, "nome": 1, "cognome": 1})
+    if c:
+        same = await db.clienti.find(
+            {"cognome": {"$regex": f"^{re.escape((c.get('cognome') or '').strip())}$", "$options": "i"},
+             "nome": {"$regex": f"^{re.escape((c.get('nome') or '').strip())}$", "$options": "i"}},
+            {"_id": 0, "id": 1},
+        ).to_list(200)
+        ids = list({*ids, *[x["id"] for x in same]})
+    docs = await db.lavori.find({"cliente_id": {"$in": ids}}, {"_id": 0}).sort("data", -1).to_list(1000)
     for d in docs:
         if isinstance(d.get("created_at"), str):
             try:

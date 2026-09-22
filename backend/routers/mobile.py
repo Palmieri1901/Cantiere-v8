@@ -33,13 +33,15 @@ async def me(dip: dict = Depends(get_dipendente)):
 @router.get("/clienti")
 async def clienti(dip: dict = Depends(get_dipendente)):
     docs = await db.clienti.find({}, {"_id": 0, "id": 1, "nome": 1, "cognome": 1, "tipo_barca": 1, "lunghezza": 1, "anno": 1, "posto_barca": 1}).to_list(5000)
-    # un solo record per persona: quello dell'anno più recente
+    # un solo record per persona: scheda dell'anno corrente se esiste, altrimenti la più vicina
+    anno_corr = datetime.now().year
     best = {}
     for d in docs:
         k = (d.get("cognome", "").strip().lower(), d.get("nome", "").strip().lower())
-        if k not in best or int(d.get("anno") or 0) > int(best[k].get("anno") or 0):
-            best[k] = d
-    out = sorted(best.values(), key=lambda d: (d.get("cognome", ""), d.get("nome", "")))
+        dist = abs(int(d.get("anno") or 0) - anno_corr) + (0 if int(d.get("anno") or 0) <= anno_corr else 0.5)
+        if k not in best or dist < best[k][0]:
+            best[k] = (dist, d)
+    out = sorted((v[1] for v in best.values()), key=lambda d: (d.get("cognome", ""), d.get("nome", "")))
     return out
 
 

@@ -600,3 +600,6 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 
 ## 2026-06 – Archivio report dipendenti
 - Tab "Archivio report" in /dipendenti: tutti i report ricevuti (nome dipendente, data lavoro, data ricezione, stato), filtri per dipendente/stato, eliminazione singola e multipla (POST /lavori-pending/elimina {ids}). I lavori approvati restano nella scheda cliente.
+
+## 2026-06 – Fix: lavoro approvato non visibile in scheda cliente
+- Causa: clienti per-anno; app sceglieva scheda anno più recente. Fix: GET /clienti/{id}/lavori unisce i lavori di tutte le schede annuali della stessa persona (cognome+nome); /api/mobile/clienti sceglie la scheda dell anno corrente.
