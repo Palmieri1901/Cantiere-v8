@@ -621,3 +621,6 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - PWA: riquadro "Installa sul telefono" (beforeinstallprompt) in LoginKey.
 - Fix da iteration_18: ApprovaDialog carica tariffa prima di inizializzare il form (nessuna race); plurale "1 lavoro".
 - Test: iteration_18.json (frontend regression), fix verificati via screenshot.
+
+## 2026-06 – Fix elimina cliente esterno
+- DELETE /esterni/{id} ora elimina anche i lavori collegati (via delete_lavoro, ripristina giacenze) invece di bloccare con 400; conferma esplicita nel frontend.

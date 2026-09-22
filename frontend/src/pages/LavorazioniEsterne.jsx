@@ -42,8 +42,11 @@ export default function LavorazioniEsterne() {
     await api.put(`/esterni/${edit.id}`, edit); setEdit(null); load(); toast.success("Salvato");
   };
   const del = async (e) => {
-    if (!await confirmDialog(`Eliminare "${e.nome}"?${e.n > 0 ? ` Ha ${e.n} lavori: eliminali prima.` : ""}`)) return;
-    try { await api.delete(`/esterni/${e.id}`); load(); toast.success("Eliminato"); }
+    const msg = e.n > 0
+      ? `Eliminare "${e.nome}" e i suoi ${e.n} ${e.n === 1 ? "lavoro" : "lavori"} (${fmtEuro(e.totale)})? Gli articoli scaricati tornano in magazzino. Operazione irreversibile.`
+      : `Eliminare "${e.nome}"?`;
+    if (!await confirmDialog(msg, { title: "Elimina cliente esterno", okLabel: "Elimina" })) return;
+    try { await api.delete(`/esterni/${e.id}`); load(); toast.success("Cliente esterno eliminato"); }
     catch (err) { toast.error(err.response?.data?.detail || "Errore"); }
   };
 

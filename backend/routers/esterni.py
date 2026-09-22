@@ -63,11 +63,15 @@ async def update_esterno(eid: str, payload: EsternoIn):
 
 @router.delete("/esterni/{eid}")
 async def delete_esterno(eid: str):
-    n = await db.lavori.count_documents({"cliente_id": eid})
-    if n > 0:
-        raise HTTPException(400, f"Elimina prima i {n} lavori collegati")
-    await db.clienti_esterni.delete_one({"id": eid})
-    return {"ok": True}
+    """Elimina il cliente esterno e tutti i suoi lavori (ripristinando le giacenze di magazzino)."""
+    from routers.lavori import delete_lavoro
+    lavori = await db.lavori.find({"cliente_id": eid}, {"_id": 0, "id": 1}).to_list(5000)
+    for l in lavori:
+        await delete_lavoro(l["id"])
+    r = await db.clienti_esterni.delete_one({"id": eid})
+    if not r.deleted_count:
+        raise HTTPException(404, "Cliente esterno non trovato")
+    return {"ok": True, "lavori_eliminati": len(lavori)}
 
 
 @router.get("/esterni/{eid}/conto.pdf")
