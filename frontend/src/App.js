@@ -20,6 +20,8 @@ import Tubolari from "@/pages/Tubolari";
 import Suzuki from "@/pages/Suzuki";
 import Gommoni from "@/pages/Gommoni";
 import Ddt from "@/pages/Ddt";
+import Dipendenti from "@/pages/Dipendenti";
+import AppDipendente from "@/pages/AppDipendente";
 import Login from "@/pages/Login";
 import RecuperoPin from "@/pages/RecuperoPin";
 
@@ -33,6 +35,7 @@ function App() {
               {/* Rotte pubbliche */}
               <Route path="/login" element={<Login />} />
               <Route path="/recupero-pin" element={<RecuperoPin />} />
+              <Route path="/app-dipendente" element={<AppDipendente />} />
               <Route path="/forgot-password" element={<Navigate to="/recupero-pin" replace />} />
               <Route path="/reset-password" element={<Navigate to="/recupero-pin" replace />} />
 
@@ -65,6 +68,7 @@ function App() {
                 <Route path="/suzuki" element={<Suzuki />} />
                 <Route path="/gommoni" element={<Gommoni />} />
                 <Route path="/ddt" element={<Ddt />} />
+                <Route path="/dipendenti" element={<Dipendenti />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Routes>

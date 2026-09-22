@@ -20,6 +20,7 @@ from fastapi import Depends
 from routers import (
     tariffe, clienti, lavori, stats, export,
     cantiere, backup, preventivo, report, anni, contratti, magazzino, tubolari, suzuki, gommoni, ddt,
+    dipendenti, mobile,
 )
 
 
@@ -50,9 +51,11 @@ api_router.include_router(tubolari.router)
 api_router.include_router(suzuki.router)
 api_router.include_router(gommoni.router)
 api_router.include_router(ddt.router)
+api_router.include_router(dipendenti.router)
 
 app.include_router(api_router)
 app.include_router(auth_router)
+app.include_router(mobile.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -85,6 +88,12 @@ async def _startup():
     except Exception as e:
         logger.warning(f"magazzino indexes skipped: {e}")
     await seed_admin()
+    try:
+        await db.dipendenti.create_index("key_hash")
+        await db.lavori_pending.create_index("client_uid", unique=True)
+        await db.lavori_pending.create_index("stato")
+    except Exception as e:
+        logger.warning(f"dipendenti indexes skipped: {e}")
     # Migrazione iter13: scafo_sporco_attivo
     try:
         await db.clienti.update_many(

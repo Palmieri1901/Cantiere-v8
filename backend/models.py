@@ -232,6 +232,8 @@ class Lavoro(BaseModel):
     costo: float = 0.0
     materiali: str = ""
     stato: str = "completato"
+    ore: float = 0.0
+    dipendente: str = ""
     anno: int = Field(default_factory=lambda: datetime.now().year)
     articoli_magazzino: List[dict] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -245,6 +247,8 @@ class LavoroCreate(BaseModel):
     costo: Optional[float] = 0.0
     materiali: Optional[str] = ""
     stato: Optional[str] = "completato"
+    ore: Optional[float] = 0.0
+    dipendente: Optional[str] = ""
     anno: Optional[int] = None
     articoli_magazzino: Optional[List[dict]] = None
 

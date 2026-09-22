@@ -30,6 +30,7 @@ const emptyLavoro = (cliente_id) => ({
   costo: 0,
   materiali: "",
   stato: "completato",
+  ore: 0,
 });
 
 export default function LavoriSection({ clienteId }) {
@@ -122,6 +123,7 @@ export default function LavoriSection({ clienteId }) {
     const payload = {
       ...form,
       costo: Number(form.costo) || 0,
+      ore: Number(form.ore) || 0,
       // In modifica invio SEMPRE la lista aggiornata: il backend calcola il delta
       // rispetto a quella già salvata e scarica/ricarica il magazzino di conseguenza.
       articoli_magazzino: artSelezionati.map((a) => ({
@@ -209,6 +211,11 @@ export default function LavoriSection({ clienteId }) {
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm">{l.tipo}</div>
                 {l.descrizione && <div className="text-xs text-muted-foreground truncate">{l.descrizione}</div>}
+                {(Number(l.ore) > 0 || l.dipendente) && (
+                  <div className="text-[11px] text-muted-foreground mt-0.5" data-testid={`lavoro-ore-${l.id}`}>
+                    {Number(l.ore) > 0 ? `${l.ore} h` : ""}{Number(l.ore) > 0 && l.dipendente ? " · " : ""}{l.dipendente ? `eseguito da ${l.dipendente}` : ""}
+                  </div>
+                )}
                 {l.materiali && <div className="text-[11px] text-muted-foreground/80 italic mt-0.5">Mat.: {l.materiali}</div>}
                 {Array.isArray(l.articoli_magazzino) && l.articoli_magazzino.length > 0 && (
                   <div className="mt-1.5 text-[11px] flex items-center gap-1.5 flex-wrap">
@@ -264,7 +271,11 @@ export default function LavoriSection({ clienteId }) {
                 <Input value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} placeholder="Es. Cambio olio motore, revisione elica…" data-testid="input-lavoro-descrizione" />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ore lavoro</Label>
+                  <Input type="number" step="0.5" min="0" className="font-mono-num" value={form.ore ?? 0} onChange={(e) => setForm({ ...form, ore: e.target.value })} data-testid="input-lavoro-ore" />
+                </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Costo manodopera</Label>
                   <div className="relative">

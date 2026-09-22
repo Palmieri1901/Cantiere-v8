@@ -14,6 +14,10 @@ const queryClient = new QueryClient({
 });
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
+
+if ("serviceWorker" in navigator && window.location.pathname.startsWith("/app-dipendente")) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+}
 root.render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
