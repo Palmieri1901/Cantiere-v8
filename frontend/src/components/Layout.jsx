@@ -22,13 +22,16 @@ const nav = [
       { to: "/rimessaggio/impostazioni", label: "Impostazioni", icon: SlidersHorizontal, testId: "nav-imp-rimessaggio" },
     ],
   },
+  { section: "Officina" },
   { to: "/magazzino", label: "Magazzino", icon: Package, testId: "nav-magazzino" },
+  { to: "/dipendenti", label: "Lavori dal cantiere", icon: Smartphone, testId: "nav-dipendenti", badge: "pending" },
+  { to: "/esterni", label: "Lavorazioni esterne", icon: HardHat, testId: "nav-esterni" },
+  { section: "Vendita" },
   { to: "/tubolari", label: "Tubolari", icon: Ship, testId: "nav-tubolari" },
   { to: "/suzuki", label: "Suzuki", icon: Sailboat, testId: "nav-suzuki" },
   { to: "/gommoni", label: "Gommoni GEB", icon: LifeBuoy, testId: "nav-gommoni" },
+  { section: "Documenti" },
   { to: "/ddt", label: "DDT & Destinazione", icon: Truck, testId: "nav-ddt" },
-  { to: "/dipendenti", label: "Lavori dal cantiere", icon: Smartphone, testId: "nav-dipendenti" },
-  { to: "/esterni", label: "Lavorazioni esterne", icon: HardHat, testId: "nav-esterni" },
   { to: "/impostazioni", label: "Impostazione dati cantiere", icon: Building2, testId: "nav-impostazioni" },
 ];
 
@@ -97,10 +100,14 @@ export default function Layout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [c, setC] = useState(null);
+  const [pending, setPending] = useState(0);
 
   useEffect(() => {
     api.get("/cantiere").then((r) => setC(r.data)).catch(() => {});
   }, []);
+  useEffect(() => {
+    api.get("/lavori-pending/count").then((r) => setPending(r.data.count)).catch(() => {});
+  }, [loc.pathname]);
 
   const brandName = c?.nome || "Portomare";
 
@@ -139,10 +146,14 @@ export default function Layout() {
             Home
           </NavLink>
           {nav.map((n) => {
+            if (n.section) {
+              return <div key={n.section} className="label-mini px-3 pt-4 pb-1">{n.section}</div>;
+            }
             if (n.children) {
               return <NavGroup key={n.label} item={n} currentPath={loc.pathname} />;
             }
             const Icon = n.icon;
+            const badge = n.badge === "pending" ? pending : 0;
             return (
               <NavLink
                 key={n.to}
@@ -156,7 +167,8 @@ export default function Layout() {
                 )}
               >
                 <Icon className="w-4 h-4" strokeWidth={2} />
-                {n.label}
+                <span className="flex-1">{n.label}</span>
+                {badge > 0 && <span className="min-w-5 h-5 px-1.5 rounded-full bg-amber-500 text-white text-[11px] font-bold grid place-items-center" data-testid="nav-pending-badge">{badge}</span>}
               </NavLink>
             );
           })}

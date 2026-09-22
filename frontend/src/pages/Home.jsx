@@ -4,7 +4,8 @@ import { api, API } from "@/lib/api";
 import { salvaBackupInCartella } from "@/lib/backupFolder";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sailboat, MapPin, Phone, Mail, Clock, ArrowRight, Anchor, Building2, Globe, Database, Download, Upload, AlertTriangle, FileText, FileSpreadsheet, Settings, Zap, Package, Ship, LifeBuoy, Truck } from "lucide-react";
+import { Sailboat, MapPin, Phone, Mail, Clock, ArrowRight, Anchor, Building2, Globe, Database, Download, Upload, AlertTriangle, FileText, FileSpreadsheet, Settings, Zap, Package, Ship, LifeBuoy, Truck, Smartphone, HardHat } from "lucide-react";
+import { ModuleTile } from "@/components/ModuleTile";
 import { toast } from "sonner";
 import ClienteForm from "@/pages/ClienteForm";
 import {
@@ -23,6 +24,7 @@ export default function Home() {
   const [restoring, setRestoring] = useState(false);
   const [backingUp, setBackingUp] = useState(false);
   const [backupInfo, setBackupInfo] = useState(null);
+  const [r, setR] = useState(null);
 
   const doBackup = async () => {
     setBackingUp(true);
@@ -49,6 +51,7 @@ export default function Home() {
   const load = () => {
     api.get("/cantiere").then((r) => setC(r.data));
     api.get("/backup/ultimo").then((r) => setBackupInfo(r.data)).catch(() => {});
+    api.get("/home/riepilogo").then((x) => setR(x.data)).catch(() => {});
   };
 
   useEffect(() => { load(); }, []);
@@ -106,7 +109,7 @@ export default function Home() {
           backgroundImage: "radial-gradient(circle at 20% 30%, hsl(var(--primary)) 1px, transparent 1px), radial-gradient(circle at 80% 70%, hsl(var(--chart-2)) 1px, transparent 1px)",
           backgroundSize: "60px 60px, 80px 80px",
         }} />
-        <div className="relative max-w-6xl mx-auto px-6 md:px-10 py-16 md:py-24">
+        <div className="relative max-w-6xl mx-auto px-6 md:px-10 py-12 md:py-16">
           {c.logo_base64 ? (
             <img src={c.logo_base64} alt="Logo" className="h-20 md:h-24 mb-6 object-contain" data-testid="home-logo" />
           ) : (
@@ -116,7 +119,7 @@ export default function Home() {
           )}
 
           <div className="label-mini mb-3">Cantiere Nautico</div>
-          <h1 className="font-display text-5xl md:text-7xl font-semibold tracking-tight text-foreground leading-[1.02]">
+          <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-foreground leading-[1.02]">
             {c.nome}
           </h1>
           {c.slogan && (
@@ -125,50 +128,20 @@ export default function Home() {
             </p>
           )}
 
-          <div className="mt-10 flex flex-wrap gap-3">
-            <Button asChild size="lg" className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 h-12 px-6" data-testid="cta-clienti">
-              <Link to="/clienti">
-                <Anchor className="w-4 h-4 mr-2" />
-                Rimessaggio
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="h-12 px-6 border-foreground/20 hover:bg-foreground/5" data-testid="cta-magazzino">
-              <Link to="/magazzino">
-                <Package className="w-4 h-4 mr-2" />
-                Gestione magazzino
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="h-12 px-6 border-foreground/20 hover:bg-foreground/5" data-testid="cta-tubolari">
-              <Link to="/tubolari">
-                <Ship className="w-4 h-4 mr-2" />
-                Rifacimento tubolari
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="h-12 px-6 border-foreground/20 hover:bg-foreground/5" data-testid="cta-suzuki">
-              <Link to="/suzuki">
-                <Ship className="w-4 h-4 mr-2" />
-                Fuoribordo Suzuki
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="h-12 px-6 border-foreground/20 hover:bg-foreground/5" data-testid="cta-gommoni">
-              <Link to="/gommoni">
-                <LifeBuoy className="w-4 h-4 mr-2" />
-                Gommoni GEB
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="h-12 px-6 border-foreground/20 hover:bg-foreground/5" data-testid="cta-ddt">
-              <Link to="/ddt">
-                <Truck className="w-4 h-4 mr-2" />
-                DDT & Foglio destinazione
-              </Link>
-            </Button>
-            <Button asChild variant="ghost" size="lg" className="h-12 px-4 text-muted-foreground hover:text-foreground" data-testid="cta-impostazioni">
-              <Link to="/impostazioni">
-                <Settings className="w-4 h-4 mr-2" />
-                Impostazione dati cantiere
-              </Link>
-            </Button>
+          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="home-moduli">
+            <ModuleTile to="/clienti" icon={Anchor} title="Rimessaggio" desc="Clienti, barche, posti e preventivi annuali" stat={r?.clienti} statLabel={`clienti ${r?.anno || ""}`} accent testId="cta-clienti" />
+            <ModuleTile to="/magazzino" icon={Package} title="Magazzino" desc="Articoli, fornitori, carichi e scarichi" stat={r?.articoli} statLabel={r?.sotto_scorta > 0 ? `articoli · ${r.sotto_scorta} sotto scorta` : "articoli"} testId="cta-magazzino" />
+            <ModuleTile to="/dipendenti" icon={Smartphone} title="Lavori dal cantiere" desc="Report dei dipendenti da approvare" stat={r?.pending} statLabel="da approvare" badge={r?.pending} testId="cta-dipendenti" />
+            <ModuleTile to="/esterni" icon={HardHat} title="Lavorazioni esterne" desc="Clienti fuori rimessaggio e conti PDF" stat={r?.esterni} statLabel="clienti esterni" testId="cta-esterni" />
+            <ModuleTile to="/tubolari" icon={Ship} title="Tubolari" desc="Preventivi rifacimento tubolari" stat={r?.tubolari} statLabel="preventivi" testId="cta-tubolari" />
+            <ModuleTile to="/suzuki" icon={Sailboat} title="Fuoribordo Suzuki" desc="Catalogo motori e preventivi" stat={r?.suzuki} statLabel="modelli" testId="cta-suzuki" />
+            <ModuleTile to="/gommoni" icon={LifeBuoy} title="Gommoni GEB" desc="Modelli, accessori e preventivi" stat={r?.gommoni} statLabel="modelli" testId="cta-gommoni" />
+            <ModuleTile to="/ddt" icon={Truck} title="DDT & Destinazione" desc="Documenti di trasporto e rubrica" stat={r?.ddt} statLabel={`DDT ${r?.anno || ""}`} testId="cta-ddt" />
+          </div>
+          <div className="mt-6">
+            <Link to="/impostazioni" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="cta-impostazioni">
+              <Settings className="w-4 h-4" /> Impostazione dati cantiere
+            </Link>
           </div>
         </div>
       </div>
