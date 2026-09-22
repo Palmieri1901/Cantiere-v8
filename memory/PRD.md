@@ -597,3 +597,6 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 
 ## 2026-06 – Costo automatico ore
 - Approvazione lavoro: costo manodopera = ore × costo_orario_manodopera (Tariffe), precompilato e ricalcolato nel dialogo (modificabile); fallback lato server se costo assente/0.
+
+## 2026-06 – Archivio report dipendenti
+- Tab "Archivio report" in /dipendenti: tutti i report ricevuti (nome dipendente, data lavoro, data ricezione, stato), filtri per dipendente/stato, eliminazione singola e multipla (POST /lavori-pending/elimina {ids}). I lavori approvati restano nella scheda cliente.

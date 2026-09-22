@@ -197,3 +197,13 @@ async def rifiuta_pending(pid: str):
 async def delete_pending(pid: str):
     await db.lavori_pending.delete_one({"id": pid})
     return {"ok": True}
+
+
+class EliminaIn(BaseModel):
+    ids: List[str]
+
+
+@router.post("/lavori-pending/elimina")
+async def elimina_pending(payload: EliminaIn):
+    r = await db.lavori_pending.delete_many({"id": {"$in": payload.ids}})
+    return {"ok": True, "eliminati": r.deleted_count}

@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Smartphone, Inbox, Users } from "lucide-react";
+import { Smartphone, Inbox, Users, Archive } from "lucide-react";
 import PendingTab from "@/pages/dipendenti/PendingTab";
 import DipendentiTab from "@/pages/dipendenti/DipendentiTab";
+import ArchivioTab from "@/pages/dipendenti/ArchivioTab";
 
 export default function Dipendenti() {
   const [count, setCount] = useState(0);
@@ -25,9 +26,11 @@ export default function Dipendenti() {
             <Inbox className="w-4 h-4" /> Da approvare
             {count > 0 && <Badge className="ml-1 bg-primary text-primary-foreground" data-testid="pending-count">{count}</Badge>}
           </TabsTrigger>
+          <TabsTrigger value="archivio" data-testid="tab-archivio" className="gap-2"><Archive className="w-4 h-4" /> Archivio report</TabsTrigger>
           <TabsTrigger value="dipendenti" data-testid="tab-dipendenti" className="gap-2"><Users className="w-4 h-4" /> Dipendenti e chiavi</TabsTrigger>
         </TabsList>
         <TabsContent value="pending"><PendingTab onChange={refreshCount} /></TabsContent>
+        <TabsContent value="archivio"><ArchivioTab onChange={refreshCount} /></TabsContent>
         <TabsContent value="dipendenti"><DipendentiTab /></TabsContent>
       </Tabs>
     </div>
