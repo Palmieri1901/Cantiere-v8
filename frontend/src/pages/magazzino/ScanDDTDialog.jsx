@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Sparkles, ScanLine, X, FileDown, AlertTriangle, Percent } from "lucide-react";
+import { Sparkles, ScanLine, X, FileDown, AlertTriangle, Percent, Camera } from "lucide-react";
 import { TIPI_SPESA } from "./common";
 
 export default function ScanDDTDialog({ open, onOpenChange, fornitori, onDone }) {
@@ -179,12 +179,20 @@ export default function ScanDDTDialog({ open, onOpenChange, fornitori, onDone })
                     </button>
                   </div>
                 ) : (
-                  <label className="block cursor-pointer border-2 border-dashed border-border rounded-md p-6 text-center hover:bg-muted/30">
-                    <ScanLine className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                    <div className="text-sm font-semibold">Carica foto o PDF del DDT</div>
-                    <div className="text-xs text-muted-foreground mt-1">JPG / PNG / PDF · max 8MB · l'AI gestisce anche foto storte</div>
-                    <input type="file" accept="image/*,application/pdf" hidden onChange={onFile} data-testid="input-ddt-file" />
-                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block cursor-pointer border-2 border-dashed border-border rounded-md p-6 text-center hover:bg-muted/30">
+                      <ScanLine className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                      <div className="text-sm font-semibold">Foto o PDF da file</div>
+                      <div className="text-xs text-muted-foreground mt-1">JPG / PNG / PDF · max 8MB</div>
+                      <input type="file" accept="image/*,application/pdf" hidden onChange={onFile} data-testid="input-ddt-file" />
+                    </label>
+                    <label className="block cursor-pointer border-2 border-dashed border-border rounded-md p-6 text-center hover:bg-muted/30">
+                      <Camera className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                      <div className="text-sm font-semibold">Scatta foto</div>
+                      <div className="text-xs text-muted-foreground mt-1">l'AI gestisce anche foto storte</div>
+                      <input type="file" accept="image/*" capture="environment" hidden onChange={onFile} data-testid="input-ddt-camera" />
+                    </label>
+                  </div>
                 )}
               </div>
             </div>

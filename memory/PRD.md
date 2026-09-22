@@ -566,3 +566,7 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - [ ] Autenticazione biometrica via WebAuthn
 - [ ] Assegnazione automatica posto barca in base a lunghezza
 - [ ] Integrazione WhatsApp Business per comunicazioni clienti
+
+
+## 2026-06 – Foto da fotocamera (Magazzino)
+- Aggiunto pulsante "Scatta foto" (input file con `capture="environment"`) accanto a "Da file" in: form articolo, Scan articolo AI, Scan DDT AI. Su cellulare apre la fotocamera posteriore; su PC apre il selettore file.

@@ -204,12 +204,20 @@ export default function ArticoloForm({ open, onOpenChange, value, fornitori, onS
                   <ImageIcon className="w-6 h-6 opacity-40" />
                 </div>
               )}
-              <label className="cursor-pointer">
-                <input type="file" accept="image/*" hidden onChange={onImage} data-testid="input-image" />
-                <span className="inline-flex items-center gap-1.5 px-3 py-2 border border-input rounded-md text-sm hover:bg-muted">
-                  <Camera className="w-3.5 h-3.5" /> Carica foto
-                </span>
-              </label>
+              <div className="flex flex-wrap gap-2">
+                <label className="cursor-pointer">
+                  <input type="file" accept="image/*" hidden onChange={onImage} data-testid="input-image" />
+                  <span className="inline-flex items-center gap-1.5 px-3 py-2 border border-input rounded-md text-sm hover:bg-muted">
+                    <ImageIcon className="w-3.5 h-3.5" /> Da file
+                  </span>
+                </label>
+                <label className="cursor-pointer">
+                  <input type="file" accept="image/*" capture="environment" hidden onChange={onImage} data-testid="input-image-camera" />
+                  <span className="inline-flex items-center gap-1.5 px-3 py-2 border border-input rounded-md text-sm hover:bg-muted">
+                    <Camera className="w-3.5 h-3.5" /> Scatta foto
+                  </span>
+                </label>
+              </div>
             </div>
           </FormField>
           <FormField label="Note" full>

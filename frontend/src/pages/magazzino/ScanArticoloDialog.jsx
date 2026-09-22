@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Sparkles, Camera, X } from "lucide-react";
+import { Sparkles, Camera, X, Upload } from "lucide-react";
 import { EMPTY_ART } from "./common";
 
 export default function ScanArticoloDialog({ open, onOpenChange, fornitori, onDone }) {
@@ -91,12 +91,20 @@ export default function ScanArticoloDialog({ open, onOpenChange, fornitori, onDo
                   </button>
                 </div>
               ) : (
-                <label className="block cursor-pointer border-2 border-dashed border-border rounded-md p-8 text-center hover:bg-muted/30 transition">
-                  <Camera className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                  <div className="text-sm font-semibold">Carica foto</div>
-                  <div className="text-xs text-muted-foreground mt-1">JPG/PNG · max 4MB</div>
-                  <input type="file" accept="image/*" hidden onChange={onFile} data-testid="input-scan-file" />
-                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block cursor-pointer border-2 border-dashed border-border rounded-md p-6 text-center hover:bg-muted/30 transition">
+                    <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                    <div className="text-sm font-semibold">Da file</div>
+                    <div className="text-xs text-muted-foreground mt-1">JPG/PNG · max 4MB</div>
+                    <input type="file" accept="image/*" hidden onChange={onFile} data-testid="input-scan-file" />
+                  </label>
+                  <label className="block cursor-pointer border-2 border-dashed border-border rounded-md p-6 text-center hover:bg-muted/30 transition">
+                    <Camera className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                    <div className="text-sm font-semibold">Scatta foto</div>
+                    <div className="text-xs text-muted-foreground mt-1">Fotocamera del dispositivo</div>
+                    <input type="file" accept="image/*" capture="environment" hidden onChange={onFile} data-testid="input-scan-camera" />
+                  </label>
+                </div>
               )}
             </div>
             <Button
