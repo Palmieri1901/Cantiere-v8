@@ -112,6 +112,10 @@ async def create_lavoro(payload: LavoroCreate):
         raise HTTPException(400, "Stato non valido")
     c = await db.clienti.find_one({"id": payload.cliente_id})
     if not c:
+        c = await db.clienti_esterni.find_one({"id": payload.cliente_id})
+        if c:
+            c = {**c, "cognome": c.get("nome", ""), "nome": ""}
+    if not c:
         raise HTTPException(404, "Cliente non trovato")
 
     data = {k: v for k, v in payload.model_dump().items() if v is not None}

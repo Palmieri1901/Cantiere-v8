@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, Link, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, Grid3x3, Settings2, Sailboat, Building2, Home as HomeIcon, FileBarChart, FileSignature, LogOut, User, Package, Ship, ChevronDown, List, SlidersHorizontal, LifeBuoy, Truck, Smartphone } from "lucide-react";
+import { LayoutDashboard, Users, Grid3x3, Settings2, Sailboat, Building2, Home as HomeIcon, FileBarChart, FileSignature, LogOut, User, Package, Ship, ChevronDown, List, SlidersHorizontal, LifeBuoy, Truck, Smartphone, HardHat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -28,6 +28,7 @@ const nav = [
   { to: "/gommoni", label: "Gommoni GEB", icon: LifeBuoy, testId: "nav-gommoni" },
   { to: "/ddt", label: "DDT & Destinazione", icon: Truck, testId: "nav-ddt" },
   { to: "/dipendenti", label: "Lavori dal cantiere", icon: Smartphone, testId: "nav-dipendenti" },
+  { to: "/esterni", label: "Lavorazioni esterne", icon: HardHat, testId: "nav-esterni" },
   { to: "/impostazioni", label: "Impostazione dati cantiere", icon: Building2, testId: "nav-impostazioni" },
 ];
 

@@ -10,7 +10,7 @@ import { Save, Search, X } from "lucide-react";
 
 const TIPI = ["Riparazione", "Manutenzione motore", "Antivegetativa", "Pulizia", "Elettrico", "Altro"];
 const L = ({ children }) => <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{children}</Label>;
-const empty = () => ({ cliente_id: "", data: new Date().toISOString().slice(0, 10), tipo: "Riparazione", descrizione: "", ore: "", materiali: "", articoli: [] });
+const empty = () => ({ cliente_id: "", cliente_nuovo: "", data: new Date().toISOString().slice(0, 10), tipo: "Riparazione", descrizione: "", ore: "", materiali: "", articoli: [] });
 
 export default function NuovoLavoro({ onSaved }) {
   const clienti = mobileStore.clienti();
@@ -24,16 +24,16 @@ export default function NuovoLavoro({ onSaved }) {
     if (!s) return [];
     return clienti.filter((c) => `${c.cognome} ${c.nome} ${c.tipo_barca || ""}`.toLowerCase().includes(s)).slice(0, 8);
   }, [q, clienti]);
-  const cliente = clienti.find((c) => c.id === f.cliente_id);
+  const cliente = clienti.find((c) => c.id === f.cliente_id) || (f.cliente_nuovo ? { id: "", cognome: f.cliente_nuovo, nome: "", tipo_barca: "Nuovo cliente (non in archivio)" } : null);
 
   const addArt = (id) => { if (!id || f.articoli.some((a) => a.articolo_id === id)) return; set("articoli", [...f.articoli, { articolo_id: id, quantita: 1 }]); };
 
   const salva = () => {
-    if (!f.cliente_id) return toast.error("Scegli il cliente");
+    if (!f.cliente_id && !f.cliente_nuovo) return toast.error("Scegli il cliente");
     if (!f.descrizione.trim()) return toast.error("Descrivi il lavoro eseguito");
     const c = cliente;
     onSaved({
-      client_uid: uid(), cliente_id: f.cliente_id, cliente_nome: `${c.cognome} ${c.nome}`, data: f.data, tipo: f.tipo,
+      client_uid: uid(), cliente_id: f.cliente_id || null, cliente_nome: `${c.cognome} ${c.nome}`.trim(), nuovo_cliente: !f.cliente_id, data: f.data, tipo: f.tipo,
       descrizione: f.descrizione.trim(), ore: Number(f.ore) || 0, materiali: f.materiali,
       articoli_magazzino: f.articoli.map((a) => ({ articolo_id: a.articolo_id, quantita: Number(a.quantita) || 1 })),
       creato_at: new Date().toISOString(), inviato: false,
@@ -48,19 +48,22 @@ export default function NuovoLavoro({ onSaved }) {
         {cliente ? (
           <div className="flex items-center gap-2 p-3 rounded-md border border-primary/40 bg-primary/5" data-testid="cliente-scelto">
             <div className="flex-1"><div className="font-semibold">{cliente.cognome} {cliente.nome}</div><div className="text-xs text-muted-foreground">{cliente.tipo_barca} {cliente.lunghezza ? `· ${cliente.lunghezza} m` : ""}</div></div>
-            <button onClick={() => set("cliente_id", "")} data-testid="btn-cambia-cliente"><X className="w-4 h-4" /></button>
+            <button onClick={() => setF((s) => ({ ...s, cliente_id: "", cliente_nuovo: "" }))} data-testid="btn-cambia-cliente"><X className="w-4 h-4" /></button>
           </div>
         ) : (
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca cognome, nome o barca…" className="pl-9 h-12" data-testid="input-cerca-cliente" />
-            {filtrati.length > 0 && (
-              <div className="absolute z-20 left-0 right-0 mt-1 bg-card border rounded-md shadow-lg divide-y max-h-64 overflow-y-auto">
+            {q.trim().length >= 3 && (
+              <div className={`${filtrati.length > 0 ? "absolute z-20 left-0 right-0 mt-1 bg-card border rounded-md shadow-lg divide-y max-h-64 overflow-y-auto" : "mt-1"}`}>
                 {filtrati.map((c) => (
                   <button key={c.id} onClick={() => { set("cliente_id", c.id); setQ(""); }} className="w-full text-left px-3 py-2.5 hover:bg-muted text-sm" data-testid={`cliente-opt-${c.id}`}>
                     <div className="font-medium">{c.cognome} {c.nome}</div><div className="text-xs text-muted-foreground">{c.tipo_barca}</div>
                   </button>
                 ))}
+                <button onClick={() => { set("cliente_nuovo", q.trim()); setQ(""); }} className="w-full text-left px-3 py-2.5 hover:bg-muted text-sm text-primary border border-dashed border-primary/40 rounded-md bg-primary/5" data-testid="btn-cliente-nuovo">
+                  <div className="font-medium">+ Nuovo cliente: "{q.trim()}"</div><div className="text-xs text-muted-foreground">Non in archivio · verrà creato come cliente esterno</div>
+                </button>
               </div>
             )}
             {clienti.length === 0 && <div className="text-xs text-amber-700 mt-1">Nessun cliente scaricato: premi l'icona aggiorna in alto quando sei online.</div>}

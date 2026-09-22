@@ -607,3 +607,7 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 ## 2026-06 – Lavori storico nei totali/preventivi
 - Denormalizzazione: `sync_lavori_cliente` (routers/lavori.py) scrive su ogni scheda annuale della persona `costo_lavori` e `lavori_storico` (lavori con data nell anno della scheda). Chiamata su create/update/delete lavoro; migrazione al primo avvio.
 - Inclusi in: dettaglio cliente (sezione "Lavori eseguiti"), totale lista clienti, PDF preventivo, PDF storico multi-anno, report/stats (via _totale_extra), export Excel (colonna "Lavori eseguiti €").
+
+## 2026-06 – Lavorazioni esterne
+- Collezione `clienti_esterni` (solo nominativo, telefono, note) + `routers/esterni.py`; pagina /esterni con scheda lavori (riusa LavoriSection; POST /lavori accetta id esterno).
+- App dipendenti: se il cliente non è in archivio, pulsante "+ Nuovo cliente" (cliente_id null, cliente_nome, nuovo_cliente). In approvazione: scelta "Nuovo cliente esterno" (body esterno_nome → crea esterno e lavoro) oppure "Cliente già in archivio". I clienti esterni compaiono anche nella lista clienti dell app.

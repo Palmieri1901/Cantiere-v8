@@ -16,6 +16,7 @@ export default function ApprovaDialog({ item, onClose, onDone }) {
   const [clienti, setClienti] = useState([]);
   const [saving, setSaving] = useState(false);
   const [tariffa, setTariffa] = useState(0);
+  const [modo, setModo] = useState("esterno");
 
   useEffect(() => {
     if (!item) return;
@@ -24,7 +25,8 @@ export default function ApprovaDialog({ item, onClose, onDone }) {
       setTariffa(rate);
       setF((s) => s && !item.costo ? { ...s, costo: +(Number(item.ore || 0) * rate).toFixed(2) } : s);
     }).catch(() => {});
-    setF({ cliente_id: item.cliente_id || "", data: item.data, tipo: TIPI.includes(item.tipo) ? item.tipo : "Altro", descrizione: item.descrizione, ore: item.ore, costo: item.costo || 0, materiali: item.materiali || "" });
+    setF({ cliente_id: item.cliente_id || "", esterno_nome: item.cliente_nome || "", data: item.data, tipo: TIPI.includes(item.tipo) ? item.tipo : "Altro", descrizione: item.descrizione, ore: item.ore, costo: item.costo || 0, materiali: item.materiali || "" });
+    setModo("esterno");
     if (!item.cliente_trovato) api.get("/clienti").then((r) => setClienti(r.data)).catch(() => {});
   }, [item]);
 
@@ -32,12 +34,16 @@ export default function ApprovaDialog({ item, onClose, onDone }) {
   const setOre = (v) => setF((s) => ({ ...s, ore: v, costo: tariffa > 0 ? +((Number(v) || 0) * tariffa).toFixed(2) : s.costo }));
 
   const approva = async () => {
-    if (!f.cliente_id) return toast.error("Seleziona il cliente");
+    const usaEsterno = !item.cliente_trovato && modo === "esterno";
+    if (usaEsterno && !f.esterno_nome.trim()) return toast.error("Inserisci il nominativo");
+    if (!usaEsterno && !f.cliente_id) return toast.error("Seleziona il cliente");
     setSaving(true);
     try {
-      const body = { ...f, ore: Number(f.ore) || 0, costo: Number(f.costo) || 0 };
+      const { esterno_nome, ...rest } = f;
+      const body = { ...rest, ore: Number(f.ore) || 0, costo: Number(f.costo) || 0 };
+      if (usaEsterno) { body.esterno_nome = esterno_nome.trim(); delete body.cliente_id; }
       await api.post(`/lavori-pending/${item.id}/approva`, body);
-      toast.success("Lavoro approvato e aggiunto alla scheda cliente");
+      toast.success(usaEsterno ? "Cliente esterno creato e lavoro salvato" : "Lavoro approvato e aggiunto alla scheda cliente");
       onDone(); onClose();
     } catch (e) {
       toast.error(e.response?.data?.detail || "Errore approvazione");
@@ -54,12 +60,23 @@ export default function ApprovaDialog({ item, onClose, onDone }) {
         {f && item && (
           <div className="space-y-3">
             {!item.cliente_trovato && (
-              <div className="space-y-1.5">
-                <L>Cliente</L>
-                <Select value={f.cliente_id} onValueChange={(v) => set("cliente_id", v)}>
-                  <SelectTrigger data-testid="select-approva-cliente"><SelectValue placeholder="Seleziona cliente…" /></SelectTrigger>
-                  <SelectContent>{clienti.map((c) => <SelectItem key={c.id} value={c.id}>{c.cognome} {c.nome} · {c.tipo_barca} ({c.anno})</SelectItem>)}</SelectContent>
-                </Select>
+              <div className="space-y-2 p-3 rounded-md border border-amber-300 bg-amber-50" data-testid="approva-cliente-box">
+                <div className="text-xs text-amber-900">Il dipendente ha indicato <b>{item.cliente_nome || "un cliente non in archivio"}</b>. Scegli come procedere:</div>
+                <div className="flex gap-2 text-xs">
+                  <button type="button" onClick={() => setModo("esterno")} className={`px-2.5 py-1.5 rounded-md border ${modo === "esterno" ? "bg-primary text-primary-foreground border-primary" : "bg-card"}`} data-testid="btn-modo-esterno">Nuovo cliente esterno</button>
+                  <button type="button" onClick={() => setModo("archivio")} className={`px-2.5 py-1.5 rounded-md border ${modo === "archivio" ? "bg-primary text-primary-foreground border-primary" : "bg-card"}`} data-testid="btn-modo-archivio">Cliente già in archivio</button>
+                </div>
+                {modo === "esterno" ? (
+                  <div className="space-y-1.5"><L>Nominativo</L><Input value={f.esterno_nome} onChange={(e) => set("esterno_nome", e.target.value)} placeholder="Es. Rossi Mario" data-testid="input-esterno-nome" /></div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <L>Cliente</L>
+                    <Select value={f.cliente_id} onValueChange={(v) => set("cliente_id", v)}>
+                      <SelectTrigger data-testid="select-approva-cliente"><SelectValue placeholder="Seleziona cliente…" /></SelectTrigger>
+                      <SelectContent>{clienti.map((c) => <SelectItem key={c.id} value={c.id}>{c.cognome} {c.nome} · {c.tipo_barca} ({c.anno})</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">

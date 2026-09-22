@@ -42,6 +42,8 @@ async def clienti(dip: dict = Depends(get_dipendente)):
         if k not in best or dist < best[k][0]:
             best[k] = (dist, d)
     out = sorted((v[1] for v in best.values()), key=lambda d: (d.get("cognome", ""), d.get("nome", "")))
+    esterni = await db.clienti_esterni.find({}, {"_id": 0, "id": 1, "nome": 1}).sort("nome", 1).to_list(2000)
+    out += [{"id": e["id"], "cognome": e["nome"], "nome": "", "tipo_barca": "Cliente esterno", "anno": anno_corr, "esterno": True} for e in esterni]
     return out
 
 
