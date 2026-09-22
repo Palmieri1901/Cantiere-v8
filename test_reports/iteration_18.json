@@ -1,0 +1,48 @@
+{
+  "summary": "Frontend-only regression pass for the polish release (Home tiles, grouped sidebar with pending badge, Lavorazioni esterne module, PWA employees, Approva flow with auto costo calc). 30 UI assertions executed after seeding a pending lavoro via mobile API (TEST_QA dipendente + 'QA Esterno Uno' external client). 21/30 passed. 3 real bugs found: (1) HIGH — costo auto-calc in ApprovaDialog is racy: initial costo stays at 0 until GET /api/tariffe resolves AND when it resolves it uses `item.ore` instead of current form ore, so if the user edited ore in the meantime the costo is wrong (observed: ore changed 2->3, costo settled at 100 = 2*50 instead of 150 = 3*50); tariffa-hint also flashes 'Imposta il costo orario in Tariffe…' at open. (2) MEDIUM — Sidebar pending badge (`nav-pending-badge`) does NOT refresh after approving a lavoro from /dipendenti: Layout re-fetches `/api/lavori-pending/count` only on `loc.pathname` change, so the amber '1' stays until the user navigates away and back. Same problem the badge doesn't decrement when rejecting/deleting from Archivio. (3) LOW — LavorazioniEsterne row shows '1 lavori' (singular italian should be '1 lavoro'). Home tiles / grouped sidebar / esterni page / approva dialog fields / PDF preview (react-pdf overlay, not iframe) / archivio filters and single delete / external-client delete guard / employee-created lavoro rendering all worked as expected. Test cleanup completed via API — no residual TEST_QA data.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "ApprovaDialog",
+        "issue": "Costo manodopera auto-calc is racy. useEffect fires api.get('/tariffe') async and then IMMEDIATELY (sync) does setF({...costo: item.costo||0}), which sets costo=0 before tariffa is known. Additionally, the .then callback uses `item.ore` instead of `s.ore` for the recalculation, so if user changes ore before tariffe resolves, the auto-value applied when it finally resolves is wrong (uses stale item.ore). Fix: fetch tariffe FIRST and only then initialise f, or use s.ore in the .then updater and also recompute in setF({...}) when tariffa is already loaded (or move the fetch to component mount and gate the initial setF on tariffa being ready).",
+        "selector": "[data-testid=approva-dialog] [data-testid=input-approva-costo] / [data-testid=approva-tariffa-hint]",
+        "priority": "HIGH"
+      },
+      {
+        "component": "Layout (sidebar pending badge)",
+        "issue": "`nav-pending-badge` does not refresh after approving/rejecting a pending lavoro while staying on /dipendenti. The count fetch is bound to `loc.pathname` only. Should also refresh on window focus and/or via a global event dispatched by PendingTab.load / ApprovaDialog.onDone.",
+        "selector": "[data-testid=nav-pending-badge]",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "LavorazioniEsterne row summary",
+        "issue": "Row shows '1 lavori' (should be '1 lavoro' singular in Italian). Also '1 lavori · 3 h · ultimo …'.",
+        "selector": "[data-testid^=esterno-row-]",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_dipendenti_mobile.py"],
+  "action_items": [
+    "HIGH: Fix ApprovaDialog costo auto-calc race — fetch /tariffe before init or use s.ore inside the .then updater and gate initial costo on tariffa readiness.",
+    "MEDIUM: Layout pending-badge should re-fetch after mutations, not only on pathname change (custom event or SWR/react-query).",
+    "LOW: Italian pluralisation on esterno row ('1 lavoro' vs '2 lavori')."
+  ],
+  "critical_code_review_comments": [
+    "ApprovaDialog.jsx L21-31: two setF calls fire in the same tick (async + sync) leading to race; also the closure captures item.ore/item.costo instead of latest state.",
+    "Layout.jsx L108-110: pending count effect only depends on loc.pathname — silently drifts from reality after in-page approve/reject.",
+    "App.js: Home route is NOT wrapped in Layout, so sidebar/nav-* selectors are unavailable on '/'. This is intentional design (Home has its own hero) but worth documenting for QA — nav-pending-badge is only visible on /clienti, /dipendenti, etc.",
+    "esterni row uses 'lavori' unconditionally regardless of count (n===1)."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (skipped)", "frontend": "70% (21/30 assertions; 3 real bugs, 3 selector/assumption issues in the test itself: nav-pending-badge check on Home before nav to /dipendenti, iframe check vs react-pdf, and Getili detail was opened via wrong action button)" },
+  "test_credentials": "admin password 'admin' (POST /api/auth/login). Seeded TEST_QA dipendente key was PM-ULM3-C8ED-KQD4 (deleted at cleanup).",
+  "seed_data_creation": "Created TEST_QA dipendente + pending 'QA Esterno Uno' via API; approved to external client 'QA Esterno Uno' with 3h lavoro (costo 100 €); tested edit/delete-guard/single-delete; then cleaned up: deleted lavoro c0f53ed3, esterno c28831a5, dipendente b667c1b1. Final state: 2 esterni (gagliano, maiale), 2 dipendenti (andrea, niccolo), pending count = 0.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Home component is NOT wrapped in Layout (see App.js L60-88) — nav-* and nav-pending-badge selectors only exist on internal routes (/clienti, /dipendenti, …). For approva dialog costo test, wait ~800ms after dialog opens for /api/tariffe to resolve before asserting costo/hint (or better: retest after main agent's fix). PDF preview uses react-pdf (Document/Page in <canvas>) inside [data-testid=pdf-preview-overlay]; NOT an <iframe>/<embed>. Use that testid + btn-download-preview + btn-close-preview. To open a client's dettaglio use the correct action button (there are multiple svg icons per row: 'pagato', 'eye', 'documenti', 'edit', 'delete'); recommend adding data-testid like btn-cliente-view-{id} on the Clienti table.",
+  "rca of the issue": "1) ApprovaDialog costo race: `useEffect(() => { if (!item) return; api.get('/tariffe').then(r => { setTariffa(rate); setF(s => s && !item.costo ? {...s, costo: item.ore*rate} : s) }); setF({...initial, costo: item.costo || 0}); }, [item])`. Order: register then, then sync setF({...costo:0}), then microtask setF-updater uses item.ore (not s.ore). If /tariffe latency > time to first paint the user sees costo=0 and 'imposta tariffa' hint; if user edits ore while /tariffe is in flight, the async update clobbers ore-driven cost with a stale item.ore-based value. 2) Sidebar badge staleness: Layout useEffect on lavori-pending/count keyed only on loc.pathname, no cross-component invalidation."
+}

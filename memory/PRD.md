@@ -614,3 +614,10 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 
 ## 2026-06 – Conto PDF lavorazioni esterne
 - GET /api/esterni/{id}/conto.pdf?anno= (inline) → `build_conto_esterno_pdf` in pdf_builders.py. Pagina /esterni: selettore anno/tutti, pulsante "Conto PDF" per riga e nel dialog scheda; anteprima con PdfPreviewOverlay prima del download.
+
+## 2026-06 – Rifinitura finale (Home professionale)
+- Home: griglia 8 riquadri-modulo (`components/ModuleTile.jsx`) con numeri da GET /api/home/riepilogo (stats.py); hero più compatto.
+- Sidebar raggruppata (Officina · Vendita · Documenti) con badge "da approvare" aggiornato via evento window `pending-changed` + focus.
+- PWA: riquadro "Installa sul telefono" (beforeinstallprompt) in LoginKey.
+- Fix da iteration_18: ApprovaDialog carica tariffa prima di inizializzare il form (nessuna race); plurale "1 lavoro".
+- Test: iteration_18.json (frontend regression), fix verificati via screenshot.

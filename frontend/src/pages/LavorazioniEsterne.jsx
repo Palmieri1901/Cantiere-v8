@@ -84,7 +84,7 @@ export default function LavorazioniEsterne() {
             <div key={e.id} className="p-3 flex items-center gap-3 hover:bg-muted/40 cursor-pointer" onClick={() => setOpen(e)} data-testid={`esterno-row-${e.id}`}>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm">{e.nome}{e.telefono && <span className="text-muted-foreground font-normal"> · {e.telefono}</span>}</div>
-                <div className="text-xs text-muted-foreground">{e.n} lavori · {e.ore} h{e.ultimo ? ` · ultimo ${e.ultimo}` : ""}{e.note ? ` · ${e.note}` : ""}</div>
+                <div className="text-xs text-muted-foreground">{e.n} {e.n === 1 ? "lavoro" : "lavori"} · {e.ore} h{e.ultimo ? ` · ultimo ${e.ultimo}` : ""}{e.note ? ` · ${e.note}` : ""}</div>
               </div>
               <div className="font-mono-num text-sm font-semibold">{fmtEuro(e.totale)}</div>
               <Button size="sm" variant="outline" onClick={(ev) => { ev.stopPropagation(); anteprimaConto(e); }} data-testid={`btn-conto-${e.id}`}><FileText className="w-3.5 h-3.5 mr-1" /> Conto PDF</Button>

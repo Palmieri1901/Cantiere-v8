@@ -106,7 +106,11 @@ export default function Layout() {
     api.get("/cantiere").then((r) => setC(r.data)).catch(() => {});
   }, []);
   useEffect(() => {
-    api.get("/lavori-pending/count").then((r) => setPending(r.data.count)).catch(() => {});
+    const load = () => api.get("/lavori-pending/count").then((r) => setPending(r.data.count)).catch(() => {});
+    load();
+    window.addEventListener("pending-changed", load);
+    window.addEventListener("focus", load);
+    return () => { window.removeEventListener("pending-changed", load); window.removeEventListener("focus", load); };
   }, [loc.pathname]);
 
   const brandName = c?.nome || "Portomare";

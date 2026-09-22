@@ -20,13 +20,13 @@ export default function ApprovaDialog({ item, onClose, onDone }) {
 
   useEffect(() => {
     if (!item) return;
-    api.get("/tariffe").then((r) => {
-      const rate = Number(r.data.costo_orario_manodopera) || 0;
-      setTariffa(rate);
-      setF((s) => s && !item.costo ? { ...s, costo: +(Number(item.ore || 0) * rate).toFixed(2) } : s);
-    }).catch(() => {});
-    setF({ cliente_id: item.cliente_id || "", esterno_nome: item.cliente_nome || "", data: item.data, tipo: TIPI.includes(item.tipo) ? item.tipo : "Altro", descrizione: item.descrizione, ore: item.ore, costo: item.costo || 0, materiali: item.materiali || "" });
     setModo("esterno");
+    setF(null);
+    api.get("/tariffe").then((r) => Number(r.data.costo_orario_manodopera) || 0).catch(() => 0).then((rate) => {
+      setTariffa(rate);
+      const costo = item.costo || +(Number(item.ore || 0) * rate).toFixed(2);
+      setF({ cliente_id: item.cliente_id || "", esterno_nome: item.cliente_nome || "", data: item.data, tipo: TIPI.includes(item.tipo) ? item.tipo : "Altro", descrizione: item.descrizione, ore: item.ore, costo, materiali: item.materiali || "" });
+    });
     if (!item.cliente_trovato) api.get("/clienti").then((r) => setClienti(r.data)).catch(() => {});
   }, [item]);
 
@@ -44,6 +44,7 @@ export default function ApprovaDialog({ item, onClose, onDone }) {
       if (usaEsterno) { body.esterno_nome = esterno_nome.trim(); delete body.cliente_id; }
       await api.post(`/lavori-pending/${item.id}/approva`, body);
       toast.success(usaEsterno ? "Cliente esterno creato e lavoro salvato" : "Lavoro approvato e aggiunto alla scheda cliente");
+      window.dispatchEvent(new Event("pending-changed"));
       onDone(); onClose();
     } catch (e) {
       toast.error(e.response?.data?.detail || "Errore approvazione");

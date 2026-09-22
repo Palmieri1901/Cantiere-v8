@@ -9,7 +9,7 @@ import ArchivioTab from "@/pages/dipendenti/ArchivioTab";
 
 export default function Dipendenti() {
   const [count, setCount] = useState(0);
-  const refreshCount = () => api.get("/lavori-pending/count").then((r) => setCount(r.data.count)).catch(() => {});
+  const refreshCount = () => api.get("/lavori-pending/count").then((r) => { setCount(r.data.count); window.dispatchEvent(new Event("pending-changed")); }).catch(() => {});
   useEffect(() => { refreshCount(); }, []);
 
   return (
