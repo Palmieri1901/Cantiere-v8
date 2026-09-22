@@ -94,6 +94,15 @@ async def _startup():
         await db.lavori_pending.create_index("stato")
     except Exception as e:
         logger.warning(f"dipendenti indexes skipped: {e}")
+    # Migrazione: denormalizza lavori storico sulle schede cliente (costo_lavori)
+    try:
+        from routers.lavori import sync_lavori_cliente
+        if await db.clienti.count_documents({"costo_lavori": {"$exists": False}}) > 0:
+            for cid in await db.lavori.distinct("cliente_id"):
+                await sync_lavori_cliente(cid)
+            await db.clienti.update_many({"costo_lavori": {"$exists": False}}, {"$set": {"costo_lavori": 0.0, "lavori_storico": []}})
+    except Exception as e:
+        logger.warning(f"Migration costo_lavori skipped: {e}")
     # Migrazione iter13: scafo_sporco_attivo
     try:
         await db.clienti.update_many(

@@ -75,6 +75,7 @@ async def export_xlsx(anno: Optional[int] = None):
         ("Lavaggio fine €", "costo_lavaggio_fine"),
         ("Manutenzione motore €", "costo_manutenzione_motore"),
         ("Lavorazioni extra €", "__totale_extra__"),
+        ("Lavori eseguiti €", "costo_lavori"),
         ("TOTALE €", "__totale__"),
         ("Pagato", "__pagato__"),
         ("Data pagamento", "data_pagamento"),
@@ -89,7 +90,8 @@ async def export_xlsx(anno: Optional[int] = None):
 
     def row_for(d: dict):
         tot_extra = round(sum(float((it or {}).get("prezzo") or 0) for it in (d.get("lavorazioni_extra") or [])), 2)
-        totale = round(sum(float(d.get(k) or 0) for k in COST_KEYS) + tot_extra, 2)
+        tot_lavori = round(float(d.get("costo_lavori") or 0), 2)
+        totale = round(sum(float(d.get(k) or 0) for k in COST_KEYS) + tot_extra + tot_lavori, 2)
         sosta_map = {"dentro": "Al coperto", "fuori": "Su piazzale", "fuori_sede": "Fuori sede", "temporanea": "Temporanea"}
         dest_map = {"marina_di_campo": "Marina di Campo", "altra": "Altra"}
         out = {}

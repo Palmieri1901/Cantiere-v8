@@ -603,3 +603,7 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 
 ## 2026-06 – Fix: lavoro approvato non visibile in scheda cliente
 - Causa: clienti per-anno; app sceglieva scheda anno più recente. Fix: GET /clienti/{id}/lavori unisce i lavori di tutte le schede annuali della stessa persona (cognome+nome); /api/mobile/clienti sceglie la scheda dell anno corrente.
+
+## 2026-06 – Lavori storico nei totali/preventivi
+- Denormalizzazione: `sync_lavori_cliente` (routers/lavori.py) scrive su ogni scheda annuale della persona `costo_lavori` e `lavori_storico` (lavori con data nell anno della scheda). Chiamata su create/update/delete lavoro; migrazione al primo avvio.
+- Inclusi in: dettaglio cliente (sezione "Lavori eseguiti"), totale lista clienti, PDF preventivo, PDF storico multi-anno, report/stats (via _totale_extra), export Excel (colonna "Lavori eseguiti €").

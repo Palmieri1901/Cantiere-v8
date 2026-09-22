@@ -56,7 +56,7 @@ def _totale_extra(doc: dict) -> float:
     lst = doc.get("lavorazioni_extra") or []
     if not isinstance(lst, list):
         return 0.0
-    return round(sum(float((it or {}).get("prezzo") or 0) for it in lst), 2)
+    return round(sum(float((it or {}).get("prezzo") or 0) for it in lst) + float(doc.get("costo_lavori") or 0), 2)
 
 
 async def get_tariffe_doc() -> Tariffe:

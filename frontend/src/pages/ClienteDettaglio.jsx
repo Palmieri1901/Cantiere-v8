@@ -44,7 +44,8 @@ export default function ClienteDettaglio({ open, onOpenChange, cliente }) {
     "costo_alaggio", "costo_varo", "costo_antivegetativa", "costo_scafo_sporco",
     "costo_lavaggio_inizio", "costo_lavaggio_fine", "costo_manutenzione_motore",
   ];
-  const totale = keys.reduce((s, k) => s + (Number(c[k]) || 0), 0) + tot_extra;
+  const totale = keys.reduce((s, k) => s + (Number(c[k]) || 0), 0) + tot_extra + (Number(c.costo_lavori) || 0);
+  const lav_storico = (Array.isArray(c.lavori_storico) ? c.lavori_storico : []).filter((l) => Number(l?.costo) > 0);
 
   const dest = c.destinazione_alaggio_varo || "marina_di_campo";
   const destNome = (c.destinazione_altra_nome || "").trim();
@@ -153,6 +154,28 @@ export default function ClienteDettaglio({ open, onOpenChange, cliente }) {
         )}
 
         <Separator className="my-4" />
+
+        {/* Lavori eseguiti (storico anno) */}
+        {lav_storico.length > 0 && (
+          <>
+            <SectionTitle icon={Wrench}>Lavori eseguiti {c.anno}</SectionTitle>
+            {lav_storico.map((l) => (
+              <div key={l.id} className="flex justify-between items-baseline py-1 text-sm" data-testid={`dettaglio-lavoro-${l.id}`}>
+                <span className="text-foreground truncate pr-3">
+                  <span className="font-mono-num text-xs text-muted-foreground mr-2">{l.data}</span>
+                  {l.descrizione || l.tipo}
+                  {(Number(l.ore) > 0 || l.dipendente) && <span className="text-xs text-muted-foreground"> · {Number(l.ore) > 0 ? `${l.ore} h` : ""}{l.dipendente ? ` ${l.dipendente}` : ""}</span>}
+                </span>
+                <span className="font-mono-num font-medium shrink-0">{fmtEuro(Number(l.costo) || 0)}</span>
+              </div>
+            ))}
+            <div className="flex justify-between items-baseline py-1.5 pt-2 border-t border-border/40 text-sm">
+              <span className="font-medium">Totale lavori eseguiti</span>
+              <span className="font-mono-num font-semibold text-primary" data-testid="dettaglio-totale-lavori">{fmtEuro(Number(c.costo_lavori) || 0)}</span>
+            </div>
+            <Separator className="my-4" />
+          </>
+        )}
 
         {/* Totale finale */}
         <div className="flex justify-between items-baseline p-4 rounded-md bg-primary text-primary-foreground" data-testid="dettaglio-totale">

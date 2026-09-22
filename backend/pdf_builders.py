@@ -136,6 +136,13 @@ def _build_storico_pdf(docs: list, cantiere_doc: dict) -> bytes:
             descr = ((it or {}).get("descrizione") or "").strip() or "Lavorazione extra"
             rows.append([f"Extra · {descr}", _euro(prezzo)])
             subtot += prezzo
+        for it in (d.get("lavori_storico") or []):
+            costo_l = float((it or {}).get("costo") or 0)
+            if costo_l <= 0:
+                continue
+            descr = ((it or {}).get("descrizione") or "").strip() or (it or {}).get("tipo") or "Lavoro"
+            rows.append([f"Lavoro {(it or {}).get('data') or ''} · {descr}", _euro(costo_l)])
+            subtot += costo_l
 
         if len(rows) == 1:
             rows.append([Paragraph("<i>Nessun costo registrato per quest'anno.</i>", body), ""])
@@ -319,7 +326,13 @@ def _build_preventivo_pdf(doc: dict, lavori_docs: list, cantiere_doc: dict, t_cu
     tot_extra = round(sum(float((it or {}).get("prezzo") or 0) for it in lav_extra), 2)
     if tot_extra > 0:
         voci.append(["Lavorazioni extra", _euro(tot_extra)])
-    totale = sum(float(doc.get(k) or 0) for k in ("costo_sosta","costo_movimentazione","costo_taccaggio","costo_copertura","costo_alaggio","costo_varo","costo_antivegetativa","costo_scafo_sporco","costo_lavaggio_inizio","costo_lavaggio_fine","costo_manutenzione_motore")) + tot_extra
+    lav_storico = [l for l in (doc.get("lavori_storico") or []) if float((l or {}).get("costo") or 0) > 0]
+    tot_lavori = round(sum(float(l.get("costo") or 0) for l in lav_storico), 2)
+    for l in lav_storico:
+        descr = (l.get("descrizione") or "").strip() or l.get("tipo") or "Lavoro"
+        ore = f" · {l.get('ore'):g} h" if float(l.get("ore") or 0) > 0 else ""
+        voci.append([f"Lavoro {l.get('data') or ''} · {descr}{ore}", _euro(float(l.get("costo") or 0))])
+    totale = sum(float(doc.get(k) or 0) for k in ("costo_sosta","costo_movimentazione","costo_taccaggio","costo_copertura","costo_alaggio","costo_varo","costo_antivegetativa","costo_scafo_sporco","costo_lavaggio_inizio","costo_lavaggio_fine","costo_manutenzione_motore")) + tot_extra + tot_lavori
 
     if not voci:
         voci = [["Nessun costo configurato", "—"]]

@@ -146,6 +146,8 @@ class Cliente(BaseModel):
     costo_ricambi_motore_2_totale: float = 0.0
     costo_manodopera_motore_2: float = 0.0
     lavorazioni_extra: List[dict] = Field(default_factory=list)
+    costo_lavori: float = 0.0
+    lavori_storico: List[dict] = Field(default_factory=list)
     override_costi: bool = False
     note_lavori: str = ""
     scadenza_antivegetativa: Optional[str] = None

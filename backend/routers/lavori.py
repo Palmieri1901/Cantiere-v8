@@ -64,18 +64,38 @@ async def _scarica_articoli_magazzino(articoli: list, cliente: dict, lavoro_id: 
     return costo_extra, snapshot
 
 
+async def _person_ids(cliente_id: str) -> list:
+    """Id di tutte le schede annuali della stessa persona (cognome+nome)."""
+    c = await db.clienti.find_one({"id": cliente_id}, {"_id": 0, "nome": 1, "cognome": 1})
+    if not c:
+        return [cliente_id]
+    same = await db.clienti.find(
+        {"cognome": {"$regex": f"^{re.escape((c.get('cognome') or '').strip())}$", "$options": "i"},
+         "nome": {"$regex": f"^{re.escape((c.get('nome') or '').strip())}$", "$options": "i"}},
+        {"_id": 0, "id": 1},
+    ).to_list(200)
+    return list({cliente_id, *[x["id"] for x in same]})
+
+
+async def sync_lavori_cliente(cliente_id: str):
+    """Denormalizza su ogni scheda annuale della persona i lavori dell'anno (costo_lavori + lavori_storico)."""
+    ids = await _person_ids(cliente_id)
+    lavori = await db.lavori.find({"cliente_id": {"$in": ids}}, {"_id": 0}).sort("data", 1).to_list(2000)
+    schede = await db.clienti.find({"id": {"$in": ids}}, {"_id": 0, "id": 1, "anno": 1}).to_list(200)
+    for s in schede:
+        anno = str(s.get("anno") or "")
+        mine = [l for l in lavori if str(l.get("data") or "")[:4] == anno]
+        await db.clienti.update_one({"id": s["id"]}, {"$set": {
+            "costo_lavori": round(sum(float(l.get("costo") or 0) for l in mine), 2),
+            "lavori_storico": [{"id": l["id"], "data": l.get("data"), "tipo": l.get("tipo"), "descrizione": l.get("descrizione", ""),
+                                 "costo": float(l.get("costo") or 0), "ore": float(l.get("ore") or 0), "dipendente": l.get("dipendente", "")} for l in mine],
+        }})
+
+
 @router.get("/clienti/{cliente_id}/lavori", response_model=List[Lavoro])
 async def list_lavori(cliente_id: str):
     # Lo storico è della persona: unisco i lavori di tutte le schede annuali con stesso cognome+nome
-    ids = [cliente_id]
-    c = await db.clienti.find_one({"id": cliente_id}, {"_id": 0, "nome": 1, "cognome": 1})
-    if c:
-        same = await db.clienti.find(
-            {"cognome": {"$regex": f"^{re.escape((c.get('cognome') or '').strip())}$", "$options": "i"},
-             "nome": {"$regex": f"^{re.escape((c.get('nome') or '').strip())}$", "$options": "i"}},
-            {"_id": 0, "id": 1},
-        ).to_list(200)
-        ids = list({*ids, *[x["id"] for x in same]})
+    ids = await _person_ids(cliente_id)
     docs = await db.lavori.find({"cliente_id": {"$in": ids}}, {"_id": 0}).sort("data", -1).to_list(1000)
     for d in docs:
         if isinstance(d.get("created_at"), str):
@@ -112,6 +132,7 @@ async def create_lavoro(payload: LavoroCreate):
             {"id": lavoro.id},
             {"$set": {"articoli_magazzino": snapshot, "costo": lavoro.costo}},
         )
+    await sync_lavori_cliente(lavoro.cliente_id)
     return lavoro
 
 
@@ -214,6 +235,7 @@ async def update_lavoro(lavoro_id: str, payload: LavoroCreate):
     merged["articoli_magazzino"] = snapshot_finale
     lavoro = Lavoro(**merged)
     await db.lavori.update_one({"id": lavoro_id}, {"$set": serialize(lavoro)})
+    await sync_lavori_cliente(lavoro.cliente_id)
     return lavoro
 
 
@@ -258,4 +280,5 @@ async def delete_lavoro(lavoro_id: str):
         ripristinati += 1
 
     await db.lavori.delete_one({"id": lavoro_id})
+    await sync_lavori_cliente(existing.get("cliente_id"))
     return {"ok": True, "giacenze_ripristinate": ripristinati, "articoli_saltati": saltati}

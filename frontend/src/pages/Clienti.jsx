@@ -106,7 +106,7 @@ export default function Clienti() {
       (c.costo_movimentazione || 0) + (c.costo_taccaggio || 0);
     const extra = (Array.isArray(c.lavorazioni_extra) ? c.lavorazioni_extra : [])
       .reduce((s, it) => s + (Number(it?.prezzo) || 0), 0);
-    return base + extra;
+    return base + extra + (Number(c.costo_lavori) || 0);
   };
 
   // Riepilogo pagamenti su TUTTI i clienti dell'anno (non solo filtrati)
