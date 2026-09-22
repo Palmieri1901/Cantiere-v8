@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import {
   Plus, Search, Trash2, Pencil, FileDown, FileSpreadsheet,
-  Camera, ScanLine, AlertTriangle, ArrowDownCircle,
+  Camera, ScanLine, AlertTriangle, ArrowDownCircle, ArrowUpCircle,
   Filter, ShoppingCart, Percent,
 } from "lucide-react";
 import { EMPTY_ART } from "./common";
@@ -149,32 +149,34 @@ export default function ArticoliTab() {
     return `${API}/magazzino/listino.pdf${qs ? `?${qs}` : ""}`;
   };
 
-  const doScarico = async (art) => {
+  const doMovimento = async (art, tipo) => {
     const raw = (scaricoInput[art.id] || "").toString().replace(",", ".").trim();
     const qt = parseFloat(raw);
     if (!qt || qt <= 0) { toast.error("Inserisci una quantità positiva"); return; }
     const disponibile = Number(art.quantita || 0);
-    if (qt > disponibile) {
+    if (tipo === "scarico" && qt > disponibile) {
       if (!await confirmDialog(`Attenzione: giacenza attuale ${disponibile}. Vuoi comunque scaricare ${qt}?`)) return;
     }
     setScaricoLoading((s) => ({ ...s, [art.id]: true }));
     try {
       await api.post("/magazzino/movimenti", {
         articolo_id: art.id,
-        tipo: "scarico",
+        tipo,
         quantita: qt,
-        motivo: "Scarico rapido",
+        motivo: tipo === "carico" ? "Carico rapido" : "Scarico rapido",
       });
-      const nuovaQta = disponibile - qt;
+      const nuovaQta = tipo === "carico" ? disponibile + qt : disponibile - qt;
       setArticoli((prev) => prev.map((x) => x.id === art.id ? { ...x, quantita: nuovaQta } : x));
       setScaricoInput((s) => ({ ...s, [art.id]: "" }));
-      toast.success(`Scaricato ${qt} ${art.unita_misura || "pz"} — nuova giacenza ${nuovaQta}`);
+      toast.success(`${tipo === "carico" ? "Caricato" : "Scaricato"} ${qt} ${art.unita_misura || "pz"} — nuova giacenza ${nuovaQta}`);
     } catch (e) {
-      toast.error(e.response?.data?.detail || "Errore scarico");
+      toast.error(e.response?.data?.detail || `Errore ${tipo}`);
     } finally {
       setScaricoLoading((s) => ({ ...s, [art.id]: false }));
     }
   };
+  const doScarico = (art) => doMovimento(art, "scarico");
+  const doCarico = (art) => doMovimento(art, "carico");
 
   const renderRow = (a) => {
     const pa = Number(a.prezzo_acquisto || 0);
@@ -223,7 +225,10 @@ export default function ArticoliTab() {
               className="h-8 w-[70px] text-right font-mono-num text-sm px-2"
               data-testid={`input-scarico-${a.id}`}
             />
-            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => doScarico(a)} disabled={!!scaricoLoading[a.id] || !scaricoInput[a.id]} title="Scarica" data-testid={`btn-scarico-${a.id}`}>
+            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => doCarico(a)} disabled={!!scaricoLoading[a.id] || !scaricoInput[a.id]} title="Carica (entrata merce)" data-testid={`btn-carico-${a.id}`}>
+              <ArrowUpCircle className="w-4 h-4 text-emerald-600" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => doScarico(a)} disabled={!!scaricoLoading[a.id] || !scaricoInput[a.id]} title="Scarica (uscita merce)" data-testid={`btn-scarico-${a.id}`}>
               <ArrowDownCircle className="w-4 h-4 text-destructive" />
             </Button>
           </div>
@@ -349,7 +354,7 @@ export default function ArticoliTab() {
                 <TableHead className="text-right" title="Prezzo di vendita + IVA 22%">Vendita IVA inc.</TableHead>
                 <TableHead className="text-right">Ricarico</TableHead>
                 <TableHead className="text-right w-[80px]">Giacenza</TableHead>
-                <TableHead className="text-right w-[140px]" title="Digita la quantità e premi Invio per scaricare">Scarica</TableHead>
+                <TableHead className="text-right w-[170px]" title="Digita la quantità: ↑ carica (entrata), ↓ scarica (uscita). Invio = scarico">Carica / Scarica</TableHead>
                 <TableHead className="text-right w-[100px]">Azioni</TableHead>
               </TableRow>
             </TableHeader>
