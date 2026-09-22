@@ -235,42 +235,18 @@ async def create_movimento(payload: MovimentoCreate):
 
 
 # ---------------------------------------------------------------------------
-# AI SCAN (Gemini 3 Flash via Emergent LLM key)
+# AI SCAN (Gemini via ai_client — provider configurabile da .env)
 # ---------------------------------------------------------------------------
 
 async def _run_vision(prompt: str, image_base64: str) -> str:
-    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent, TextDelta, StreamDone
+    from ai_client import vision
 
-    api_key = os.environ.get("EMERGENT_LLM_KEY")
-    if not api_key:
-        raise HTTPException(500, "EMERGENT_LLM_KEY non configurata")
-
-    # Rimuove eventuale prefisso data URL
-    b64 = image_base64.split(",", 1)[-1] if "," in image_base64 else image_base64
-
-    chat = (
-        LlmChat(
-            api_key=api_key,
-            session_id=f"magazzino-{datetime.now().timestamp()}",
-            system_message=(
-                "Sei un assistente esperto di magazzino nautico. "
-                "Analizzi foto di articoli o Documenti Di Trasporto (DDT) italiani "
-                "ed estrai i dati in JSON preciso senza aggiungere commenti."
-            ),
-        )
-        .with_model("gemini", "gemini-3-flash-preview")
+    return await vision(
+        "Sei un assistente esperto di magazzino nautico. "
+        "Analizzi foto di articoli o Documenti Di Trasporto (DDT) italiani "
+        "ed estrai i dati in JSON preciso senza aggiungere commenti.",
+        prompt, [image_base64],
     )
-
-    image = ImageContent(image_base64=b64)
-    msg = UserMessage(text=prompt, file_contents=[image])
-
-    chunks: List[str] = []
-    async for ev in chat.stream_message(msg):
-        if isinstance(ev, TextDelta):
-            chunks.append(ev.content)
-        elif isinstance(ev, StreamDone):
-            break
-    return "".join(chunks)
 
 
 def _extract_json(text: str):

@@ -578,3 +578,13 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - Frontend: pagina /dipendenti "Lavori dal cantiere" (tab Da approvare + Dipendenti e chiavi con QR chiave); PWA pubblica /app-dipendente (login chiave/QR, coda offline in localStorage, Invia, Mostra QR paginato 6 lavori/pagina, manifest.json + sw.js). LavoriSection mostra ore/dipendente.
 - Nota: AuthProvider/YearProvider e interceptor 401 saltano il path /app-dipendente (rotta pubblica).
 - Test: iteration_17.json (19/19 backend, frontend OK dopo fix ApprovaDialog null + redirect PWA).
+
+
+## 2026-06 – Programma "nativo" senza dipendenze Emergent
+- `backend/ai_client.py`: vision AI con provider da .env → GEMINI_API_KEY (REST Google diretto, modello GEMINI_MODEL default gemini-2.5-flash) oppure fallback EMERGENT_LLM_KEY. Usato da magazzino/suzuki/gommoni.
+- `email_service.py`: SMTP standard (SMTP_HOST/PORT/USER/PASSWORD/FROM, es. Aruba) con fallback proxy Emergent.
+- index.html ripulito (no emergent-main.js/posthog); rimosso pacchetto @emergentbase/visual-edits (craco lo gestisce come opzionale).
+- `deploy/`: Dockerfile.backend, Dockerfile.frontend (build React → Caddy con HTTPS automatico), Caddyfile, docker-compose.yml (mongo, backend, frontend, backup giornaliero), .env.example, INSTALLAZIONE.md (dominio genbnautica.it su Aruba).
+- `docs/API_MOBILE.md`: documentazione API app dipendenti.
+- `mobile_android/`: progetto Flutter (login chiave/QR, nuovo lavoro, coda, invio, QR paginato). NON compilato/testato in questo ambiente (richiede Android SDK).
+- Verifiche: build produzione frontend OK, ai_client OK, backend OK.

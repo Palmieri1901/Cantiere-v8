@@ -872,35 +872,16 @@ _IMPORT_PROMPT = (
 
 
 async def _run_vision_images(images_b64: List[str]) -> List[dict]:
-    """Invia una o più pagine al modello Gemini e concatena i risultati JSON."""
-    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent, TextDelta, StreamDone
-
-    api_key = os.environ.get("EMERGENT_LLM_KEY")
-    if not api_key:
-        raise HTTPException(500, "EMERGENT_LLM_KEY non configurata")
+    """Invia una o più pagine al modello AI e concatena i risultati JSON."""
+    from ai_client import vision
 
     all_rows: List[dict] = []
-    for idx, b64 in enumerate(images_b64):
-        clean_b64 = b64.split(",", 1)[-1] if "," in b64 else b64
-        chat = (
-            LlmChat(
-                api_key=api_key,
-                session_id=f"suzuki-import-{datetime.now().timestamp()}-{idx}",
-                system_message=(
-                    "Sei un OCR avanzato specializzato nell'estrazione di dati tecnici "
-                    "dai listini ufficiali dei motori marini Suzuki. Sei preciso e sintetico."
-                ),
-            )
-            .with_model("gemini", "gemini-3-flash-preview")
-        )
-        msg = UserMessage(text=_IMPORT_PROMPT, file_contents=[ImageContent(image_base64=clean_b64)])
-        chunks: List[str] = []
-        async for ev in chat.stream_message(msg):
-            if isinstance(ev, TextDelta):
-                chunks.append(ev.content)
-            elif isinstance(ev, StreamDone):
-                break
-        text = "".join(chunks).strip()
+    for b64 in images_b64:
+        text = (await vision(
+            "Sei un OCR avanzato specializzato nell'estrazione di dati tecnici "
+            "dai listini ufficiali dei motori marini Suzuki. Sei preciso e sintetico.",
+            _IMPORT_PROMPT, [b64],
+        )).strip()
         parsed = _extract_json_array(text)
         if isinstance(parsed, list):
             all_rows.extend([r for r in parsed if isinstance(r, dict)])

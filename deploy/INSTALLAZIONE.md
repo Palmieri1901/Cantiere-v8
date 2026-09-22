@@ -1,0 +1,55 @@
+# Installazione autonoma — GEB Nautica / Portomare
+
+Il programma è completamente indipendente: React + FastAPI + MongoDB, senza alcun servizio esterno obbligatorio.
+Funziona su qualsiasi server Linux con Docker (VPS Aruba, Hetzner, OVH, un mini-PC in cantiere…).
+
+## 1. Requisiti
+- Un server Linux (Ubuntu 22.04/24.04 consigliato), 2 GB RAM, 20 GB disco
+- Docker + Docker Compose: `curl -fsSL https://get.docker.com | sh`
+- Il dominio **genbnautica.it** puntato all'IP del server (pannello DNS Aruba):
+  - record `A` → `@` → IP del server
+  - record `A` → `www` → IP del server (opzionale)
+- Porte 80 e 443 aperte sul firewall del server
+
+## 2. Installazione
+```bash
+git clone <repository>  portomare      # oppure copia la cartella del progetto
+cd portomare/deploy
+cp .env.example .env
+nano .env                              # compila DOMAIN, password, SMTP, GEMINI_API_KEY
+docker compose up -d --build
+```
+Al primo avvio Caddy richiede automaticamente il certificato HTTPS (Let's Encrypt) per il dominio.
+Dopo 1-2 minuti il programma è su **https://genbnautica.it** e l'app dipendenti su **https://genbnautica.it/app-dipendente**.
+
+Login iniziale: password = `ADMIN_PASSWORD` del file `.env`; PIN di recupero = `RECOVERY_PIN`.
+
+## 3. Comandi utili
+```bash
+docker compose logs -f backend        # log del server
+docker compose pull && docker compose up -d --build   # aggiornamento dopo modifiche al codice
+docker compose down                   # arresto (i dati restano nel volume mongo_data)
+```
+
+## 4. Backup
+- Il servizio `backup` esegue ogni giorno un `mongodump` in `deploy/backups/` (conservati 14 giorni). Copia questa cartella altrove (NAS, cloud).
+- Dal programma (Home → Backup) puoi sempre salvare/ripristinare un JSON completo.
+- Ripristino manuale da dump: `docker compose exec -T mongo mongorestore --gzip --archive < backups/portomare-AAAA-MM-GG.gz`
+
+## 5. Servizi opzionali
+| Funzione | Variabile | Se assente |
+|---|---|---|
+| Recupero password via email | `SMTP_*` | Il recupero funziona comunque con il PIN |
+| Scan AI (foto articoli, DDT, schede gommoni, listini Suzuki) | `GEMINI_API_KEY` | I pulsanti AI mostrano "chiave non configurata"; tutto il resto funziona |
+
+## 6. Senza dominio / rete locale
+Per usare il programma solo nella rete del cantiere, imposta in `.env`:
+```
+DOMAIN=:80
+FRONTEND_URL=http://192.168.1.50      # IP fisso del PC/server
+CORS_ORIGINS=http://192.168.1.50
+```
+Nota: senza HTTPS la fotocamera del telefono nella PWA non è disponibile (limite dei browser); l'inserimento manuale della chiave e dei lavori funziona.
+
+## 7. App Android nativa
+Il sorgente Flutter è in `mobile_android/` (vedi `mobile_android/README.md`); le API usate sono documentate in `docs/API_MOBILE.md`.

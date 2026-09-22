@@ -1,9 +1,13 @@
-"""Invio email tramite integrazione Emergent (Resend gestito)."""
+"""Invio email: SMTP standard (es. Aruba) oppure, se configurato, proxy Emergent."""
 import os
 import re
+import ssl
+import asyncio
+import smtplib
 import ipaddress
 import logging
 import httpx
+from email.message import EmailMessage
 from html.parser import HTMLParser
 from urllib.parse import urlparse
 from fastapi import HTTPException
@@ -87,11 +91,47 @@ def _assert_safe_email(subject: str, html: str) -> None:
                 raise ValueError(f"Anchor text {m.group(1)!r} ≠ real link host {real!r} (G3)")
 
 
+def _send_smtp(to: str, subject: str, html: str) -> str:
+    host = os.environ["SMTP_HOST"]
+    port = int(os.environ.get("SMTP_PORT", "587"))
+    user = os.environ.get("SMTP_USER", "")
+    password = os.environ.get("SMTP_PASSWORD", "")
+    sender = os.environ.get("SMTP_FROM", user)
+    from_name = os.environ.get("EMAIL_FROM_NAME", "Portomare")
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = f"{from_name} <{sender}>"
+    msg["To"] = to
+    msg.set_content("Questo messaggio richiede un client che supporti HTML.")
+    msg.add_alternative(html, subtype="html")
+    ctx = ssl.create_default_context()
+    if port == 465:
+        with smtplib.SMTP_SSL(host, port, context=ctx, timeout=30) as s:
+            if user:
+                s.login(user, password)
+            s.send_message(msg)
+    else:
+        with smtplib.SMTP(host, port, timeout=30) as s:
+            s.starttls(context=ctx)
+            if user:
+                s.login(user, password)
+            s.send_message(msg)
+    return msg["Message-ID"] or "smtp"
+
+
 async def send_email(*, to: str, subject: str, html: str) -> str | None:
-    """Invia un'email tramite proxy Emergent. Restituisce l'ID del messaggio."""
+    """Invia un'email via SMTP (SMTP_HOST) oppure via proxy Emergent (EMERGENT_EMAIL_KEY)."""
     _assert_safe_email(subject, html)
-    from_name = os.environ["EMAIL_FROM_NAME"]
-    email_key = os.environ["EMERGENT_EMAIL_KEY"]
+    if os.environ.get("SMTP_HOST"):
+        try:
+            return await asyncio.to_thread(_send_smtp, to, subject, html)
+        except Exception as e:
+            logger.error(f"SMTP send error: {e}")
+            raise HTTPException(status_code=502, detail="Impossibile inviare email (SMTP)")
+    email_key = os.environ.get("EMERGENT_EMAIL_KEY")
+    if not email_key:
+        raise HTTPException(status_code=500, detail="Email non configurata: imposta SMTP_HOST nel file .env")
+    from_name = os.environ.get("EMAIL_FROM_NAME", "Portomare")
     payload = {
         "to": [to],
         "subject": subject,

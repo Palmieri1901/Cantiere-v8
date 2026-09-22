@@ -1,0 +1,59 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    command: ["mongod", "--quiet", "--logpath", "/dev/null"]
+
+  backend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+    depends_on:
+      - mongo
+    expose:
+      - "8001"
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.frontend
+      args:
+        REACT_APP_BACKEND_URL: ${FRONTEND_URL}
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+
+  # Backup automatico giornaliero del database (conserva 14 giorni)
+  backup:
+    image: mongo:7
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    volumes:
+      - ./backups:/backups
+    entrypoint: >
+      sh -c 'while true; do
+        mongodump --uri="mongodb://mongo:27017" --db="$${DB_NAME}" --archive="/backups/portomare-$$(date +%F).gz" --gzip &&
+        find /backups -name "portomare-*.gz" -mtime +14 -delete;
+        sleep 86400; done'
+    env_file: .env
+
+volumes:
+  mongo_data:
+  caddy_data:
+  caddy_config:

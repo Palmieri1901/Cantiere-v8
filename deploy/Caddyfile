@@ -1,0 +1,19 @@
+{$DOMAIN}
+
+encode gzip zstd
+
+# API → backend FastAPI
+handle /api/* {
+	reverse_proxy backend:8001
+}
+
+# Frontend React (SPA) — le rotte client tornano su index.html
+handle {
+	root * /srv
+	try_files {path} /index.html
+	file_server
+}
+
+# Service worker e manifest non devono essere messi in cache dal browser
+header /sw.js Cache-Control "no-cache"
+header /manifest.json Cache-Control "no-cache"

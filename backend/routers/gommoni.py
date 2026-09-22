@@ -267,27 +267,15 @@ _IMPORT_PROMPT = (
 
 
 async def _run_vision(images_b64: List[str]) -> List[dict]:
-    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent, TextDelta, StreamDone
+    from ai_client import vision
 
-    api_key = os.environ.get("EMERGENT_LLM_KEY")
-    if not api_key:
-        raise HTTPException(500, "EMERGENT_LLM_KEY non configurata")
     rows: List[dict] = []
-    for idx, b64 in enumerate(images_b64):
-        clean = b64.split(",", 1)[-1] if "," in b64 else b64
-        chat = LlmChat(
-            api_key=api_key,
-            session_id=f"gommoni-import-{datetime.now().timestamp()}-{idx}",
-            system_message="Sei un OCR avanzato specializzato in listini e schede tecniche di gommoni. Preciso e sintetico.",
-        ).with_model("gemini", "gemini-3-flash-preview")
-        msg = UserMessage(text=_IMPORT_PROMPT, file_contents=[ImageContent(image_base64=clean)])
-        chunks: List[str] = []
-        async for ev in chat.stream_message(msg):
-            if isinstance(ev, TextDelta):
-                chunks.append(ev.content)
-            elif isinstance(ev, StreamDone):
-                break
-        parsed = _extract_json_array("".join(chunks).strip())
+    for b64 in images_b64:
+        text = await vision(
+            "Sei un OCR avanzato specializzato in listini e schede tecniche di gommoni. Preciso e sintetico.",
+            _IMPORT_PROMPT, [b64],
+        )
+        parsed = _extract_json_array(text.strip())
         if isinstance(parsed, list):
             rows.extend([r for r in parsed if isinstance(r, dict)])
     return rows
