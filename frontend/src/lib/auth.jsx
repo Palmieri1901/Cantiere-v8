@@ -18,7 +18,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  useEffect(() => { check(); }, []);
+  useEffect(() => { if (window.location.pathname.startsWith("/app-dipendente")) { setUser(false); setLoading(false); } else check(); }, []);
 
   const login = async (password) => {
     const r = await api.post("/auth/login", { password });

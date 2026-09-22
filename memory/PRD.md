@@ -570,3 +570,11 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 
 ## 2026-06 – Foto da fotocamera (Magazzino)
 - Aggiunto pulsante "Scatta foto" (input file con `capture="environment"`) accanto a "Da file" in: form articolo, Scan articolo AI, Scan DDT AI. Su cellulare apre la fotocamera posteriore; su PC apre il selettore file.
+
+
+## 2026-06 – Lavori dal cantiere (app dipendenti)
+- Bluetooth verso browser non possibile → scelto: API via internet + QR offline.
+- Backend: `routers/dipendenti.py` (CRUD dipendenti con chiave PM-XXXX-XXXX-XXXX hashata sha256; coda `lavori_pending` con approva/rifiuta/import-qr), `routers/mobile.py` (prefisso /api/mobile, header X-Api-Key: me, clienti, articoli, POST lavori con dedupe client_uid). Lavoro ha nuovi campi `ore`, `dipendente`. Backup include `dipendenti`, `lavori_pending`.
+- Frontend: pagina /dipendenti "Lavori dal cantiere" (tab Da approvare + Dipendenti e chiavi con QR chiave); PWA pubblica /app-dipendente (login chiave/QR, coda offline in localStorage, Invia, Mostra QR paginato 6 lavori/pagina, manifest.json + sw.js). LavoriSection mostra ore/dipendente.
+- Nota: AuthProvider/YearProvider e interceptor 401 saltano il path /app-dipendente (rotta pubblica).
+- Test: iteration_17.json (19/19 backend, frontend OK dopo fix ApprovaDialog null + redirect PWA).

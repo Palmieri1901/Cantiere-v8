@@ -19,7 +19,7 @@ api.interceptors.response.use(
     // Evita loop se già sulla pagina di login o su endpoint di auth
     if (status === 401 && !url.includes("/auth/")) {
       const path = window.location.pathname;
-      if (!path.startsWith("/login") && !path.startsWith("/forgot-password") && !path.startsWith("/reset-password")) {
+      if (!path.startsWith("/login") && !path.startsWith("/forgot-password") && !path.startsWith("/reset-password") && !path.startsWith("/app-dipendente") && !path.startsWith("/recupero-pin")) {
         window.location.replace(`/login?redirect=${encodeURIComponent(path)}`);
       }
     }

@@ -44,7 +44,7 @@ export default function ApprovaDialog({ item, onClose, onDone }) {
           <DialogTitle>Approva lavoro di {item?.dipendente_nome}</DialogTitle>
           <DialogDescription>Controlla i dati e imposta il costo manodopera prima di salvarlo nella scheda cliente.</DialogDescription>
         </DialogHeader>
-        {f && (
+        {f && item && (
           <div className="space-y-3">
             {!item.cliente_trovato && (
               <div className="space-y-1.5">

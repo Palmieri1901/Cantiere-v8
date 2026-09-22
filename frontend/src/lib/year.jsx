@@ -30,7 +30,7 @@ export function YearProvider({ children }) {
     }
   }, [year]);
 
-  useEffect(() => { refresh(); }, []); // eslint-disable-line
+  useEffect(() => { if (!window.location.pathname.startsWith("/app-dipendente")) refresh(); else setLoading(false); }, []); // eslint-disable-line
 
   const setYear = (y) => {
     setYearState(y);
