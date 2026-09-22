@@ -15,14 +15,21 @@ export default function ApprovaDialog({ item, onClose, onDone }) {
   const [f, setF] = useState(null);
   const [clienti, setClienti] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [tariffa, setTariffa] = useState(0);
 
   useEffect(() => {
     if (!item) return;
+    api.get("/tariffe").then((r) => {
+      const rate = Number(r.data.costo_orario_manodopera) || 0;
+      setTariffa(rate);
+      setF((s) => s && !item.costo ? { ...s, costo: +(Number(item.ore || 0) * rate).toFixed(2) } : s);
+    }).catch(() => {});
     setF({ cliente_id: item.cliente_id || "", data: item.data, tipo: TIPI.includes(item.tipo) ? item.tipo : "Altro", descrizione: item.descrizione, ore: item.ore, costo: item.costo || 0, materiali: item.materiali || "" });
     if (!item.cliente_trovato) api.get("/clienti").then((r) => setClienti(r.data)).catch(() => {});
   }, [item]);
 
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
+  const setOre = (v) => setF((s) => ({ ...s, ore: v, costo: tariffa > 0 ? +((Number(v) || 0) * tariffa).toFixed(2) : s.costo }));
 
   const approva = async () => {
     if (!f.cliente_id) return toast.error("Seleziona il cliente");
@@ -66,8 +73,10 @@ export default function ApprovaDialog({ item, onClose, onDone }) {
             </div>
             <div className="space-y-1.5"><L>Descrizione</L><Input value={f.descrizione} onChange={(e) => set("descrizione", e.target.value)} data-testid="input-approva-descrizione" /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5"><L>Ore lavoro</L><Input type="number" step="0.5" min="0" value={f.ore} onChange={(e) => set("ore", e.target.value)} className="font-mono-num" data-testid="input-approva-ore" /></div>
-              <div className="space-y-1.5"><L>Costo manodopera €</L><Input type="number" step="0.01" min="0" value={f.costo} onChange={(e) => set("costo", e.target.value)} className="font-mono-num" data-testid="input-approva-costo" /></div>
+              <div className="space-y-1.5"><L>Ore lavoro</L><Input type="number" step="0.5" min="0" value={f.ore} onChange={(e) => setOre(e.target.value)} className="font-mono-num" data-testid="input-approva-ore" /></div>
+              <div className="space-y-1.5"><L>Costo manodopera €</L><Input type="number" step="0.01" min="0" value={f.costo} onChange={(e) => set("costo", e.target.value)} className="font-mono-num" data-testid="input-approva-costo" />
+                <div className="text-[11px] text-muted-foreground" data-testid="approva-tariffa-hint">{tariffa > 0 ? `Calcolato: ${f.ore || 0} h × ${tariffa} €/h (modificabile)` : "Imposta il costo orario in Tariffe per il calcolo automatico"}</div>
+              </div>
             </div>
             <div className="space-y-1.5"><L>Materiali</L><Textarea rows={2} value={f.materiali} onChange={(e) => set("materiali", e.target.value)} data-testid="input-approva-materiali" /></div>
             {item.articoli_magazzino?.length > 0 && (

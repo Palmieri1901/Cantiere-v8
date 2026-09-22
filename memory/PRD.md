@@ -594,3 +594,6 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 
 ## 2026-06 – App dipendenti separata dal gestionale
 - Host dedicato `lavori.<dominio>` (APP_DOMAIN in deploy/.env): App.js rende SOLO AppDipendente su quel host (`lib/appHost.js`); Caddy espone solo /api/mobile/* (resto 403) e sul dominio principale /app-dipendente reindirizza all host app. QR chiave e link usano REACT_APP_APP_DIPENDENTI_HOST se impostato. In preview resta /app-dipendente.
+
+## 2026-06 – Costo automatico ore
+- Approvazione lavoro: costo manodopera = ore × costo_orario_manodopera (Tariffe), precompilato e ricalcolato nel dialogo (modificabile); fallback lato server se costo assente/0.

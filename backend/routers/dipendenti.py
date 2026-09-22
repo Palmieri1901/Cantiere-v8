@@ -166,9 +166,13 @@ async def approva_pending(pid: str, payload: ApprovaIn):
     merged = {**p, **override}
     if not merged.get("cliente_id") or not await db.clienti.find_one({"id": merged["cliente_id"]}):
         raise HTTPException(400, "Associa prima un cliente valido")
+    costo = merged.get("costo")
+    if costo is None or float(costo) == 0:
+        tariffe = await db.tariffe.find_one({"id": "default"}, {"_id": 0, "costo_orario_manodopera": 1}) or {}
+        costo = round(float(merged.get("ore") or 0) * float(tariffe.get("costo_orario_manodopera") or 0), 2)
     lc = LavoroCreate(
         cliente_id=merged["cliente_id"], data=merged["data"], tipo=merged["tipo"],
-        descrizione=merged.get("descrizione", ""), costo=float(merged.get("costo") or 0),
+        descrizione=merged.get("descrizione", ""), costo=float(costo or 0),
         materiali=merged.get("materiali", ""), stato="completato",
         ore=float(merged.get("ore") or 0), dipendente=p.get("dipendente_nome", ""),
         articoli_magazzino=merged.get("articoli_magazzino") or None,
