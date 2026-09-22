@@ -10,7 +10,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _url = TextEditingController(text: 'https://genbnautica.it');
+  final _url = TextEditingController(text: 'https://lavori.genbnautica.it');
   final _key = TextEditingController();
   bool _busy = false;
   bool _scan = false;

@@ -8,9 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { appDipendentiUrl } from "@/lib/appHost";
 import { Plus, KeyRound, Trash2, Power, Copy, ExternalLink } from "lucide-react";
 
-const APP_URL = `${window.location.origin}/app-dipendente`;
+const APP_URL = appDipendentiUrl();
 
 export default function DipendentiTab() {
   const [list, setList] = useState([]);
@@ -80,7 +81,7 @@ export default function DipendentiTab() {
           {chiave && (
             <div className="flex flex-col items-center gap-4 py-2">
               <div className="p-3 bg-white rounded-md border">
-                <QRCodeSVG value={JSON.stringify({ t: "pm-key", u: process.env.REACT_APP_BACKEND_URL, k: chiave.chiave, n: chiave.nome })} size={200} />
+                <QRCodeSVG value={JSON.stringify({ t: "pm-key", u: process.env.REACT_APP_APP_DIPENDENTI_HOST ? `https://${process.env.REACT_APP_APP_DIPENDENTI_HOST}` : process.env.REACT_APP_BACKEND_URL, k: chiave.chiave, n: chiave.nome })} size={200} />
               </div>
               <div className="font-mono text-xl tracking-wider font-semibold" data-testid="chiave-testo">{chiave.chiave}</div>
               <Button variant="outline" size="sm" onClick={() => { navigator.clipboard?.writeText(chiave.chiave); toast.success("Chiave copiata"); }} data-testid="btn-copia-chiave"><Copy className="w-3.5 h-3.5 mr-1" /> Copia</Button>

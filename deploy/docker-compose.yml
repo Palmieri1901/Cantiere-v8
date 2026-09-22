@@ -25,9 +25,11 @@ services:
       dockerfile: deploy/Dockerfile.frontend
       args:
         REACT_APP_BACKEND_URL: ${FRONTEND_URL}
+        REACT_APP_APP_DIPENDENTI_HOST: ${APP_DOMAIN}
     restart: unless-stopped
     environment:
       DOMAIN: ${DOMAIN}
+      APP_DOMAIN: ${APP_DOMAIN}
     ports:
       - "80:80"
       - "443:443"

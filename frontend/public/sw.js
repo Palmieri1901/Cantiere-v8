@@ -11,6 +11,6 @@ self.addEventListener("fetch", (e) => {
       const copy = res.clone();
       caches.open(CACHE).then((c) => c.put(e.request, copy));
       return res;
-    }).catch(() => caches.match(e.request).then((r) => r || (e.request.mode === "navigate" ? caches.match("/app-dipendente") : undefined)))
+    }).catch(() => caches.match(e.request).then((r) => r || (e.request.mode === "navigate" ? caches.match("/app-dipendente").then((x) => x || caches.match("/")) : undefined)))
   );
 });

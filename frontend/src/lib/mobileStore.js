@@ -8,7 +8,7 @@ const write = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 export const mobileStore = {
   getKey: () => localStorage.getItem(KEYS.key) || "",
   getNome: () => localStorage.getItem(KEYS.nome) || "",
-  getUrl: () => localStorage.getItem(KEYS.url) || process.env.REACT_APP_BACKEND_URL,
+  getUrl: () => localStorage.getItem(KEYS.url) || (window.location.hostname.startsWith("lavori.") ? window.location.origin : process.env.REACT_APP_BACKEND_URL),
   login: (key, nome, url) => { localStorage.setItem(KEYS.key, key); localStorage.setItem(KEYS.nome, nome); if (url) localStorage.setItem(KEYS.url, url); },
   logout: () => Object.values(KEYS).forEach((k) => localStorage.removeItem(k)),
   clienti: () => read(KEYS.clienti, []),

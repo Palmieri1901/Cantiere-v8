@@ -24,8 +24,22 @@ import Dipendenti from "@/pages/Dipendenti";
 import AppDipendente from "@/pages/AppDipendente";
 import Login from "@/pages/Login";
 import RecuperoPin from "@/pages/RecuperoPin";
+import { isAppDipendentiHost } from "@/lib/appHost";
 
 function App() {
+  if (isAppDipendentiHost()) {
+    return (
+      <div className="App">
+        <BrowserRouter>
+          <Routes>
+            <Route path="*" element={<AppDipendente />} />
+          </Routes>
+        </BrowserRouter>
+        <Toaster position="top-right" richColors />
+        <ConfirmHost />
+      </div>
+    );
+  }
   return (
     <div className="App">
       <AuthProvider>

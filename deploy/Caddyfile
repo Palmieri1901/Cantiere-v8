@@ -1,19 +1,42 @@
-{$DOMAIN}
+# ===== Gestionale (solo amministratore) =====
+{$DOMAIN} {
+	encode gzip zstd
 
-encode gzip zstd
+	# L'app dipendenti vive su un host separato: qui viene solo reindirizzata
+	redir /app-dipendente* https://{$APP_DOMAIN}{uri} permanent
 
-# API → backend FastAPI
-handle /api/* {
-	reverse_proxy backend:8001
+	handle /api/* {
+		reverse_proxy backend:8001
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+
+	header /sw.js Cache-Control "no-cache"
+	header /manifest.json Cache-Control "no-cache"
 }
 
-# Frontend React (SPA) — le rotte client tornano su index.html
-handle {
-	root * /srv
-	try_files {path} /index.html
-	file_server
-}
+# ===== App dipendenti (host dedicato, nessun accesso al gestionale) =====
+{$APP_DOMAIN} {
+	encode gzip zstd
 
-# Service worker e manifest non devono essere messi in cache dal browser
-header /sw.js Cache-Control "no-cache"
-header /manifest.json Cache-Control "no-cache"
+	# Solo le API mobile sono raggiungibili da questo host
+	handle /api/mobile/* {
+		reverse_proxy backend:8001
+	}
+	handle /api/* {
+		respond "Non disponibile" 403
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+
+	header /sw.js Cache-Control "no-cache"
+	header /manifest.json Cache-Control "no-cache"
+}

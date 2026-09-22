@@ -8,6 +8,7 @@ Funziona su qualsiasi server Linux con Docker (VPS Aruba, Hetzner, OVH, un mini-
 - Docker + Docker Compose: `curl -fsSL https://get.docker.com | sh`
 - Il dominio **genbnautica.it** puntato all'IP del server (pannello DNS Aruba):
   - record `A` → `@` → IP del server
+  - record `A` → `lavori` → IP del server (**app dipendenti**, host separato)
   - record `A` → `www` → IP del server (opzionale)
 - Porte 80 e 443 aperte sul firewall del server
 
@@ -20,7 +21,11 @@ nano .env                              # compila DOMAIN, password, SMTP, GEMINI_
 docker compose up -d --build
 ```
 Al primo avvio Caddy richiede automaticamente il certificato HTTPS (Let's Encrypt) per il dominio.
-Dopo 1-2 minuti il programma è su **https://genbnautica.it** e l'app dipendenti su **https://genbnautica.it/app-dipendente**.
+Dopo 1-2 minuti il programma è su **https://genbnautica.it** e l'app dipendenti su **https://lavori.genbnautica.it**.
+
+Separazione: su `lavori.genbnautica.it` esiste **solo** l'app dipendenti (login con chiave personale) e sono raggiungibili
+solo le API `/api/mobile/*`; qualsiasi altra pagina o API del gestionale risponde 403. Sul dominio principale l'indirizzo
+`/app-dipendente` viene reindirizzato all'host dell'app.
 
 Login iniziale: password = `ADMIN_PASSWORD` del file `.env`; PIN di recupero = `RECOVERY_PIN`.
 

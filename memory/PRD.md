@@ -591,3 +591,6 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 
 ## 2026-06 – Costo orario manodopera
 - Nuovo campo `costo_orario_manodopera` (Tariffe, default 45 €/h) in pagina Tariffe (gruppo "Manodopera generica") e nel PDF Listino prezzi rimessaggio (sezione MANODOPERA GENERICA).
+
+## 2026-06 – App dipendenti separata dal gestionale
+- Host dedicato `lavori.<dominio>` (APP_DOMAIN in deploy/.env): App.js rende SOLO AppDipendente su quel host (`lib/appHost.js`); Caddy espone solo /api/mobile/* (resto 403) e sul dominio principale /app-dipendente reindirizza all host app. QR chiave e link usano REACT_APP_APP_DIPENDENTI_HOST se impostato. In preview resta /app-dipendente.
