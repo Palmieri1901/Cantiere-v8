@@ -49,6 +49,13 @@ const GROUPS = [
     ],
   },
   {
+    title: "Manodopera generica",
+    icon: Wrench,
+    fields: [
+      { key: "costo_orario_manodopera", label: "Costo orario manodopera", desc: "€ / ora · riparazioni e interventi a ore" },
+    ],
+  },
+  {
     title: "Manodopera motore fuoribordo (per potenza HP)",
     icon: Wrench,
     fields: [

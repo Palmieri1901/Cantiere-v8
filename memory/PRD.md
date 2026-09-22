@@ -588,3 +588,6 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 - `docs/API_MOBILE.md`: documentazione API app dipendenti.
 - `mobile_android/`: progetto Flutter (login chiave/QR, nuovo lavoro, coda, invio, QR paginato). NON compilato/testato in questo ambiente (richiede Android SDK).
 - Verifiche: build produzione frontend OK, ai_client OK, backend OK.
+
+## 2026-06 – Costo orario manodopera
+- Nuovo campo `costo_orario_manodopera` (Tariffe, default 45 €/h) in pagina Tariffe (gruppo "Manodopera generica") e nel PDF Listino prezzi rimessaggio (sezione MANODOPERA GENERICA).

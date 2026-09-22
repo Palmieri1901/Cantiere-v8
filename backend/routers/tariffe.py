@@ -203,6 +203,9 @@ async def listino_prezzi_pdf():
             ("Lavaggio inizio stagione", "costo_lavaggio_inizio_stagione", "€ / metro"),
             ("Lavaggio fine stagione", "costo_lavaggio_fine_stagione", "€ / metro"),
         ]),
+        ("MANODOPERA GENERICA", [
+            ("Manodopera oraria (riparazioni e interventi)", "costo_orario_manodopera", "€ / ora"),
+        ]),
         ("MANODOPERA MOTORE FUORIBORDO", [
             ("Manodopera · 2-15 HP", "motore_labor_2_15hp", "forfait"),
             ("Manodopera · 16-40 HP", "motore_labor_fino_40hp", "forfait"),

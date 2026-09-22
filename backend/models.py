@@ -37,6 +37,7 @@ class Tariffe(BaseModel):
     costo_lavaggio_inizio_stagione: float = 80.0
     costo_lavaggio_fine_stagione: float = 80.0
     maggiorazione_scafo_sporco_per_metro: float = 15.0
+    costo_orario_manodopera: float = 45.0
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -65,6 +66,7 @@ class TariffeUpdate(BaseModel):
     costo_anodi_interni: Optional[float] = None
     costo_anodi_esterni: Optional[float] = None
     costo_ingrassaggio: Optional[float] = None
+    costo_orario_manodopera: Optional[float] = None
     sosta_dentro_per_metro: Optional[float] = None
     sosta_fuori_per_metro: Optional[float] = None
     costo_movimentazione_per_metro: Optional[float] = None
