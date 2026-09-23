@@ -625,15 +625,26 @@ def build_conto_esterno_pdf(est: dict, lavori: list, cantiere_doc: dict, anno=No
 
 def build_documento_servizio_pdf(cantiere_doc: dict, sottotitolo: str, blocchi: list, note: str = "", testo: str = "",
                                  firma_nome: str = "", consenso: bool = False) -> bytes:
-    """Documento di servizio su carta intestata: blocchi chiave/valore (coordinate bancarie) o testo lungo + firma (privacy)."""
+    """Documento di servizio su carta intestata. Il modulo consenso viene compattato finché non sta in un unico foglio A4."""
+    scale_steps = [1.0, 0.92, 0.85, 0.78, 0.72, 0.66] if consenso else [1.0]
+    out = b""
+    for sc in scale_steps:
+        out, pages = _build_documento_servizio(cantiere_doc, sottotitolo, blocchi, note, testo, firma_nome, consenso, sc)
+        if pages <= 1:
+            break
+    return out
+
+
+def _build_documento_servizio(cantiere_doc, sottotitolo, blocchi, note, testo, firma_nome, consenso, sc):
     from xml.sax.saxutils import escape
     buf = io.BytesIO()
-    pdf = SimpleDocTemplate(buf, pagesize=A4, leftMargin=16*mm, rightMargin=16*mm, topMargin=12*mm, bottomMargin=14*mm, title=sottotitolo)
+    m = 16*mm if sc == 1.0 else 11*mm
+    pdf = SimpleDocTemplate(buf, pagesize=A4, leftMargin=m, rightMargin=m, topMargin=9*mm if sc < 1 else 12*mm, bottomMargin=9*mm if sc < 1 else 14*mm, title=sottotitolo)
     styles = getSampleStyleSheet()
     NAVY = colors.HexColor("#0F1B3D"); TEAK = colors.HexColor("#B0562E"); SAND = colors.HexColor("#F3EFE7"); MUTED = colors.HexColor("#5B6478")
-    body = ParagraphStyle("body", parent=styles["Normal"], fontName="Helvetica", fontSize=9.5, textColor=NAVY, leading=13)
-    small = ParagraphStyle("small", parent=body, fontSize=7.5, textColor=MUTED, leading=9)
-    h2 = ParagraphStyle("h2", parent=body, fontName="Helvetica-Bold", fontSize=9, textColor=TEAK, spaceBefore=8, spaceAfter=3)
+    body = ParagraphStyle("body", parent=styles["Normal"], fontName="Helvetica", fontSize=9.5*sc, textColor=NAVY, leading=13*sc)
+    small = ParagraphStyle("small", parent=body, fontSize=7.5*sc, textColor=MUTED, leading=9*sc)
+    h2 = ParagraphStyle("h2", parent=body, fontName="Helvetica-Bold", fontSize=9*sc, textColor=TEAK, spaceBefore=8*sc, spaceAfter=3*sc)
     key = ParagraphStyle("key", parent=body, fontSize=8, textColor=MUTED)
     valb = ParagraphStyle("valb", parent=body, fontName="Helvetica-Bold", fontSize=10.5)
     mono = ParagraphStyle("mono", parent=valb, fontName="Courier-Bold", fontSize=12, leading=15)
@@ -665,23 +676,23 @@ def build_documento_servizio_pdf(cantiere_doc: dict, sottotitolo: str, blocchi: 
         for par in testo.split("\n"):
             par = par.strip()
             if not par:
-                elems.append(Spacer(1, 2*mm)); continue
+                elems.append(Spacer(1, 2*mm*sc)); continue
             is_title = par.isupper() or re.match(r"^\d+\.\s+[A-ZÀ-Ü]", par)
             elems.append(Paragraph(escape(par), h2 if is_title else body))
 
     if consenso:
-        elems += [Spacer(1, 6*mm), Paragraph("CONSENSO", h2),
+        elems += [Spacer(1, 6*mm*sc), Paragraph("CONSENSO", h2),
                   Paragraph("Il/La sottoscritto/a, letta l'informativa che precede:", body), Spacer(1, 2*mm),
                   Paragraph("☐ ACCONSENTE &nbsp;&nbsp; ☐ NON ACCONSENTE &nbsp;&nbsp; al trattamento dei dati per finalità di comunicazione commerciale e promozionale (punto 1.d).", body),
                   Spacer(1, 2*mm),
                   Paragraph("Dichiara inoltre di aver preso visione dell'informativa per le finalità contrattuali, amministrative e di servizio (punti 1.a, 1.b, 1.c).", body),
-                  Spacer(1, 10*mm)]
+                  Spacer(1, 10*mm*sc)]
         firma = Table([[Paragraph(f"Nome e cognome<br/><b>{escape(firma_nome) if firma_nome else '&nbsp;'}</b>", key), Paragraph("Data<br/>&nbsp;", key), Paragraph("Firma<br/>&nbsp;", key)]],
-                      colWidths=[70*mm, 40*mm, 68*mm], rowHeights=[16*mm])
+                      colWidths=[70*mm, 40*mm, 68*mm], rowHeights=[16*mm*sc])
         firma.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.8, NAVY), ("VALIGN", (0, 0), (-1, -1), "TOP")]))
         elems.append(firma)
 
     if note:
         elems += [Spacer(1, 6*mm), Paragraph(escape(note), small)]
     pdf.build(elems)
-    return buf.getvalue()
+    return buf.getvalue(), pdf.page

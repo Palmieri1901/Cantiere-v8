@@ -631,3 +631,7 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 
 ## 2026-06 – Fix anteprima PDF Banca & Privacy
 - Causa: openBlob passa un updater-function a setUrl; in DocumentiServizio veniva salvata la funzione invece dell URL blob. Fix: useState dedicato previewUrl. Nota per il futuro: passare a openBlob sempre un setter di useState diretto.
+
+## 2026-06 – Privacy 1 pagina + verifica backup
+- build_documento_servizio_pdf: per il consenso riduce progressivamente scala font/margini finché pdf.page <= 1 (sempre un solo A4).
+- Verificato backup GET /api/backup (26 collezioni + GridFS) e POST /api/restore round-trip (marker eliminato, conteggi corretti).
