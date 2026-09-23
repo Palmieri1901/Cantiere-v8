@@ -628,3 +628,6 @@ Backend spezzato in moduli (`server.py` ora 112 righe, prima 2761):
 ## 2026-06 – Documenti di servizio (Banca & Privacy)
 - `routers/servizio.py` + collezione singleton `documenti_servizio`: dati bancari (IBAN → CIN/ABI/CAB/conto calcolati), testo privacy modificabile (default GDPR con segnaposto {cantiere} {indirizzo} {telefono} {email}), POST /servizio/privacy/estrai (AI vision trascrive PDF/foto), GET /servizio/coordinate.pdf[?cliente_id&importo&causale], GET /servizio/privacy.pdf[?cliente_id]. Builder `build_documento_servizio_pdf`.
 - Pagina /servizio "Banca & Privacy" (tab Dati bancari / Consenso privacy) con anteprima PDF; voce menu in Documenti.
+
+## 2026-06 – Fix anteprima PDF Banca & Privacy
+- Causa: openBlob passa un updater-function a setUrl; in DocumentiServizio veniva salvata la funzione invece dell URL blob. Fix: useState dedicato previewUrl. Nota per il futuro: passare a openBlob sempre un setter di useState diretto.

@@ -10,14 +10,16 @@ import PrivacyTab from "@/pages/servizio/PrivacyTab";
 
 export default function DocumentiServizio() {
   const [dati, setDati] = useState(null);
-  const [preview, setPreview] = useState({ open: false, url: null, name: "documento.pdf" });
+  const [preview, setPreview] = useState({ open: false, name: "documento.pdf" });
+  const [previewUrl, setPreviewUrl] = useState(null);
 
   const load = () => api.get("/servizio/dati").then((r) => setDati(r.data));
   useEffect(() => { load(); }, []);
 
   const anteprima = async (url, name) => {
     try {
-      await openBlob(api, "get", url, null, (u) => setPreview((p) => ({ ...p, url: u, name })), (o) => setPreview((p) => ({ ...p, open: o })));
+      setPreview((p) => ({ ...p, name }));
+      await openBlob(api, "get", url, null, setPreviewUrl, (o) => setPreview((p) => ({ ...p, open: o })));
     } catch (e) { toast.error(e.response?.data?.detail || "Errore PDF"); }
   };
 
@@ -36,7 +38,7 @@ export default function DocumentiServizio() {
         <TabsContent value="banca"><DatiBancariTab dati={dati} onSaved={setDati} anteprima={anteprima} /></TabsContent>
         <TabsContent value="privacy"><PrivacyTab dati={dati} onSaved={setDati} anteprima={anteprima} /></TabsContent>
       </Tabs>
-      <PdfPreviewOverlay open={preview.open} onClose={() => setPreview((p) => ({ ...p, open: false }))} url={preview.url} filename={preview.name} />
+      <PdfPreviewOverlay open={preview.open} onClose={() => setPreview((p) => ({ ...p, open: false }))} url={previewUrl} filename={preview.name} />
     </div>
   );
 }
