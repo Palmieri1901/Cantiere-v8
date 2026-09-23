@@ -22,6 +22,7 @@ import Gommoni from "@/pages/Gommoni";
 import Ddt from "@/pages/Ddt";
 import Dipendenti from "@/pages/Dipendenti";
 import LavorazioniEsterne from "@/pages/LavorazioniEsterne";
+import DocumentiServizio from "@/pages/DocumentiServizio";
 import AppDipendente from "@/pages/AppDipendente";
 import Login from "@/pages/Login";
 import RecuperoPin from "@/pages/RecuperoPin";
@@ -85,6 +86,7 @@ function App() {
                 <Route path="/ddt" element={<Ddt />} />
                 <Route path="/dipendenti" element={<Dipendenti />} />
                 <Route path="/esterni" element={<LavorazioniEsterne />} />
+                <Route path="/servizio" element={<DocumentiServizio />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Routes>

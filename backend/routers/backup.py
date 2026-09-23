@@ -30,6 +30,7 @@ SETTORI: Dict[str, List[str]] = {
     "Gommoni GEB": ["gommoni_modelli", "gommoni_accessori", "gommoni_settings", "gommoni_preventivi"],
     "DDT": ["ddt", "ddt_indirizzi"],
     "Dipendenti e app": ["dipendenti", "lavori_pending", "clienti_esterni"],
+    "Documenti di servizio": ["documenti_servizio"],
 }
 
 # collezioni "singleton" del vecchio formato v2 (dict invece di lista)

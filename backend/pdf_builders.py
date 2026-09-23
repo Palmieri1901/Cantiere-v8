@@ -3,6 +3,7 @@
 Contengono unicamente logica di rendering ReportLab. Nessun accesso a MongoDB.
 """
 import io
+import re
 import base64 as _b64
 from datetime import date
 from reportlab.lib.pagesizes import A4
@@ -618,5 +619,69 @@ def build_conto_esterno_pdf(est: dict, lavori: list, cantiere_doc: dict, anno=No
         ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
     elems += [tbl, Spacer(1, 6*mm), Paragraph("Importi IVA esclusa salvo diversa indicazione. Documento non valido ai fini fiscali.", small)]
+    pdf.build(elems)
+    return buf.getvalue()
+
+
+def build_documento_servizio_pdf(cantiere_doc: dict, sottotitolo: str, blocchi: list, note: str = "", testo: str = "",
+                                 firma_nome: str = "", consenso: bool = False) -> bytes:
+    """Documento di servizio su carta intestata: blocchi chiave/valore (coordinate bancarie) o testo lungo + firma (privacy)."""
+    from xml.sax.saxutils import escape
+    buf = io.BytesIO()
+    pdf = SimpleDocTemplate(buf, pagesize=A4, leftMargin=16*mm, rightMargin=16*mm, topMargin=12*mm, bottomMargin=14*mm, title=sottotitolo)
+    styles = getSampleStyleSheet()
+    NAVY = colors.HexColor("#0F1B3D"); TEAK = colors.HexColor("#B0562E"); SAND = colors.HexColor("#F3EFE7"); MUTED = colors.HexColor("#5B6478")
+    body = ParagraphStyle("body", parent=styles["Normal"], fontName="Helvetica", fontSize=9.5, textColor=NAVY, leading=13)
+    small = ParagraphStyle("small", parent=body, fontSize=7.5, textColor=MUTED, leading=9)
+    h2 = ParagraphStyle("h2", parent=body, fontName="Helvetica-Bold", fontSize=9, textColor=TEAK, spaceBefore=8, spaceAfter=3)
+    key = ParagraphStyle("key", parent=body, fontSize=8, textColor=MUTED)
+    valb = ParagraphStyle("valb", parent=body, fontName="Helvetica-Bold", fontSize=10.5)
+    mono = ParagraphStyle("mono", parent=valb, fontName="Courier-Bold", fontSize=12, leading=15)
+
+    nome_cantiere = (cantiere_doc.get("nome") or "PORTOMARE").upper()
+    parts = [x for x in [cantiere_doc.get("indirizzo"), " ".join(filter(None, [cantiere_doc.get("cap"), cantiere_doc.get("citta")])), cantiere_doc.get("telefono"), cantiere_doc.get("email"), cantiere_doc.get("piva") and f"P.IVA {cantiere_doc.get('piva')}"] if x]
+    logo_cell = Paragraph(f"<b>{escape(nome_cantiere)}</b>", ParagraphStyle("brand", fontName="Helvetica-Bold", fontSize=17, textColor=NAVY))
+    logo_b64 = cantiere_doc.get("logo_base64") or ""
+    if logo_b64 and "," in logo_b64:
+        try:
+            logo_cell = RLImage(io.BytesIO(_b64.b64decode(logo_b64.split(",", 1)[1])), width=30*mm, height=18*mm, kind="proportional")
+        except Exception:
+            pass
+    head = Table([[logo_cell, Paragraph(f"<para align=right><font size=13 color='#B0562E'><b>{escape(sottotitolo)}</b></font><br/><font color='#5B6478' size=8>{date.today().strftime('%d/%m/%Y')}</font></para>", body)]], colWidths=[100*mm, 78*mm])
+    head.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+    sep = Table([[""]], colWidths=[178*mm], rowHeights=[1.5]); sep.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), TEAK)]))
+    elems = [head] + ([Paragraph(escape(" · ".join(parts)), small)] if parts else []) + [Spacer(1, 2*mm), sep, Spacer(1, 4*mm)]
+
+    for titolo, righe in blocchi:
+        elems.append(Paragraph(escape(titolo), h2))
+        rows = [[Paragraph(escape(k), key), Paragraph(escape(str(v or "—")), mono if k in ("IBAN", "CIN", "ABI", "CAB", "Numero conto", "BIC / SWIFT") else valb)] for k, v in righe]
+        t = Table(rows, colWidths=[40*mm, 138*mm])
+        t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), SAND), ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#D9D4C7")),
+                               ("LINEBELOW", (0, 0), (-1, -2), 0.25, colors.white), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                               ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5), ("LEFTPADDING", (0, 0), (-1, -1), 8)]))
+        elems += [t, Spacer(1, 3*mm)]
+
+    if testo:
+        for par in testo.split("\n"):
+            par = par.strip()
+            if not par:
+                elems.append(Spacer(1, 2*mm)); continue
+            is_title = par.isupper() or re.match(r"^\d+\.\s+[A-ZÀ-Ü]", par)
+            elems.append(Paragraph(escape(par), h2 if is_title else body))
+
+    if consenso:
+        elems += [Spacer(1, 6*mm), Paragraph("CONSENSO", h2),
+                  Paragraph("Il/La sottoscritto/a, letta l'informativa che precede:", body), Spacer(1, 2*mm),
+                  Paragraph("☐ ACCONSENTE &nbsp;&nbsp; ☐ NON ACCONSENTE &nbsp;&nbsp; al trattamento dei dati per finalità di comunicazione commerciale e promozionale (punto 1.d).", body),
+                  Spacer(1, 2*mm),
+                  Paragraph("Dichiara inoltre di aver preso visione dell'informativa per le finalità contrattuali, amministrative e di servizio (punti 1.a, 1.b, 1.c).", body),
+                  Spacer(1, 10*mm)]
+        firma = Table([[Paragraph(f"Nome e cognome<br/><b>{escape(firma_nome) if firma_nome else '&nbsp;'}</b>", key), Paragraph("Data<br/>&nbsp;", key), Paragraph("Firma<br/>&nbsp;", key)]],
+                      colWidths=[70*mm, 40*mm, 68*mm], rowHeights=[16*mm])
+        firma.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.8, NAVY), ("VALIGN", (0, 0), (-1, -1), "TOP")]))
+        elems.append(firma)
+
+    if note:
+        elems += [Spacer(1, 6*mm), Paragraph(escape(note), small)]
     pdf.build(elems)
     return buf.getvalue()
