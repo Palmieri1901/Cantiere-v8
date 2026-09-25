@@ -21,4 +21,4 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 COPY backend/ /app/
 
 # Copia la grafica React compilata nella cartella static del backend
-COPY --from=frontend-builder /app/frontend/build /app/static
+COPY --from=frontend-builder /app/frontend/build/. /app/static/
