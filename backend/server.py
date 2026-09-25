@@ -25,7 +25,9 @@ from routers import (
 
 
 app = FastAPI(title="Cantiere Nautico API")
-
+@app.get("/")
+def read_root():
+    return {"message": "Cantiere Nautico API Active", "docs": "/docs"}
 api_router = APIRouter(prefix="/api", dependencies=[Depends(get_current_user)])
 
 
