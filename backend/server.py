@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI, APIRouter, Depends
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from database import client as mongo_client
 from auth import auth_router, seed_admin
@@ -17,7 +17,21 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 async def serve_frontend():
-    return FileResponse("static/index.html")
+    base_dir = os.getcwd()
+    static_exists = os.path.exists("static")
+    files_in_dir = os.listdir(base_dir)
+    static_files = os.listdir("static") if static_exists else []
+    
+    return JSONResponse(
+        status_code=404,
+        content={
+            "message": "Debug path",
+            "current_dir": base_dir,
+            "root_contents": files_in_dir,
+            "static_exists": static_exists,
+            "static_contents": static_files
+        }
+    )
 
 # Includi i router dell'applicazione
 app.include_router(auth_router)
