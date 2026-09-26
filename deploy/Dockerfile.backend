@@ -18,15 +18,10 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 COPY backend/ /app/
 
-# Assicura che la cartella static esista
+# Assicura che la cartella static esista e copia l'output del build
 RUN mkdir -p /app/static
-
-# Copia automatica sia che l'output sia in build (CRA) o in dist (Vite)
-COPY --from=frontend-builder /app/build /tmp/build-output
-RUN if [ -d /tmp/build-output ]; then cp -r /tmp/build-output/. /app/static/; fi
-
-COPY --from=frontend-builder /app/dist /tmp/dist-output
-RUN if [ -d /tmp/dist-output ]; then cp -r /tmp/dist-output/. /app/static/; fi
+COPY --from=frontend-builder /app/build/ /app/static/
+COPY --from=frontend-builder /app/dist/ /app/static/
 
 EXPOSE 8080
 CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8080"]
