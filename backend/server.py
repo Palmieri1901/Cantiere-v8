@@ -17,12 +17,20 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 async def serve_frontend():
-    index_path = "static/index.html"
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
+    base_dir = os.getcwd()
+    static_exists = os.path.exists("static")
+    files_in_dir = os.listdir(base_dir)
+    static_files = os.listdir("static") if static_exists else []
+    
     return JSONResponse(
         status_code=404,
-        content={"message": "Frontend non ancora compilato o cartella static non trovata"}
+        content={
+            "message": "Debug path",
+            "current_dir": base_dir,
+            "root_contents": files_in_dir,
+            "static_exists": static_exists,
+            "static_contents": static_files
+        }
     )
 
 # Includi i router dell'applicazione
